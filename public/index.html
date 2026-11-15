@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JALSA — Let's Play Together</title>
+<style>
+:root {
+  --red: #a83232;
+  --orange: #ed8245;
+  --cream: #fff4df;
+  --dark: #34251f;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: var(--cream);
+  color: var(--dark);
+}
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 22px 7%;
+  background: var(--cream);
+}
+.logo { font-size: 30px; font-weight: 900; color: var(--red); letter-spacing: 4px; }
+button {
+  border: 0;
+  border-radius: 30px;
+  padding: 12px 20px;
+  cursor: pointer;
+  font-weight: bold;
+}
+.lang { background: white; color: var(--red); }
+.hero {
+  text-align: center;
+  padding: 90px 20px;
+  background: linear-gradient(135deg, var(--red), var(--orange));
+  color: white;
+}
+.hero h1 { font-size: clamp(42px, 8vw, 76px); margin: 0 0 15px; }
+.hero p { font-size: 19px; }
+.cta { background: var(--cream); color: var(--red); margin-top: 20px; }
+section { padding: 55px 7%; }
+h2 { color: var(--red); font-size: 32px; }
+.games {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+}
+.game {
+  background: white;
+  padding: 28px;
+  border-radius: 22px;
+  box-shadow: 0 8px 25px #542c1910;
+}
+.game h3 { color: var(--red); font-size: 23px; }
+.play { background: var(--red); color: white; }
+footer { text-align: center; padding: 30px; background: var(--dark); color: white; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">JALSA.</div>
+  <button class="lang" onclick="toggleLanguage()">العربية / English</button>
+</header>
+
+<div class="hero">
+  <h1 id="heading">Every game deserves a JALSA.</h1>
+  <p id="subtitle">Gather your friends. Pick a game. Make memories.</p>
+  <button class="cta" onclick="document.getElementById('games').scrollIntoView({behavior:'smooth'})" id="cta">Explore Games</button>
+</div>
+
+<section id="games">
+  <h2 id="gamesTitle">Choose your game</h2>
+  <div class="games">
+    <div class="game">
+      <h3>مخمخ</h3>
+      <p id="desc1">Challenge your friends with clever questions.</p>
+      <button class="play" onclick="alert('Coming soon!')">Play</button>
+    </div>
+    <div class="game">
+      <h3>Price Guessing</h3>
+      <p id="desc2">Guess the price before everyone else.</p>
+      <button class="play" onclick="alert('Coming soon!')">Play</button>
+    </div>
+    <div class="game">
+      <h3>Coming Soon</h3>
+      <p id="desc3">More games are on their way.</p>
+      <button class="play" onclick="alert('Coming soon!')">Explore</button>
+    </div>
+  </div>
+</section>
+
+<footer>JALSA © 2026 — Made for good times.</footer>
+
+<script>
+let arabic = false;
+function toggleLanguage() {
+  arabic = !arabic;
+  document.documentElement.lang = arabic ? 'ar' : 'en';
+  document.documentElement.dir = arabic ? 'rtl' : 'ltr';
+  document.getElementById('heading').textContent = arabic ? 'كل لعبة إلها جلسة!' : 'Every game deserves a JALSA.';
+  document.getElementById('subtitle').textContent = arabic ? 'اجمع أصحابك، اختار لعبة، واصنعوا ذكريات.' : 'Gather your friends. Pick a game. Make memories.';
+  document.getElementById('cta').textContent = arabic ? 'استكشف الألعاب' : 'Explore Games';
+  document.getElementById('gamesTitle').textContent = arabic ? 'اختار لعبتك' : 'Choose your game';
+  document.getElementById('desc1').textContent = arabic ? 'تحدى أصحابك بأسئلة ذكية.' : 'Challenge your friends with clever questions.';
+  document.getElementById('desc2').textContent = arabic ? 'خمن السعر قبل الجميع.' : 'Guess the price before everyone else.';
+  document.getElementById('desc3').textContent = arabic ? 'المزيد من الألعاب قريباً.' : 'More games are on their way.';
+}
+</script>
+</body>
+</html>
