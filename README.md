@@ -67,7 +67,7 @@ Production deployment and production database migration are intentionally not pa
 - Profile supports display-name edits, birth date, and a resized profile picture.
 - Feedback messages are stored in the admin dashboard inbox.
 - Admin user management shows verification and last-login timestamps and supports ban, unban, and deletion. The configured administrator account is protected from ban/deletion.
-- Zanko editor manages bilingual categories and questions, difficulty levels, and optional media links.
+- Zanko editor manages bilingual categories and questions, difficulty levels, and direct local image, video, and audio uploads.
 - Price Guessing editor manages product names, JOD prices, difficulty, and optional media links.
 - Question media uses publicly accessible HTTPS image/video/audio URLs; direct binary uploads are not enabled in this first V1.7 iteration.
 - Migration 0003_v17_dashboard.sql adds profile, feedback, account moderation, category, and question tables. Apply to Preview first and verify before Production.
