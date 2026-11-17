@@ -22,18 +22,13 @@ Existing accounts created by the earlier email-code-only version are retained. V
 
 ## Cloudflare configuration
 
-The Worker is configured in `wrangler.jsonc` and uses the D1 database named `jalsa-auth`. The V1.6 branch Preview is explicitly bound to `jalsa-auth-preview`.
+The Worker is configured in `wrangler.jsonc` and uses the production D1 database named `jalsa-auth`. The V1.6 branch Preview is explicitly bound to `jalsa-auth-preview`.
 
-Required secrets (set in Cloudflare; never commit their values):
+The Preview Base environment has these two secrets configured in the Cloudflare dashboard (never commit their values):
 - `RESEND_API_KEY`
-- `VERIFICATION_SECRET` (a long random value)
+- `VERIFICATION_SECRET`
 
-Production and Preview each have their own secrets. Worker Previews do not inherit production secrets. Configure the Preview Base secrets in Cloudflare or set secrets for the current Preview using Wrangler:
-```sh
-npx wrangler preview secret put RESEND_API_KEY --name v1.6-auth-fix
-npx wrangler preview secret put VERIFICATION_SECRET --name v1.6-auth-fix
-```
-Enter the secret values only in the hidden terminal prompt. Never paste them into GitHub or this chat.
+Production and Preview each have their own secrets. Preview deployments use Preview Base values and do not inherit Production secrets.
 
 Configured non-secret variables:
 - `MAIL_FROM`: `JALSA <Accountservice@jalsa.me>`
@@ -48,26 +43,17 @@ The production database is `jalsa-auth` (ID `f147c99a-9be7-4ce4-88e2-8e465420e3c
 
 The migration `migrations/0002_password_auth.sql` adds the nullable `password_hash` column, rebuilds the verification-code table to allow password-reset codes while preserving existing registration and login-code records, and creates the login-attempt throttle table.
 
-A dedicated config, `wrangler.preview-migrations.jsonc`, targets only `jalsa-auth-preview`. From the repository root, inspect the pending Preview migration:
-```sh
-npx wrangler d1 migrations list PREVIEW_DB --remote --config wrangler.preview-migrations.jsonc
-```
+**Preview migration status:** Applied to `jalsa-auth-preview` from the Cloudflare D1 Console and recorded in `d1_migrations` as `0002_password_auth.sql`. The `password_hash` column and migration record were verified in the Preview database. Production has not been migrated.
 
-Only after the output confirms the target is `jalsa-auth-preview`, apply it:
-```sh
-npx wrangler d1 migrations apply PREVIEW_DB --remote --config wrangler.preview-migrations.jsonc
-```
-Wrangler asks for confirmation and captures a backup. Do not remove the config or change its database ID to the production ID.
+A dedicated config, `wrangler.preview-migrations.jsonc`, targets only `jalsa-auth-preview`. Do not run the migration against Production. For future migration changes, inspect the Preview target carefully before applying.
 
 For a brand-new database, `schema.sql` describes the complete current schema; do not apply both that baseline schema and the migration to the same empty database.
 
 ## Preview and release checklist
 
-1. Apply the migration to `jalsa-auth-preview` using the dedicated Preview migration config.
-2. Configure Preview secrets for `v1.6-auth-fix`.
-3. Deploy a Worker Preview using Wrangler 4.135.0 or later (`npx wrangler preview`) or the connected Workers Builds Preview workflow.
-4. Test registration, email verification, password login, forgot password, reset password, logout, and the admin users list.
-5. Check English and Arabic layouts, then play both existing games while signed in.
-6. Review the Preview. Merge into `main` and deploy only after explicit approval.
+1. Confirm the Cloudflare Preview deployment uses the Preview Base secrets and `jalsa-auth-preview` D1 binding.
+2. Test registration, email verification, password login, forgot password, reset password, logout, and the admin users list.
+3. Check English and Arabic layouts, then play both existing games while signed in.
+4. Review the Preview. Merge into `main` and deploy only after explicit approval.
 
 Production deployment and production database migration are intentionally not part of these development edits.
