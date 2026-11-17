@@ -3,4 +3,8 @@
 
 DELETE FROM game_questions WHERE game_type = 'price';
 
-INSERT INTO d1_migrations (name) VALUES ('0004_price_usd_media_storage.sql');
+INSERT INTO d1_migrations (name)
+SELECT '0004_price_usd_media_storage.sql'
+WHERE NOT EXISTS (
+  SELECT 1 FROM d1_migrations WHERE name = '0004_price_usd_media_storage.sql'
+);
