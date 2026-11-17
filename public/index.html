@@ -36,18 +36,18 @@
 </style>
 </head>
 <body>
-<header class="site-header" id="siteHeader"><a class="brand" href="#top" aria-label="JALSA home"><img src="jalsa-logo.png" alt="JALSA logo"><span class="version-pill">v1.5</span></a><div class="header-actions"><button class="lang-button" id="homeLang" type="button" onclick="toggleLanguage()">العربية / English</button><button class="auth-button" id="loginButton" type="button" onclick="showAuth('login')">Log in</button><button class="auth-button auth-register" id="registerButton" type="button" onclick="showAuth('register')">Register</button><span class="account-label" id="accountLabel" hidden></span><button class="auth-button" id="adminButton" type="button" onclick="openAdmin()" hidden>Admin</button><button class="auth-button" id="logoutButton" type="button" onclick="logout()" hidden>Log out</button></div></header>
+<header class="site-header" id="siteHeader"><a class="brand" href="#top" aria-label="JALSA home" onclick="showHome()"><img src="jalsa-logo.png" alt="JALSA logo"><span class="version-pill">v1.6</span></a><div class="header-actions"><button class="lang-button" id="homeLang" type="button" onclick="toggleLanguage()">العربية / English</button><button class="auth-button" id="loginButton" type="button" onclick="showAuth('login')">Log in</button><button class="auth-button auth-register" id="registerButton" type="button" onclick="showAuth('register')">Register</button><span class="account-label" id="accountLabel" hidden></span><button class="auth-button" id="adminButton" type="button" onclick="openAdmin()" hidden>Admin</button><button class="auth-button" id="logoutButton" type="button" onclick="logout()" hidden>Log out</button></div></header>
 <main id="homePage">
 <section class="home-hero" id="top"><div class="hero-glow"></div><div class="hero-copy"><h1 id="heroTitle">Every game deserves a JALSA.</h1><p id="heroSubtitle">Gather your friends. Pick a game. Make memories.</p><button class="primary-light" id="exploreButton" onclick="document.getElementById('games').scrollIntoView({behavior:'smooth'})">Explore games →</button></div>
 <div class="hero-art" aria-hidden="true"><img id="heroFamily" src="hero-family.png" data-en="hero-family.png" data-ar="hero-family-ar.png" alt="" loading="eager"></div></div></section>
 <section class="games-section" id="games"><div class="section-intro"><h2 id="gamesTitle">Choose your game</h2><p id="gamesIntro">Made for friends, family, and unforgettable game nights.</p></div><div class="game-cards"><article class="game-card"><div class="game-icon">🧠</div><h3 id="zankoCardTitle">Zanko</h3><p id="zankoCardDescription">Quick thinking, clever questions, and friendly competition.</p><button class="primary" id="zankoPlay" onclick="startZankoSetup()">Play together</button></article><article class="game-card"><div class="game-icon">🛍️</div><h3 id="priceCardTitle">Price Guessing</h3><p id="priceCardDescription">Guess the price before everyone else.</p><button class="primary" id="pricePlay" onclick="openPriceSetup()">Play together</button></article><article class="game-card soon-card"><div class="game-icon">🎲</div><h3 id="moreCardTitle">More games coming soon</h3><p id="moreCardDescription">The JALSA game table is just getting started.</p></article></div></section>
 </main>
-<footer class="site-footer"><span class="powered">Powered by Noah Jason</span><a class="support" href="mailto:support@jalsa.me">support@jalsa.me</a><span class="version">v1.5</span></footer>
+<footer class="site-footer"><span class="powered">Powered by Noah Jason</span><a class="support" href="mailto:support@jalsa.me">support@jalsa.me</a><span class="version">v1.6</span></footer>
 
 <!-- ZANKO: all gameplay stages are full-page sections, never modal pop-ups -->
-<section class="zanko-stage" id="zankoStage" aria-live="polite"><header class="stage-top"><a class="stage-brand" href="#top" aria-label="Return to JALSA homepage" onclick="showHome();return false;"><img src="jalsa-logo.png" alt="JALSA"><span class="version-pill">v1.5</span></a></header><div class="stage-main">
-<div class="stage-shell" id="teamScreen"><div class="stage-heading"><div><h1 id="teamsTitle">Zanko — Team setup</h1><p class="stage-subtitle" id="teamsSubtitle">Give both teams a name. Leave a field unchanged to keep the default.</p></div></div><div class="teams-setup-grid"><div class="team-setup-card"><div class="setup-team-top"><h2 id="setupTeamOne">Team 1</h2></div><input id="teamNameOne" maxlength="26" value="Team 1" aria-label="Team 1 name"></div><div class="team-setup-card blue"><div class="setup-team-top"><h2 id="setupTeamTwo">Team 2</h2></div><input id="teamNameTwo" maxlength="26" value="Team 2" aria-label="Team 2 name"></div></div><div class="stage-action-row"><button class="primary" id="teamsNext" onclick="continueToCategories()">Next →</button></div><p class="stage-note" id="teamNote">Two teams play on one shared screen. No sign-in needed.</p></div>
-<div class="stage-shell" id="categoryScreen" hidden><div class="stage-heading"><button class="back-button" onclick="backToTeams()" id="categoryBack">← Back</button><span class="version-pill">v1.5</span></div><div class="category-stage-head"><div class="brain">🧠</div><h1 id="categoryTitle">Choose your categories</h1><p id="categorySubtitle">Select all 6 categories to unlock Next.</p></div><div class="category-full-grid" id="categoryGrid"></div><div class="category-footer"><span class="category-counter" id="categoryCount">0 / 6 selected</span><button class="primary" id="categoryNext" onclick="beginZankoGame()" disabled>Next →</button></div></div>
+<section class="zanko-stage" id="zankoStage" aria-live="polite"><header class="stage-top"><a class="stage-brand" href="#top" aria-label="Return to JALSA homepage" onclick="showHome();return false;"><img src="jalsa-logo.png" alt="JALSA"><span class="version-pill">v1.6</span></a></header><div class="stage-main">
+<div class="stage-shell" id="teamScreen"><div class="stage-heading"><div><h1 id="teamsTitle">Zanko — Team setup</h1><p class="stage-subtitle" id="teamsSubtitle">Give both teams a name. Leave a field unchanged to keep the default.</p></div></div><div class="teams-setup-grid"><div class="team-setup-card"><div class="setup-team-top"><h2 id="setupTeamOne">Team 1</h2></div><input id="teamNameOne" maxlength="26" value="Team 1" aria-label="Team 1 name"></div><div class="team-setup-card blue"><div class="setup-team-top"><h2 id="setupTeamTwo">Team 2</h2></div><input id="teamNameTwo" maxlength="26" value="Team 2" aria-label="Team 2 name"></div></div><div class="stage-action-row"><button class="primary" id="teamsNext" onclick="continueToCategories()">Next →</button></div></div>
+<div class="stage-shell" id="categoryScreen" hidden><div class="stage-heading"><button class="back-button" onclick="backToTeams()" id="categoryBack">← Back</button><span class="version-pill">v1.6</span></div><div class="category-stage-head"><div class="brain">🧠</div><h1 id="categoryTitle">Choose your categories</h1></div><div class="category-full-grid" id="categoryGrid"></div><div class="category-footer"><span class="category-counter" id="categoryCount">0 / 6 selected</span><button class="primary" id="categoryNext" onclick="beginZankoGame()" disabled>Next →</button></div></div>
 <div class="stage-shell" id="boardScreen" hidden><div class="turn-banner" id="turnBanner">Team 1’s turn</div><div class="team-hud" id="teamHud"></div><div class="board-grid-scroll"><div class="board-grid" id="boardGrid"></div></div><p class="board-progress" id="boardProgress"></p></div>
 <div class="stage-shell" id="questionScreen" hidden><div class="question-layout"><div class="turn-banner" id="questionTurn">Team 1’s turn</div><div class="team-hud" id="questionHud"></div><article class="question-center"><div class="question-category" id="questionCategory">MUSIC</div><div class="question-points" id="questionPointValue">100 points</div><h1 class="question-text" id="questionPrompt">Who sings “7 rings”?</h1><button class="primary reveal-button" id="revealAnswerButton" onclick="revealCurrentAnswer()">◉ Reveal answer</button><div class="answer-result" id="questionAnswer" hidden></div><div class="award-row" id="awardRow" hidden><button class="primary" id="awardOne" onclick="awardQuestion(0)">Team 1 gets the points</button><button class="primary" id="awardTwo" onclick="awardQuestion(1)">Team 2 gets the points</button></div><button class="no-points" id="noPoints" hidden onclick="finishQuestion(null)">No points · Pass turn</button></article></div></div>
 <div class="stage-shell" id="gameoverScreen" hidden></div>
@@ -65,15 +65,17 @@
     <div class="auth-top"><div><h2 id="authTitle">Log in to JALSA</h2><p id="authSubtitle">Sign in to play JALSA games.</p></div><button class="close-small" type="button" aria-label="Close" onclick="closeAuth()">×</button></div>
     <form id="loginView" onsubmit="handleLogin(event)">
       <label class="auth-field"><span id="loginEmailLabel">Email address</span><input id="loginEmail" type="email" autocomplete="username" required></label>
-      
+      <label class="auth-field"><span id="loginPasswordLabel">Password</span><input id="loginPassword" type="password" autocomplete="current-password" required></label>
       <button class="primary auth-submit" type="submit" id="loginSubmit">Log in</button>
+      <button class="auth-switch" type="button" onclick="showAuth('forgot')" id="forgotPasswordLink">Forgot password?</button>
       <button class="auth-switch" type="button" onclick="showAuth('register')" id="switchToRegister">Create an account</button>
     </form>
     <form id="registerView" hidden onsubmit="handleRegister(event)">
       <label class="auth-field"><span id="registerNameLabel">Your name</span><input id="registerName" type="text" maxlength="80" autocomplete="name" required></label>
       <label class="auth-field"><span id="registerEmailLabel">Email address</span><input id="registerEmail" type="email" autocomplete="email" required></label>
-      
-      <button class="primary auth-submit" type="submit" id="registerSubmit">Send verification code</button>
+      <label class="auth-field"><span id="registerPasswordLabel">Password</span><input id="registerPassword" type="password" minlength="10" maxlength="128" autocomplete="new-password" required></label>
+      <p class="auth-small" id="passwordHint">Use at least 10 characters.</p>
+      <button class="primary auth-submit" type="submit" id="registerSubmit">Create account</button>
       <button class="auth-switch" type="button" onclick="showAuth('login')" id="switchToLogin">Already have an account? Log in</button>
     </form>
     <form id="verifyView" hidden onsubmit="handleVerify(event)">
@@ -81,6 +83,19 @@
       <p class="auth-small" id="verifyEmailText"></p>
       <button class="primary auth-submit" type="submit" id="verifySubmit">Verify email</button>
       <button class="auth-switch" type="button" onclick="resendVerification()" id="resendCodeButton">Resend code</button>
+    </form>
+    <form id="forgotView" hidden onsubmit="handleForgotPassword(event)">
+      <label class="auth-field"><span id="forgotEmailLabel">Email address</span><input id="forgotEmail" type="email" autocomplete="email" required></label>
+      <button class="primary auth-submit" type="submit" id="forgotSubmit">Send reset code</button>
+      <button class="auth-switch" type="button" onclick="showAuth('login')" id="forgotBackButton">Back to login</button>
+    </form>
+    <form id="resetView" hidden onsubmit="handleResetPassword(event)">
+      <p class="auth-small" id="resetEmailText"></p>
+      <label class="auth-field"><span id="resetCodeLabel">6-digit reset code</span><input id="resetCode" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required></label>
+      <label class="auth-field"><span id="resetPasswordLabel">New password</span><input id="resetPasswordInput" type="password" minlength="10" maxlength="128" autocomplete="new-password" required></label>
+      <label class="auth-field"><span id="confirmPasswordLabel">Confirm new password</span><input id="resetConfirmPassword" type="password" minlength="10" maxlength="128" autocomplete="new-password" required></label>
+      <button class="primary auth-submit" type="submit" id="resetSubmit">Reset password</button>
+      <button class="auth-switch" type="button" onclick="resendResetCode()" id="resendResetCodeButton">Send another code</button>
     </form>
     <p class="auth-message" id="authMessage" role="status" hidden></p>
   </div>
@@ -104,8 +119,8 @@ const CATEGORIES=[
 {id:'math',name:'Math',ar:'الرياضيات',image:'category-math.svg',icon:'∑'},
 {id:'music',name:'Music',ar:'الموسيقى',image:'category-music.svg',icon:'🎵'}
 ];
-const TEXT={en:{heroTitle:'Every game deserves a JALSA.',heroSubtitle:'Gather your friends. Pick a game. Make memories.',explore:'Explore games →',gamesTitle:'Choose your game',gamesIntro:'Made for friends, family, and unforgettable game nights.',zanko:'Zanko',zankoDesc:'Quick thinking, clever questions, and friendly competition.',price:'Price Guessing',priceDesc:'Guess the price before everyone else.',more:'More games coming soon',moreDesc:'The JALSA game table is just getting started.',play:'Play together',teamsTitle:'Zanko — Team setup',teamsSubtitle:'Give both teams a name. Leave a field unchanged to keep the default.',teamNote:'Both teams play together on one shared screen.',next:'Next →',back:'← Back',categoryTitle:'Choose your categories',categorySubtitle:'Select all 6 categories to unlock Next.',selected:'selected',turn:'’s turn',boardProgress:'questions remain',reveal:'◉ Reveal answer',points:'points',award:'gets the points',noPoints:'No points · Pass turn',callFriend:'Call a friend',callFriendTip:'Use once per game. Call a friend for a quick hint before choosing your answer.',callFriendDone:'Friend call used',double:'Double points',doubleTip:'Use once per game. Doubles the points for the next question your team chooses.',doubleDone:'Double points ready for your next question.',steal:'Steal a question',stealTip:'Use once per game. For this turn, choose one question from any category, including your opponent’s locked tile.',stealDone:'Steal mode active: choose any team’s available question this turn.',callTimer:'Call a friend — {n}s left to ask for help.',used:'Used',finish:'All questions have been played!',champion:'Winner',returnHome:'Return to JALSA',priceSetup:'Set up Price Guessing',players:'Players (separate names with commas)',pricePass:'Pass the device between players. Scores stay on this device.',guess:'Your guess in Jordanian dinars (JOD)',submit:'Submit',nextTurn:'Next turn',exact:'Exact price! +3 points',close:'Within 15%! +2 points',actual:'Actual price:',priceOver:'Game complete!',score:'Score',champion:'Winner',finish:'All questions have been played!',returnHome:'Return to JALSA',noRepeat:'No repeated products during this session.',login:'Log in',register:'Register',email:'Email address',password:'Password',sendLoginCode:'Send login code',fullName:'Your name',verificationCode:'6-digit verification code',sendCode:'Send verification code',resend:'Resend code',verify:'Verify email',tableName:'Name',tableEmail:'Email',tableVerified:'Verified',tableRegistered:'Registered',cancel:'Cancel',changeToRegister:'Create an account',changeToLogin:'Already have an account? Log in',authLoginTitle:'Log in to JALSA',authRegisterTitle:'Create your JALSA account',authVerifyTitle:'Verify your email',authLoginSubtitle:'Sign in to play JALSA games.',authRegisterSubtitle:'Create an account to unlock the games.',authVerifySubtitle:'Enter the code we sent to your email.',admin:'Registered users',logout:'Log out',close:'Close',noUsers:'No registered users yet.',loading:'Loading…',playLoginRequired:'Please log in or register before playing.'},
-ar:{heroTitle:'كل لعبة إلها جلسة!',heroSubtitle:'اجمع أصحابك، اختاروا لعبة، واصنعوا ذكريات.',explore:'استكشف الألعاب ←',gamesTitle:'اختاروا لعبتكم',gamesIntro:'للأصحاب والعائلة وليالي مليانة ضحك.',zanko:'زانكو',zankoDesc:'سرعة بديهة وأسئلة ذكية ومنافسة حلوة.',price:'تخمين السعر',priceDesc:'خمنوا السعر قبل الجميع.',more:'ألعاب جديدة قريباً',moreDesc:'لسه بداية ألعاب جلسة!',play:'العبوا معاً',teamsTitle:'زانكو — تجهيز الفريقين',teamsSubtitle:'اختاروا اسم لكل فريق. إذا تركتوا الاسم مثل ما هو بيضل الافتراضي.',teamNote:'الفريقان يلعبان معاً على نفس الشاشة.',next:'التالي ←',back:'رجوع →',categoryTitle:'اختاروا الفئات',categorySubtitle:'اختاروا الفئات الست كلها لتفعيل زر التالي.',selected:'مختارة',turn:' دور الفريق',boardProgress:'أسئلة متبقية',reveal:'◉ إظهار الإجابة',points:'نقطة',award:'يحصل على النقاط',noPoints:'بدون نقاط · تبديل الدور',callFriend:'اتصل بصديق',callFriendTip:'استخدمها مرة واحدة. اتصل بصديق وخذ تلميح سريع قبل الإجابة.',callFriendDone:'تم استخدام الاتصال',double:'مضاعفة النقاط',doubleTip:'مرة واحدة في اللعبة. ضاعف نقاط السؤال القادم لفريقك.',doubleDone:'المضاعفة جاهزة للسؤال القادم.',steal:'سرقة سؤال',stealTip:'مرة واحدة في اللعبة. في هذا الدور يمكنك اختيار أي سؤال، حتى سؤال الفريق الآخر.',stealDone:'وضع السرقة مفعل: اختاروا أي سؤال متاح في هذا الدور.',used:'مستخدمة',callTimer:'اتصال بصديق — باقي {n} ثانية.',finish:'خلصت كل الأسئلة!',champion:'الفائز',returnHome:'العودة إلى جلسة',priceSetup:'تجهيز لعبة تخمين السعر',players:'أسماء اللاعبين (افصل بينها بفواصل)',pricePass:'مرروا الجهاز بين اللاعبين. النقاط محفوظة على هذا الجهاز.',guess:'خمن السعر بالدينار الأردني',submit:'تأكيد',nextTurn:'الدور التالي',exact:'السعر مضبوط! ٣ نقاط',close:'تخمين قريب! نقطتان',actual:'السعر الصحيح:',priceOver:'انتهت اللعبة!',score:'النقاط',champion:'الفائز',finish:'انتهت كل الأسئلة!',returnHome:'العودة إلى جلسة',noRepeat:'لا تتكرر المنتجات خلال هذه الجلسة.',login:'تسجيل الدخول',register:'إنشاء حساب',email:'البريد الإلكتروني',password:'كلمة المرور',sendLoginCode:'إرسال رمز تسجيل الدخول',fullName:'اسمك',verificationCode:'رمز التحقق المكوّن من 6 أرقام',sendCode:'إرسال رمز التحقق',resend:'إعادة إرسال الرمز',verify:'تأكيد البريد الإلكتروني',tableName:'الاسم',tableEmail:'البريد الإلكتروني',tableVerified:'تم التحقق',tableRegistered:'تاريخ التسجيل',cancel:'إلغاء',changeToRegister:'إنشاء حساب جديد',changeToLogin:'لديك حساب بالفعل؟ سجّل الدخول',authLoginTitle:'تسجيل الدخول إلى جلسة',authRegisterTitle:'إنشاء حساب في جلسة',authVerifyTitle:'تأكيد بريدك الإلكتروني',authLoginSubtitle:'سجّل الدخول للعب ألعاب جلسة.',authRegisterSubtitle:'أنشئ حساباً لفتح الألعاب.',authVerifySubtitle:'أدخل الرمز الذي أرسلناه إلى بريدك الإلكتروني.',admin:'المستخدمون المسجلون',logout:'تسجيل الخروج',close:'إغلاق',noUsers:'لا يوجد مستخدمون مسجلون بعد.',loading:'جارٍ التحميل…',playLoginRequired:'يرجى تسجيل الدخول أو إنشاء حساب قبل اللعب.'}};
+const TEXT={en:{heroTitle:'Every game deserves a JALSA.',heroSubtitle:'Gather your friends. Pick a game. Make memories.',explore:'Explore games →',gamesTitle:'Choose your game',gamesIntro:'Made for friends, family, and unforgettable game nights.',zanko:'Zanko',zankoDesc:'Quick thinking, clever questions, and friendly competition.',price:'Price Guessing',priceDesc:'Guess the price before everyone else.',more:'More games coming soon',moreDesc:'The JALSA game table is just getting started.',play:'Play together',teamsTitle:'Zanko — Team setup',teamsSubtitle:'Give both teams a name. Leave a field unchanged to keep the default.',teamNote:'Both teams play together on one shared screen.',next:'Next →',back:'← Back',categoryTitle:'Choose your categories',categorySubtitle:'Select all 6 categories to unlock Next.',selected:'selected',turn:'’s turn',boardProgress:'questions remain',reveal:'◉ Reveal answer',points:'points',award:'gets the points',noPoints:'No points · Pass turn',callFriend:'Call a friend',callFriendTip:'Use once per game. Call a friend for a quick hint before choosing your answer.',callFriendDone:'Friend call used',double:'Double points',doubleTip:'Use once per game. Doubles the points for the next question your team chooses.',doubleDone:'Double points ready for your next question.',steal:'Steal a question',stealTip:'Use once per game. For this turn, choose one question from any category, including your opponent’s locked tile.',stealDone:'Steal mode active: choose any team’s available question this turn.',callTimer:'Call a friend — {n}s left to ask for help.',used:'Used',finish:'All questions have been played!',champion:'Winner',returnHome:'Return to JALSA',priceSetup:'Set up Price Guessing',players:'Players (separate names with commas)',pricePass:'Pass the device between players. Scores stay on this device.',guess:'Your guess in Jordanian dinars (JOD)',submit:'Submit',nextTurn:'Next turn',exact:'Exact price! +3 points',close:'Within 15%! +2 points',actual:'Actual price:',priceOver:'Game complete!',score:'Score',champion:'Winner',finish:'All questions have been played!',returnHome:'Return to JALSA',noRepeat:'No repeated products during this session.',login:'Log in',register:'Register',email:'Email address',password:'Password',sendLoginCode:'Send login code',forgotPassword:'Forgot password?',forgotTitle:'Reset your password',forgotSubtitle:'We will send a 6-digit reset code to your email.',sendResetCode:'Send reset code',resetTitle:'Choose a new password',resetSubtitle:'Enter the code from your email and choose a new password.',newPassword:'New password',confirmPassword:'Confirm new password',resetPassword:'Reset password',resetCode:'6-digit reset code',passwordHint:'Use at least 10 characters.',createAccount:'Create account',backToLogin:'Back to login',resendReset:'Send another code',forgotGeneric:'If a verified JALSA account exists for that email, a reset code has been sent.',resetDone:'Your password has been reset. Please log in.',passwordMismatch:'Your passwords do not match.',passwordTooShort:'Your password must contain at least 10 characters.',fullName:'Your name',verificationCode:'6-digit verification code',sendCode:'Send verification code',resend:'Resend code',verify:'Verify email',tableName:'Name',tableEmail:'Email',tableVerified:'Verified',tableRegistered:'Registered',cancel:'Cancel',changeToRegister:'Create an account',changeToLogin:'Already have an account? Log in',authLoginTitle:'Log in to JALSA',authRegisterTitle:'Create your JALSA account',authVerifyTitle:'Verify your email',authLoginSubtitle:'Sign in to play JALSA games.',authRegisterSubtitle:'Create an account to unlock the games.',authVerifySubtitle:'Enter the code we sent to your email.',admin:'Registered users',logout:'Log out',close:'Close',noUsers:'No registered users yet.',loading:'Loading…',playLoginRequired:'Please log in or register before playing.'},
+ar:{heroTitle:'كل لعبة إلها جلسة!',heroSubtitle:'اجمع أصحابك، اختاروا لعبة، واصنعوا ذكريات.',explore:'استكشف الألعاب ←',gamesTitle:'اختاروا لعبتكم',gamesIntro:'للأصحاب والعائلة وليالي مليانة ضحك.',zanko:'زانكو',zankoDesc:'سرعة بديهة وأسئلة ذكية ومنافسة حلوة.',price:'تخمين السعر',priceDesc:'خمنوا السعر قبل الجميع.',more:'ألعاب جديدة قريباً',moreDesc:'لسه بداية ألعاب جلسة!',play:'العبوا معاً',teamsTitle:'زانكو — تجهيز الفريقين',teamsSubtitle:'اختاروا اسم لكل فريق. إذا تركتوا الاسم مثل ما هو بيضل الافتراضي.',teamNote:'الفريقان يلعبان معاً على نفس الشاشة.',next:'التالي ←',back:'رجوع →',categoryTitle:'اختاروا الفئات',categorySubtitle:'اختاروا الفئات الست كلها لتفعيل زر التالي.',selected:'مختارة',turn:' دور الفريق',boardProgress:'أسئلة متبقية',reveal:'◉ إظهار الإجابة',points:'نقطة',award:'يحصل على النقاط',noPoints:'بدون نقاط · تبديل الدور',callFriend:'اتصل بصديق',callFriendTip:'استخدمها مرة واحدة. اتصل بصديق وخذ تلميح سريع قبل الإجابة.',callFriendDone:'تم استخدام الاتصال',double:'مضاعفة النقاط',doubleTip:'مرة واحدة في اللعبة. ضاعف نقاط السؤال القادم لفريقك.',doubleDone:'المضاعفة جاهزة للسؤال القادم.',steal:'سرقة سؤال',stealTip:'مرة واحدة في اللعبة. في هذا الدور يمكنك اختيار أي سؤال، حتى سؤال الفريق الآخر.',stealDone:'وضع السرقة مفعل: اختاروا أي سؤال متاح في هذا الدور.',used:'مستخدمة',callTimer:'اتصال بصديق — باقي {n} ثانية.',finish:'خلصت كل الأسئلة!',champion:'الفائز',returnHome:'العودة إلى جلسة',priceSetup:'تجهيز لعبة تخمين السعر',players:'أسماء اللاعبين (افصل بينها بفواصل)',pricePass:'مرروا الجهاز بين اللاعبين. النقاط محفوظة على هذا الجهاز.',guess:'خمن السعر بالدينار الأردني',submit:'تأكيد',nextTurn:'الدور التالي',exact:'السعر مضبوط! ٣ نقاط',close:'تخمين قريب! نقطتان',actual:'السعر الصحيح:',priceOver:'انتهت اللعبة!',score:'النقاط',champion:'الفائز',finish:'انتهت كل الأسئلة!',returnHome:'العودة إلى جلسة',noRepeat:'لا تتكرر المنتجات خلال هذه الجلسة.',login:'تسجيل الدخول',register:'إنشاء حساب',email:'البريد الإلكتروني',password:'كلمة المرور',sendLoginCode:'تسجيل الدخول',forgotPassword:'نسيت كلمة المرور؟',forgotTitle:'إعادة تعيين كلمة المرور',forgotSubtitle:'سنرسل رمز إعادة تعيين مكوّناً من 6 أرقام إلى بريدك الإلكتروني.',sendResetCode:'إرسال رمز إعادة التعيين',resetTitle:'اختر كلمة مرور جديدة',resetSubtitle:'أدخل الرمز الذي وصلك واختر كلمة مرور جديدة.',newPassword:'كلمة المرور الجديدة',confirmPassword:'تأكيد كلمة المرور الجديدة',resetPassword:'تغيير كلمة المرور',resetCode:'رمز إعادة التعيين المكوّن من 6 أرقام',passwordHint:'استخدم 10 أحرف على الأقل.',createAccount:'إنشاء الحساب',backToLogin:'العودة لتسجيل الدخول',resendReset:'إرسال رمز آخر',forgotGeneric:'إذا كان هناك حساب موثّق بهذا البريد، فقد أرسلنا رمز إعادة التعيين.',resetDone:'تم تغيير كلمة المرور. سجّل الدخول الآن.',passwordMismatch:'كلمتا المرور غير متطابقتين.',passwordTooShort:'يجب أن تتكون كلمة المرور من 10 أحرف على الأقل.',fullName:'اسمك',verificationCode:'رمز التحقق المكوّن من 6 أرقام',sendCode:'إرسال رمز التحقق',resend:'إعادة إرسال الرمز',verify:'تأكيد البريد الإلكتروني',tableName:'الاسم',tableEmail:'البريد الإلكتروني',tableVerified:'تم التحقق',tableRegistered:'تاريخ التسجيل',cancel:'إلغاء',changeToRegister:'إنشاء حساب جديد',changeToLogin:'لديك حساب بالفعل؟ سجّل الدخول',authLoginTitle:'تسجيل الدخول إلى جلسة',authRegisterTitle:'إنشاء حساب في جلسة',authVerifyTitle:'تأكيد بريدك الإلكتروني',authLoginSubtitle:'سجّل الدخول للعب ألعاب جلسة.',authRegisterSubtitle:'أنشئ حساباً لفتح الألعاب.',authVerifySubtitle:'أدخل الرمز الذي أرسلناه إلى بريدك الإلكتروني.',admin:'المستخدمون المسجلون',logout:'تسجيل الخروج',close:'إغلاق',noUsers:'لا يوجد مستخدمون مسجلون بعد.',loading:'جارٍ التحميل…',playLoginRequired:'يرجى تسجيل الدخول أو إنشاء حساب قبل اللعب.'}};
 let isArabic=false;
 function t(key){return TEXT[isArabic?'ar':'en'][key]||TEXT.en[key]||key}
 function toggleLanguage(){isArabic=!isArabic;document.documentElement.lang=isArabic?'ar':'en';document.documentElement.dir=isArabic?'rtl':'ltr';document.getElementById('homeLang').textContent=isArabic?'English / العربية':'العربية / English';document.getElementById('loginButton').textContent=t('login');document.getElementById('registerButton').textContent=t('register');document.getElementById('logoutButton').textContent=t('logout');document.getElementById('adminButton').textContent=t('admin');document.getElementById('heroFamily').src=isArabic?'hero-family-ar.png':'hero-family.png';const map={heroTitle:'heroTitle',heroSubtitle:'heroSubtitle',explore:'exploreButton',gamesTitle:'gamesTitle',gamesIntro:'gamesIntro',zanko:'zankoCardTitle',zankoDesc:'zankoCardDescription',price:'priceCardTitle',priceDesc:'priceCardDescription',more:'moreCardTitle',moreDesc:'moreCardDescription'};for(const [key,id] of Object.entries(map))document.getElementById(id).textContent=t(key);document.getElementById('zankoPlay').textContent=t('play');document.getElementById('pricePlay').textContent=t('play');if(document.getElementById('teamsTitle'))document.getElementById('teamsTitle').textContent=t('teamsTitle');if(document.getElementById('teamsSubtitle'))document.getElementById('teamsSubtitle').textContent=t('teamsSubtitle');if(document.getElementById('teamNote'))document.getElementById('teamNote').textContent=t('teamNote');if(document.getElementById('categoryTitle'))document.getElementById('categoryTitle').textContent=t('categoryTitle');if(document.getElementById('categorySubtitle'))document.getElementById('categorySubtitle').textContent=t('categorySubtitle');document.getElementById('categoryBack').textContent=t('back');document.getElementById('categoryNext').textContent=t('next');document.getElementById('teamsNext').textContent=t('next');document.getElementById('revealAnswerButton').textContent=t('reveal');document.getElementById('noPoints').textContent=t('noPoints');document.querySelectorAll('.category-pick').forEach(btn=>{const c=CATEGORIES.find(x=>x.id===btn.dataset.id);btn.querySelector('strong').textContent=isArabic?c.ar:c.name});renderCategoryCards();if(gameState.screen==='board')renderGameHudAndBoard();if(gameState.screen==='question'){document.getElementById('questionTurn').textContent=`${gameState.teamNames[gameState.turn]}${t('turn')}`;document.getElementById('questionHud').innerHTML=gameState.teamNames.map((name,i)=>teamCardHTML(name,i,false)).join('');const active=gameState.currentTile;if(active){const c=CATEGORIES.find(x=>x.id===active.category);document.getElementById('questionCategory').textContent=isArabic?c.ar:c.name;document.getElementById('questionPrompt').textContent=isArabic?active.qAr:active.q;document.getElementById('questionAnswer').textContent=isArabic?active.aAr:active.a;document.getElementById('questionPointValue').textContent=active.multiplied?`${active.points} × 2 = ${active.actualPoints} ${t('points')}`:`${active.points} ${t('points')}`;document.getElementById('awardOne').textContent=`${gameState.teamNames[0]} ${t('award')} +${active.actualPoints}`;document.getElementById('awardTwo').textContent=`${gameState.teamNames[1]} ${t('award')} +${active.actualPoints}`}}}
@@ -147,8 +162,8 @@ function submitPriceGuess(){if(priceAnswered)return;const raw=document.getElemen
 function nextPriceTurn(){priceRound++;priceTurn=(priceTurn+1)%pricePlayers.length;renderPriceRound()}
 function finishPriceGame(){const ranking=pricePlayers.map((name,i)=>({name,score:priceScores[i]})).sort((a,b)=>b.score-a.score);document.getElementById('priceGameTitle').textContent=t('priceOver');document.getElementById('priceProduct').textContent=ranking.map((p,i)=>`${i+1}. ${p.name} — ${p.score}`).join('  ·  ');document.getElementById('priceEmoji').textContent='🏆';document.getElementById('priceGuessLabel').hidden=true;document.getElementById('priceSubmit').hidden=true;document.getElementById('priceNext').hidden=false;document.getElementById('priceNext').textContent=t('returnHome');document.getElementById('priceNext').onclick=()=>{closePriceOverlays();document.getElementById('priceGuessLabel').hidden=false;document.getElementById('priceNext').onclick=nextPriceTurn;document.getElementById('priceNext').textContent=t('nextTurn')}}
 
-/* Account/session client. Play is denied unless /api/me confirms a verified session. */
-let currentUser=null, authReady=false, pendingVerificationEmail='', pendingRegistrationName='', pendingAuthMode='register';
+/* Account/session client. Only verified accounts may play. */
+let currentUser=null, authReady=false, pendingVerificationEmail='', pendingRegistrationName='', pendingRegistrationPassword='', pendingResetEmail='';
 const AUTH_API='/api';
 async function apiRequest(path, body){
   const options={method:body?'POST':'GET',credentials:'same-origin',headers:{'Accept':'application/json'}};
@@ -161,34 +176,119 @@ async function apiRequest(path, body){
 function authMessage(message,good=false){const el=document.getElementById('authMessage');el.textContent=message;el.hidden=false;el.classList.toggle('success',good)}
 function clearAuthMessage(){const el=document.getElementById('authMessage');el.textContent='';el.hidden=true;el.classList.remove('success')}
 function showAuth(view='login'){
-  clearAuthMessage();document.getElementById('authOverlay').classList.add('open');
-  document.getElementById('loginView').hidden=view!=='login';
-  document.getElementById('registerView').hidden=view!=='register';
-  document.getElementById('verifyView').hidden=view!=='verify';
-  const titles={login:['authLoginTitle','authLoginSubtitle'],register:['authRegisterTitle','authRegisterSubtitle'],verify:['authVerifyTitle','authVerifySubtitle']};
+  clearAuthMessage();
+  document.getElementById('authOverlay').classList.add('open');
+  ['login','register','verify','forgot','reset'].forEach(name=>{document.getElementById(name+'View').hidden=view!==name});
+  const titles={
+    login:['authLoginTitle','authLoginSubtitle'],
+    register:['authRegisterTitle','authRegisterSubtitle'],
+    verify:['authVerifyTitle','authVerifySubtitle'],
+    forgot:['forgotTitle','forgotSubtitle'],
+    reset:['resetTitle','resetSubtitle']
+  };
   const ids=titles[view]||titles.login;
   document.getElementById('authTitle').textContent=t(ids[0]);
   document.getElementById('authSubtitle').textContent=t(ids[1]);
-  document.getElementById('loginSubmit').textContent=t('sendLoginCode');
-  document.getElementById('registerSubmit').textContent=t('sendCode');
+  const labels={
+    loginEmailLabel:'email',loginPasswordLabel:'password',
+    registerNameLabel:'fullName',registerEmailLabel:'email',registerPasswordLabel:'password',
+    verifyCodeLabel:'verificationCode',forgotEmailLabel:'email',
+    resetCodeLabel:'resetCode',resetPasswordLabel:'newPassword',confirmPasswordLabel:'confirmPassword'
+  };
+  Object.entries(labels).forEach(([id,key])=>{document.getElementById(id).textContent=t(key)});
+  document.getElementById('loginSubmit').textContent=t('login');
+  document.getElementById('registerSubmit').textContent=t('createAccount');
   document.getElementById('verifySubmit').textContent=t('verify');
+  document.getElementById('forgotSubmit').textContent=t('sendResetCode');
+  document.getElementById('resetSubmit').textContent=t('resetPassword');
+  document.getElementById('forgotPasswordLink').textContent=t('forgotPassword');
   document.getElementById('switchToRegister').textContent=t('changeToRegister');
   document.getElementById('switchToLogin').textContent=t('changeToLogin');
-  document.getElementById('loginEmailLabel').textContent=t('email');
-  
-  document.getElementById('registerNameLabel').textContent=t('fullName');
-  document.getElementById('registerEmailLabel').textContent=t('email');
-  
-  document.getElementById('verifyCodeLabel').textContent=t('verificationCode');document.getElementById('resendCodeButton').textContent=t('resend');
+  document.getElementById('forgotBackButton').textContent=t('backToLogin');
+  document.getElementById('resendCodeButton').textContent=t('resend');
+  document.getElementById('resendResetCodeButton').textContent=t('resendReset');
+  document.getElementById('passwordHint').textContent=t('passwordHint');
 }
 function closeAuth(){document.getElementById('authOverlay').classList.remove('open')}
 function showAdminButton(){const logged=!!currentUser;document.getElementById('loginButton').hidden=logged;document.getElementById('registerButton').hidden=logged;document.getElementById('accountLabel').hidden=!logged;document.getElementById('logoutButton').hidden=!logged;document.getElementById('adminButton').hidden=!(logged&&currentUser.isAdmin);document.getElementById('accountLabel').textContent=logged?currentUser.name:''}
 async function refreshSession(){try{const data=await apiRequest('/me');currentUser=data.user||null}catch{currentUser=null}authReady=true;showAdminButton()}
 function requireLogin(){if(currentUser)return true;showAuth('login');authMessage(t('playLoginRequired'));return false}
-async function handleLogin(event){event.preventDefault();clearAuthMessage();const submit=document.getElementById('loginSubmit');submit.disabled=true;try{const email=document.getElementById('loginEmail').value.trim();const data=await apiRequest('/login',{email});pendingVerificationEmail=email;pendingAuthMode='login';document.getElementById('verifyEmailText').textContent=isArabic?`أرسلنا رمز تسجيل الدخول إلى ${email}.`:(data.message||`A login code was sent to ${email}.`);showAuth('verify');authMessage(isArabic?'أرسلنا رمز تسجيل الدخول إلى بريدك الإلكتروني.':'We sent a login code to your email.',true)}catch(error){authMessage(error.message)}finally{submit.disabled=false}}
-async function handleRegister(event){event.preventDefault();clearAuthMessage();const submit=document.getElementById('registerSubmit');submit.disabled=true;try{const name=document.getElementById('registerName').value.trim(),email=document.getElementById('registerEmail').value.trim();const data=await apiRequest('/register',{name,email});pendingVerificationEmail=email;pendingRegistrationName=name;pendingAuthMode='register';document.getElementById('verifyEmailText').textContent=isArabic?`أرسلنا رمز التحقق إلى ${email}.`:(data.message||`A verification code was sent to ${email}.`);showAuth('verify');authMessage(isArabic?'تم إرسال رمز التحقق إلى بريدك الإلكتروني.':'A verification code was sent to your email.',true)}catch(error){authMessage(error.message)}finally{submit.disabled=false}}
-async function handleVerify(event){event.preventDefault();clearAuthMessage();const submit=document.getElementById('verifySubmit');submit.disabled=true;try{const data=await apiRequest('/verify',{email:pendingVerificationEmail,code:document.getElementById('verifyCode').value.trim()});currentUser=data.user;pendingRegistrationName='';showAdminButton();closeAuth();document.getElementById('verifyCode').value=''}catch(error){authMessage(error.message)}finally{submit.disabled=false}}
-async function resendVerification(){if(!pendingVerificationEmail)return;try{const data=pendingAuthMode==='login'?await apiRequest('/login',{email:pendingVerificationEmail}):await apiRequest('/register',{name:pendingRegistrationName||'JALSA player',email:pendingVerificationEmail});authMessage(data.message||(isArabic?'تم إرسال رمز جديد.':'A new code has been sent.'),true)}catch(error){authMessage(error.message)}}
+async function handleLogin(event){
+  event.preventDefault();clearAuthMessage();
+  const submit=document.getElementById('loginSubmit');submit.disabled=true;
+  try{
+    const email=document.getElementById('loginEmail').value.trim();
+    const password=document.getElementById('loginPassword').value;
+    const data=await apiRequest('/login',{email,password});
+    currentUser=data.user;showAdminButton();closeAuth();
+    document.getElementById('loginPassword').value='';
+  }catch(error){authMessage(error.message)}
+  finally{submit.disabled=false}
+}
+async function handleRegister(event){
+  event.preventDefault();clearAuthMessage();
+  const submit=document.getElementById('registerSubmit');submit.disabled=true;
+  try{
+    const name=document.getElementById('registerName').value.trim();
+    const email=document.getElementById('registerEmail').value.trim();
+    const password=document.getElementById('registerPassword').value;
+    if(password.length<10){authMessage(t('passwordTooShort'));return}
+    const data=await apiRequest('/register',{name,email,password});
+    pendingVerificationEmail=email;pendingRegistrationName=name;pendingRegistrationPassword=password;
+    document.getElementById('verifyEmailText').textContent=isArabic?'أرسلنا رمز التحقق إلى '+email+'.':(data.message||'A verification code was sent to '+email+'.');
+    showAuth('verify');authMessage(isArabic?'تم إرسال رمز التحقق إلى بريدك الإلكتروني.':'A verification code was sent to your email.',true);
+  }catch(error){authMessage(error.message)}
+  finally{submit.disabled=false}
+}
+async function handleVerify(event){
+  event.preventDefault();clearAuthMessage();
+  const submit=document.getElementById('verifySubmit');submit.disabled=true;
+  try{
+    const data=await apiRequest('/verify',{email:pendingVerificationEmail,code:document.getElementById('verifyCode').value.trim()});
+    currentUser=data.user;pendingRegistrationPassword='';showAdminButton();closeAuth();document.getElementById('verifyCode').value='';
+  }catch(error){authMessage(error.message)}
+  finally{submit.disabled=false}
+}
+async function resendVerification(){
+  if(!pendingVerificationEmail||!pendingRegistrationPassword)return;
+  try{
+    const data=await apiRequest('/register',{name:pendingRegistrationName,email:pendingVerificationEmail,password:pendingRegistrationPassword});
+    authMessage(data.message||(isArabic?'تم إرسال رمز جديد.':'A new verification code has been sent.'),true);
+  }catch(error){authMessage(error.message)}
+}
+async function handleForgotPassword(event){
+  event.preventDefault();clearAuthMessage();
+  const submit=document.getElementById('forgotSubmit');submit.disabled=true;
+  try{
+    const email=document.getElementById('forgotEmail').value.trim();
+    const data=await apiRequest('/forgot-password',{email});
+    pendingResetEmail=email;
+    document.getElementById('resetEmailText').textContent=isArabic?'إذا كان هناك حساب موثّق بهذا البريد، فسيصلك رمز إعادة التعيين إلى '+email+'.':'If a verified account exists for '+email+', a reset code has been sent.';
+    showAuth('reset');authMessage(data.message||t('forgotGeneric'),true);
+  }catch(error){authMessage(error.message)}
+  finally{submit.disabled=false}
+}
+async function resendResetCode(){
+  if(!pendingResetEmail)return;
+  try{const data=await apiRequest('/forgot-password',{email:pendingResetEmail});authMessage(data.message||t('forgotGeneric'),true)}
+  catch(error){authMessage(error.message)}
+}
+async function handleResetPassword(event){
+  event.preventDefault();clearAuthMessage();
+  const submit=document.getElementById('resetSubmit');submit.disabled=true;
+  try{
+    const password=document.getElementById('resetPasswordInput').value;
+    const confirm=document.getElementById('resetConfirmPassword').value;
+    if(password.length<10){authMessage(t('passwordTooShort'));return}
+    if(password!==confirm){authMessage(t('passwordMismatch'));return}
+    const data=await apiRequest('/reset-password',{email:pendingResetEmail,code:document.getElementById('resetCode').value.trim(),password});
+    document.getElementById('loginEmail').value=pendingResetEmail;
+    document.getElementById('loginPassword').value='';
+    document.getElementById('resetCode').value='';document.getElementById('resetPasswordInput').value='';document.getElementById('resetConfirmPassword').value='';
+    showAuth('login');authMessage(data.message||t('resetDone'),true);
+  }catch(error){authMessage(error.message)}
+  finally{submit.disabled=false}
+}
 async function logout(){try{await apiRequest('/logout',{})}catch{}currentUser=null;showAdminButton();if(gameState.screen!=='home')showHome()}
 function closeAdmin(){document.getElementById('adminOverlay').classList.remove('open')}
 async function openAdmin(){if(!currentUser||!currentUser.isAdmin)return;const overlay=document.getElementById('adminOverlay'),holder=document.getElementById('adminUsers');overlay.classList.add('open');holder.innerHTML='';document.getElementById('adminMessage').hidden=true;try{const data=await apiRequest('/admin/users');const rows=data.users||[];if(!rows.length){holder.textContent=t('noUsers');return}const table=document.createElement('table');table.className='users-table';const thead=document.createElement('thead'),hr=document.createElement('tr');[t('tableName'),t('tableEmail'),t('tableVerified'),t('tableRegistered')].forEach(label=>{const th=document.createElement('th');th.textContent=label;hr.appendChild(th)});thead.appendChild(hr);table.appendChild(thead);const tbody=document.createElement('tbody');rows.forEach(user=>{const tr=document.createElement('tr');[user.name,user.email,user.email_verified?'Yes':'No',user.created_at].forEach(value=>{const td=document.createElement('td');td.textContent=value??'';tr.appendChild(td)});tbody.appendChild(tr)});table.appendChild(tbody);holder.appendChild(table)}catch(error){const message=document.getElementById('adminMessage');message.textContent=error.message;message.hidden=false}}
