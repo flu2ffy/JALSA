@@ -493,7 +493,66 @@ async function openAdmin(){if(!currentUser||!currentUser.isAdmin)return;document
 function closeAdmin(){document.getElementById("adminPage").hidden=true;const old=document.getElementById("adminOverlay");if(old)old.classList.remove("open")}
 function switchAdminTab(name){document.querySelectorAll(".v17-admin-tab").forEach(el=>el.hidden=el.id!=="adminTab"+name.charAt(0).toUpperCase()+name.slice(1));document.querySelectorAll(".v17-admin-tabs button").forEach(el=>el.classList.toggle("active",el.getAttribute("data-admin-tab")===name));if(name==="users")renderAdminUsers();if(name==="feedback")renderAdminFeedback();if(name==="zanko"){v17LoadAdminContent().then(renderZankoAdmin).catch(e=>v17SetAdminStatus(e.message,true))}if(name==="price"){v17LoadAdminContent().then(renderPriceAdmin).catch(e=>v17SetAdminStatus(e.message,true))}}
 async function v17LoadAdminContent(){const data=await v17Request("/admin/content","GET");v17Content.categories=data.categories||[];v17Content.questions=data.questions||[];v17Content.priceItems=v17Content.questions.filter(q=>q.game_type==="price"&&q.media_url&&q.media_type!=="none").map(q=>[q.product_name_en,"",Number(q.price_value||0),q.media_type,q.media_url,q.product_name_ar]);v17ContentLoaded=true;if(v17Content.categories.length)CATEGORIES=v17Content.categories.map(c=>({id:c.id,name:c.name_en,ar:c.name_ar,image:c.image_url||"category-music.svg",icon:c.icon||"🎯"}));return data}
-async function renderAdminUsers(){const holder=document.getElementById("adminUserTable");if(!holder)return;holder.innerHTML="<p class='v17-muted'>"+v17T("loading")+"</p>";try{const data=await v17Request("/admin/users","GET"),rows=data.users||[];document.getElementById("usersCount").textContent=rows.length;if(!rows.length){holder.textContent=v17T("noUsers");return}let html="<table class='v17-table'><thead><tr><th>"+v17T("yourName")+"</th><th>"+v17T("emailAddress")+"</th><th>"+v17T("verified")+"</th><th>"+v17T("lastLogin")+"</th><th>"+v17T("registered")+"</th><th>"+v17T("actions")+"</th></tr></thead><tbody>";rows.forEach(u=>{const banned=!!u.banned_at;html+="<tr><td>"+escapeHtml(u.name||"")+"</td><td>"+escapeHtml(u.email||"")+"</td><td><span class='v17-status-pill "+(u.email_verified?"good":"")+"'>"+(u.email_verified?v17T("verified"):v17T("unverified"))+"</span></td><td>"+escapeHtml(v17FormatDate(u.last_login_at))+"</td><td>"+escapeHtml(v17FormatDate(u.created_at))+"</td><td><div class='v17-table-actions'><button class='v17-small-button "+(banned?"success":"")+" ' onclick=\"v17UserAction('"+u.id+"','"+(banned?"unban":"ban")+"')\">"+v17T(banned?"unban":"ban")+"</button><button class='v17-small-button danger' onclick=\"v17UserAction('"+u.id+"','delete')\">"+v17T("delete")+"</button></div></td></tr>"});html+="</tbody></table>";holder.innerHTML=html}catch(error){holder.textContent=error.message}}
+let v17UsersCache=[],v17EditingUser=null;
+function v17SetAdminUserAvatar(src){
+ const holder=document.getElementById("adminUserAvatarPreview");if(!holder)return;holder.innerHTML="";
+ if(src){const img=document.createElement("img");img.src=src;img.alt="User profile";holder.appendChild(img)}else holder.textContent="☻";
+}
+async function v17ManageUser(id){
+ try{
+  const result=await v17Request("/admin/users/"+encodeURIComponent(id),"GET"),user=result.user;if(!user)throw new Error("User not found.");
+  v17EditingUser=user;document.getElementById("adminUserModalSubtitle").textContent=user.email||"";
+  document.getElementById("adminUserName").value=user.name||"";document.getElementById("adminUserEmail").value=user.email||"";
+  document.getElementById("adminUserBirthDate").value=user.birth_date||"";document.getElementById("adminUserNewPassword").value="";
+  const verified=document.getElementById("adminUserVerified");verified.checked=!!user.email_verified;verified.disabled=!!(currentUser&&currentUser.id===user.id);
+  document.getElementById("adminUserAvatarFile").value="";document.getElementById("adminUserRemoveAvatar").checked=false;
+  v17SetAdminUserAvatar(user.avatar_data_url||"");
+  const status=user.banned_at?v17T("banned"):v17T("active");
+  document.getElementById("adminUserMeta").innerHTML=
+   "<div><span>"+v17T("registered")+"</span>"+escapeHtml(v17FormatDate(user.created_at))+"</div>"+
+   "<div><span>"+v17T("lastLogin")+"</span>"+escapeHtml(v17FormatDate(user.last_login_at))+"</div>"+
+   "<div><span>"+v17T("verifiedAt")+"</span>"+escapeHtml(v17FormatDate(user.verified_at))+"</div>"+
+   "<div><span>"+v17T("passwordSet")+"</span>"+(user.has_password?"Yes":"No")+"</div>"+
+   "<div><span>"+v17T("accountStatus")+"</span>"+escapeHtml(status)+"</div>"+
+   "<div><span>"+v17T("bannedReason")+"</span>"+escapeHtml(user.banned_reason||"—")+"</div>";
+  document.getElementById("adminUserStatus").hidden=true;document.getElementById("adminUserModal").classList.add("open");
+ }catch(error){v17SetAdminStatus(error.message,true)}
+}
+function closeAdminUserModal(){document.getElementById("adminUserModal").classList.remove("open");v17EditingUser=null}
+async function saveAdminUser(event){
+ event.preventDefault();if(!v17EditingUser)return;const button=event.submitter;if(button)button.disabled=true;
+ try{
+  let avatar=document.getElementById("adminUserRemoveAvatar").checked?"":(v17EditingUser.avatar_data_url||"");
+  const file=document.getElementById("adminUserAvatarFile").files[0];if(file)avatar=await v17UploadMedia(file);
+  const newPassword=document.getElementById("adminUserNewPassword").value;
+  await v17Request("/admin/users/"+encodeURIComponent(v17EditingUser.id),"PATCH",{
+   action:"save-details",name:document.getElementById("adminUserName").value,
+   birth_date:document.getElementById("adminUserBirthDate").value,avatar_data_url:avatar,
+   email_verified:document.getElementById("adminUserVerified").checked,new_password:newPassword
+  });
+  closeAdminUserModal();await renderAdminUsers();v17SetAdminStatus(v17T("saved"),false);
+ }catch(error){v17ShowStatus("adminUserStatus",error.message,true)}
+ finally{if(button)button.disabled=false}
+}
+async function renderAdminUsers(){
+ const holder=document.getElementById("adminUserTable");if(!holder)return;
+ holder.innerHTML="<p class='v17-muted'>"+v17T("loading")+"</p>";
+ try{
+  const data=await v17Request("/admin/users","GET"),rows=data.users||[];v17UsersCache=rows;
+  document.getElementById("usersCount").textContent=rows.length;
+  if(!rows.length){holder.textContent=v17T("noUsers");return}
+  let html="<table class='v17-table'><thead><tr><th>"+v17T("yourName")+"</th><th>"+v17T("emailAddress")+"</th><th>"+v17T("verified")+"</th><th>"+v17T("lastLogin")+"</th><th>"+v17T("registered")+"</th><th>"+v17T("actions")+"</th></tr></thead><tbody>";
+  rows.forEach(u=>{
+   const banned=!!u.banned_at;
+   html+="<tr><td>"+escapeHtml(u.name||"")+"</td><td>"+escapeHtml(u.email||"")+"</td><td><span class='v17-status-pill "+(u.email_verified?"good":"")+"'>"+(u.email_verified?v17T("verified"):v17T("unverified"))+"</span></td><td>"+escapeHtml(v17FormatDate(u.last_login_at))+"</td><td>"+escapeHtml(v17FormatDate(u.created_at))+"</td><td><div class='v17-table-actions'>"+
+   "<button class='v17-small-button' onclick=\"v17ManageUser('"+u.id+"')\">"+v17T("manage")+"</button>"+
+   "<button class='v17-small-button "+(banned?"success":"")+"' onclick=\"v17UserAction('"+u.id+"','"+(banned?"unban":"ban")+"')\">"+v17T(banned?"unban":"ban")+"</button>"+
+   "<button class='v17-small-button danger' onclick=\"v17UserAction('"+u.id+"','delete')\">"+v17T("delete")+"</button></div></td></tr>";
+  });
+  holder.innerHTML=html+"</tbody></table>";
+ }catch(error){holder.textContent=error.message}
+}
+
 async function v17UserAction(id,action){const ask=action==="delete"?v17T("confirmDelete"):action==="ban"?v17T("confirmBan"):v17T("confirmUnban");if(!confirm(ask))return;try{if(action==="delete")await v17Request("/admin/users/"+encodeURIComponent(id),"DELETE");else await v17Request("/admin/users/"+encodeURIComponent(id),"PATCH",{action});await renderAdminUsers()}catch(error){v17SetAdminStatus(error.message,true)}}
 async function renderAdminFeedback(){const holder=document.getElementById("adminFeedbackList");holder.innerHTML="<p class='v17-muted'>"+v17T("loading")+"</p>";try{const data=await v17Request("/admin/feedback","GET"),rows=data.feedback||[];document.getElementById("feedbackCount").textContent=rows.filter(x=>x.status==="new").length;if(!rows.length){holder.textContent=v17T("noFeedback");return}holder.innerHTML=rows.map(f=>"<article class='v17-feedback-card'><div class='v17-feedback-meta'><div><strong>"+escapeHtml(f.display_name)+"</strong><div class='v17-muted'>"+escapeHtml(f.email)+" · "+escapeHtml(v17FormatDate(f.created_at))+"</div></div><span class='v17-status-pill "+(f.status==="resolved"?"good":"")+"'>"+escapeHtml(f.status)+"</span></div><p class='v17-feedback-message'>"+escapeHtml(f.message)+"</p><div class='v17-action-row'><button class='v17-small-button' onclick=\"v17FeedbackStatus('"+f.id+"','reviewed')\">"+v17T("markReviewed")+"</button><button class='v17-small-button success' onclick=\"v17FeedbackStatus('"+f.id+"','resolved')\">"+v17T("resolve")+"</button></div></article>").join("")}catch(error){holder.textContent=error.message}}
 async function v17FeedbackStatus(id,status){try{await v17Request("/admin/feedback/"+encodeURIComponent(id),"PATCH",{status});await renderAdminFeedback()}catch(error){v17SetAdminStatus(error.message,true)}}
