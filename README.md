@@ -1,5 +1,7 @@
 # JALSA
 
+V1.7 account and admin dashboard work is in progress on the separate v1.7-account-admin branch. It remains isolated from production until reviewed and approved.
+
 JALSA is a bilingual Arabic/English collection of multiplayer party games with a modern Arabic-majlis identity.
 
 ## Development branch
@@ -58,3 +60,14 @@ For a brand-new database, `schema.sql` describes the complete current schema; do
 5. Review the Preview. Merge into `main` and deploy only after explicit approval.
 
 Production deployment and production database migration are intentionally not part of these development edits.
+
+
+## V1.7 account and admin dashboard (development)
+- The account name opens a left-side drawer with Profile, Send feedback, and (for the configured administrator) Dashboard; logout is at the bottom.
+- Profile supports display-name edits, birth date, and a resized profile picture.
+- Feedback messages are stored in the admin dashboard inbox.
+- Admin user management shows verification and last-login timestamps and supports ban, unban, and deletion. The configured administrator account is protected from ban/deletion.
+- Zanko editor manages bilingual categories and questions, difficulty levels, and optional media links.
+- Price Guessing editor manages product names, JOD prices, difficulty, and optional media links.
+- Question media uses publicly accessible HTTPS image/video/audio URLs; direct binary uploads are not enabled in this first V1.7 iteration.
+- Migration 0003_v17_dashboard.sql adds profile, feedback, account moderation, category, and question tables. Apply to Preview first and verify before Production.
