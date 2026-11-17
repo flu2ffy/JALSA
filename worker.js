@@ -53,6 +53,7 @@ export default {
       const adminParts = url.pathname.split("/");
       if (adminParts.length === 5 && adminParts[1] === "api" && adminParts[2] === "admin") {
         const itemId = decodeURIComponent(adminParts[4]);
+        if (adminParts[3] === "users" && request.method === "GET") return await getAdminUser(request, env, itemId);
         if (adminParts[3] === "users" && request.method === "PATCH") return await updateAdminUser(request, env, itemId);
         if (adminParts[3] === "users" && request.method === "DELETE") return await deleteAdminUser(request, env, itemId);
         if (adminParts[3] === "categories" && request.method === "PATCH") return await updateCategory(request, env, itemId);
@@ -489,13 +490,24 @@ async function listUsers(request, env) {
   if (!await requireAdmin(request, env)) return json({ error: "Administrator access required." }, 403);
   const result = await env.DB.prepare(
     `SELECT id, display_name AS name, email, email_verified, created_at, verified_at, last_login_at,
-            birth_date, avatar_data_url, banned_at, banned_reason,
+            birth_date, banned_at, banned_reason,
             CASE WHEN password_hash IS NOT NULL AND password_hash != '' THEN 1 ELSE 0 END AS has_password
      FROM users ORDER BY created_at DESC LIMIT 1000`,
   ).all();
   return json({ users: result.results || [] });
 }
 
+async function getAdminUser(request, env, id) {
+  if (!await requireAdmin(request, env)) return json({ error: "Administrator access required." }, 403);
+  const user = await env.DB.prepare(
+    `SELECT id, display_name AS name, email, email_verified, created_at, verified_at, last_login_at,
+            birth_date, avatar_data_url, banned_at, banned_reason,
+            CASE WHEN password_hash IS NOT NULL AND password_hash != '' THEN 1 ELSE 0 END AS has_password
+     FROM users WHERE id = ? LIMIT 1`,
+  ).bind(id).first();
+  if (!user) return json({ error: "User not found." }, 404);
+  return json({ user });
+}
 async function requireAdmin(request, env) {
   const user = await getSessionUser(request, env);
   if (!user || !env.ADMIN_EMAIL || normalizeEmail(user.email) !== normalizeEmail(env.ADMIN_EMAIL)) return null;
@@ -518,7 +530,8 @@ async function deleteStoredMedia(env, value) {
   await env.MEDIA.delete(key);
 }
 async function uploadAdminMedia(request, env) {
-  if (!await requireAdmin(request, env)) return json({ error: "Administrator access required." }, 403);
+  const admin = await requireAdmin(request, env);
+  if (!admin) return json({ error: "Administrator access required." }, 403);
   if (!env.MEDIA) return json({ error: "File storage is not connected yet. Configure the JALSA R2 media bucket first." }, 503);
   const form = await request.formData();
   const file = form.get("file");
@@ -554,7 +567,7 @@ async function uploadAdminMedia(request, env) {
       cacheControl: "public, max-age=31536000, immutable",
       contentDisposition: "inline",
     },
-    customMetadata: { uploadedBy: (await requireAdmin(request, env)).id },
+    customMetadata: { uploadedBy: admin.id },
   });
   return json({ ok: true, url: "/api/media/" + key, key, contentType: mime, size: file.size });
 }
