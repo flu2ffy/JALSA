@@ -323,7 +323,19 @@ function openPriceSetup(){if(!authReady){refreshSession().then(()=>{if(currentUs
 function closePriceOverlays(){document.getElementById('priceSetupOverlay').classList.remove('open');document.getElementById('priceGameOverlay').classList.remove('open')}
 function startPriceGame(){if(!requireLogin())return;pricePlayers=document.getElementById('priceNames').value.split(',').map(x=>x.trim()).filter(Boolean);if(pricePlayers.length<2){alert(isArabic?'أدخلوا اسمين على الأقل وافصلوا بينهما بفواصل.':'Enter at least two player names, separated by commas.');return}priceScores=pricePlayers.map(()=>0);priceTurn=0;priceRound=0;priceDeck=shuffled(PRODUCTS);document.getElementById('priceSetupOverlay').classList.remove('open');document.getElementById('priceGameOverlay').classList.add('open');document.getElementById('priceGameTitle').textContent=t('price');document.getElementById('priceNext').hidden=true;document.getElementById('priceSubmit').hidden=false;document.getElementById('priceNext').textContent=t('nextTurn');renderPriceRound()}
 function renderPriceRound(){if(priceRound>=priceDeck.length){finishPriceGame();return}priceAnswered=false;const item=priceDeck[priceRound];document.getElementById('priceTurn').textContent=`${pricePlayers[priceTurn]} · ${t('turn')}`;document.getElementById('priceScore').textContent=`${t('score')||'Score'}: ${priceScores[priceTurn]}`;document.getElementById('priceEmoji').textContent=item[1];document.getElementById('priceProduct').textContent=item[0];document.getElementById('priceGuess').value='';document.getElementById('priceResult').textContent='';document.getElementById('priceGuessLabel').firstChild.textContent=t('guess');document.getElementById('pricePassNote').textContent=t('pricePass');document.getElementById('priceNote').textContent=t('noRepeat');document.getElementById('priceSubmit').textContent=t('submit');document.getElementById('priceSubmit').hidden=false;document.getElementById('priceNext').hidden=true}
-function submitPriceGuess(){if(priceAnswered)return;const raw=document.getElementById('priceGuess').value;const guess=Number(raw);if(raw===''||!Number.isFinite(guess)||guess<0){alert(isArabic?'أدخلوا سعراً صحيحاً.':'Enter a valid price.');return}const actual=priceDeck[priceRound][2],difference=Math.abs(guess-actual);let message;if(difference===0){priceScores[priceTurn]+=3;message=t('exact')}else if(difference/actual<=.15){priceScores[priceTurn]+=2;message=t('close')}else message=`${t('actual')} ${actual.toFixed(2)} USD`;document.getElementById('priceResult').textContent=message;priceAnswered=true;document.getElementById('priceScore').textContent=`${t('score')||'Score'}: ${priceScores[priceTurn]}`;document.getElementById('priceSubmit').hidden=true;document.getElementById('priceNext').hidden=false}
+function submitPriceGuess(){
+ if(priceAnswered)return;
+ const raw=document.getElementById('priceGuess').value,guess=Number(raw);
+ if(raw===''||!Number.isFinite(guess)||guess<0){alert(isArabic?'أدخلوا سعراً صحيحاً.':'Enter a valid price.');return}
+ const actual=priceDeck[priceRound][2],difference=Math.abs(guess-actual);let message;
+ if(difference===0){priceScores[priceTurn]+=3;message=t('exact')}
+ else if(difference/actual<=.15){priceScores[priceTurn]+=2;message=t('close')}
+ else message=`${t('actual')} $${actual.toFixed(2)} USD`;
+ document.getElementById('priceResult').textContent=message;priceAnswered=true;
+ document.getElementById('priceScore').textContent=`${t('score')||'Score'}: ${priceScores[priceTurn]}`;
+ document.getElementById('priceSubmit').hidden=true;document.getElementById('priceNext').hidden=false;
+}
+
 function nextPriceTurn(){priceRound++;priceTurn=(priceTurn+1)%pricePlayers.length;renderPriceRound()}
 function finishPriceGame(){const ranking=pricePlayers.map((name,i)=>({name,score:priceScores[i]})).sort((a,b)=>b.score-a.score);document.getElementById('priceGameTitle').textContent=t('priceOver');document.getElementById('priceProduct').textContent=ranking.map((p,i)=>`${i+1}. ${p.name} — ${p.score}`).join('  ·  ');document.getElementById('priceEmoji').textContent='🏆';document.getElementById('priceGuessLabel').hidden=true;document.getElementById('priceSubmit').hidden=true;document.getElementById('priceNext').hidden=false;document.getElementById('priceNext').textContent=t('returnHome');document.getElementById('priceNext').onclick=()=>{closePriceOverlays();document.getElementById('priceGuessLabel').hidden=false;document.getElementById('priceNext').onclick=nextPriceTurn;document.getElementById('priceNext').textContent=t('nextTurn')}}
 
@@ -699,23 +711,21 @@ window.startPriceGame=async function(){
  pricePlayers=players;priceScores=pricePlayers.map(()=>0);priceTurn=0;priceRound=0;priceDeck=source;
  document.getElementById("priceSetupOverlay").classList.remove("open");document.getElementById("priceGameOverlay").classList.add("open");
  document.getElementById("priceGameTitle").textContent=t("price");document.getElementById("priceNext").hidden=true;
- document.getElementById("priceSubmit").hidden=false;document.getElementById("priceNext").textContent=t("nextTurn");
- renderPriceRound();
+ document.getElementById("priceSubmit").hidden=false;document.getElementById("priceNext").textContent=t("nextTurn");renderPriceRound();
 };
 window.renderPriceRound=function(){
  if(priceRound>=priceDeck.length){finishPriceGame();return}
  priceAnswered=false;const item=priceDeck[priceRound];
  document.getElementById("priceTurn").textContent=pricePlayers[priceTurn]+" · "+t("turn");
  document.getElementById("priceScore").textContent=(t("score")||"Score")+": "+priceScores[priceTurn];
- document.getElementById("priceEmoji").hidden=true;
- document.getElementById("priceProduct").textContent=isArabic?(item[5]||item[0]):item[0];
- v17RenderMedia(document.getElementById("priceMedia"),item[3],item[4]);
- document.getElementById("priceGuess").value="";
+ document.getElementById("priceEmoji").hidden=true;document.getElementById("priceProduct").textContent=isArabic?(item[5]||item[0]):item[0];
+ v17RenderMedia(document.getElementById("priceMedia"),item[3],item[4]);document.getElementById("priceGuess").value="";
  document.getElementById("priceGuessLabel").firstChild.textContent=isArabic?"تخمينك بالدولار الأمريكي (USD)":"Your guess in US dollars (USD)";
  document.getElementById("priceResult").textContent="";document.getElementById("pricePassNote").textContent=t("pricePass");
  document.getElementById("priceNote").textContent=t("noRepeat");document.getElementById("priceSubmit").textContent=t("submit");
  document.getElementById("priceSubmit").hidden=false;document.getElementById("priceNext").hidden=true;
 };
+
 window.toggleLanguage=(function(old){return function(){old();v17SyncLanguage();if(!document.getElementById("adminPage").hidden){const active=document.querySelector(".v17-admin-tabs button.active");if(active)switchAdminTab(active.getAttribute("data-admin-tab"))}}})(toggleLanguage);
 window.addEventListener("keydown",function(e){if(e.key==="Escape"){closeAccountDrawer();closeFeedback();if(!document.getElementById("adminPage").hidden)closeAdmin();if(!document.getElementById("profilePage").hidden)closeV17Page()}});
 v17SyncLanguage();
