@@ -328,10 +328,10 @@ function submitPriceGuess(){
  if(priceAnswered)return;
  const raw=document.getElementById('priceGuess').value,guess=Number(raw);
  if(raw===''||!Number.isFinite(guess)||guess<0){alert(isArabic?'أدخلوا سعراً صحيحاً.':'Enter a valid price.');return}
- const actual=priceDeck[priceRound][2],difference=Math.abs(guess-actual);let message;
- if(difference===0){priceScores[priceTurn]+=3;message=t('exact')}
- else if(difference/actual<=.15){priceScores[priceTurn]+=2;message=t('close')}
- else message=`${t('actual')} $${actual.toFixed(2)} USD`;
+ const actual=priceDeck[priceRound][2],difference=Math.abs(guess-actual),actualText="$"+actual.toFixed(2)+" USD";let message;
+ if(difference===0){priceScores[priceTurn]+=3;message=(isArabic?"صحيح تماماً! +3 نقاط — السعر الصحيح: ":"Exactly right! +3 points — actual price: ")+actualText}
+ else if(difference/actual<=.15){priceScores[priceTurn]+=2;message=(isArabic?"قريب جداً! +2 نقطتين — السعر الصحيح: ":"Very close! +2 points — actual price: ")+actualText}
+ else message=(isArabic?"السعر الصحيح: ":"Actual price: ")+actualText;
  document.getElementById('priceResult').textContent=message;priceAnswered=true;
  document.getElementById('priceScore').textContent=`${t('score')||'Score'}: ${priceScores[priceTurn]}`;
  document.getElementById('priceSubmit').hidden=true;document.getElementById('priceNext').hidden=false;
