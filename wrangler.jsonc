@@ -2,7 +2,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "jalsa",
   "main": "worker.js",
-  "compatibility_date": "2026-11-16",
+  "compatibility_date": "2026-11-17",
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
