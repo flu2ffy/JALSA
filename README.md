@@ -6,7 +6,7 @@ JALSA is a bilingual Arabic/English collection of multiplayer party games with a
 
 ## Development branch
 
-The V1.6 account update is being prepared on `v1.6-auth-fix`. The production branch `main` has not been changed or deployed by this work.
+V1.7 is being prepared on `v1.7-account-admin` and the draft pull request targets `main`. The production branch `main` remains on V1.6 until explicit release approval.
 
 ## V1.6 account features
 
@@ -24,7 +24,7 @@ Existing accounts created by the earlier email-code-only version are retained. V
 
 ## Cloudflare configuration
 
-The Worker is configured in `wrangler.jsonc` and uses the production D1 database named `jalsa-auth`. The V1.6 branch Preview is explicitly bound to `jalsa-auth-preview`.
+The Worker is configured in `wrangler.jsonc` and uses the production D1 database named `jalsa-auth`. Worker Previews are explicitly bound to `jalsa-auth-preview` and separate Preview resources.
 
 The Preview Base environment has these two secrets configured in the Cloudflare dashboard (never commit their values):
 - `RESEND_API_KEY`
