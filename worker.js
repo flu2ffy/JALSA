@@ -490,7 +490,7 @@ async function listUsers(request, env) {
   if (!await requireAdmin(request, env)) return json({ error: "Administrator access required." }, 403);
   const result = await env.DB.prepare(
     `SELECT id, display_name AS name, email, email_verified, created_at, verified_at, last_login_at,
-            birth_date, banned_at, banned_reason,
+            birth_date, updated_at, banned_at, banned_reason,
             CASE WHEN password_hash IS NOT NULL AND password_hash != '' THEN 1 ELSE 0 END AS has_password
      FROM users ORDER BY created_at DESC LIMIT 1000`,
   ).all();
@@ -501,7 +501,7 @@ async function getAdminUser(request, env, id) {
   if (!await requireAdmin(request, env)) return json({ error: "Administrator access required." }, 403);
   const user = await env.DB.prepare(
     `SELECT id, display_name AS name, email, email_verified, created_at, verified_at, last_login_at,
-            birth_date, avatar_data_url, banned_at, banned_reason,
+            birth_date, avatar_data_url, updated_at, banned_at, banned_reason,
             CASE WHEN password_hash IS NOT NULL AND password_hash != '' THEN 1 ELSE 0 END AS has_password
      FROM users WHERE id = ? LIMIT 1`,
   ).bind(id).first();
