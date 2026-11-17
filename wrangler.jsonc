@@ -1,3 +1,4 @@
+
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "jalsa",
@@ -16,8 +17,21 @@
     }
   ],
   "vars": {
-    "MAIL_FROM": "JALSA Account Service <accountservice@jalsa.me>",
+    "MAIL_FROM": "JALSA <Accountservice@jalsa.me>",
     "REPLY_TO": "support@jalsa.me",
     "ADMIN_EMAIL": "1mr.cute3@gmail.com"
+  },
+  "previews": {
+    "vars": {
+      "MAIL_FROM": "JALSA <Accountservice@jalsa.me>",
+      "REPLY_TO": "support@jalsa.me",
+      "ADMIN_EMAIL": "1mr.cute3@gmail.com"
+    },
+    "d1_databases": [
+      {
+        "binding": "DB",
+        "database_id": "5a867196-333c-416c-94c2-a0833f69728a"
+      }
+    ]
   }
 }
