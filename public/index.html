@@ -577,7 +577,7 @@ async function saveAdminUser(event){
    birth_date:document.getElementById("adminUserBirthDate").value,avatar_data_url:avatar,
    email_verified:document.getElementById("adminUserVerified").checked,new_password:newPassword
   });
-  if(currentUser&&currentUser.id===v17EditingUser.id){currentUser.name=document.getElementById("adminUserName").value;currentUser.avatarDataUrl=avatar;const label=document.getElementById("accountLabel");if(label)label.textContent=currentUser.name}
+  if(currentUser&&currentUser.id===v17EditingUser.id){currentUser.name=document.getElementById("adminUserName").value;currentUser.avatarDataUrl=avatar;v17RenderAvatar(avatar);const label=document.getElementById("accountLabel");if(label)label.textContent=currentUser.name}
   closeAdminUserModal();await renderAdminUsers();v17SetAdminStatus(v17T("saved"),false);
  }catch(error){v17ShowStatus("adminUserStatus",error.message,true)}
  finally{if(button)button.disabled=false}
