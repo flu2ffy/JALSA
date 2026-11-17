@@ -577,6 +577,7 @@ async function saveAdminUser(event){
    birth_date:document.getElementById("adminUserBirthDate").value,avatar_data_url:avatar,
    email_verified:document.getElementById("adminUserVerified").checked,new_password:newPassword
   });
+  if(currentUser&&currentUser.id===v17EditingUser.id){currentUser.name=document.getElementById("adminUserName").value;currentUser.avatarDataUrl=avatar;const label=document.getElementById("accountLabel");if(label)label.textContent=currentUser.name}
   closeAdminUserModal();await renderAdminUsers();v17SetAdminStatus(v17T("saved"),false);
  }catch(error){v17ShowStatus("adminUserStatus",error.message,true)}
  finally{if(button)button.disabled=false}
@@ -640,6 +641,8 @@ async function saveZankoQuestion(event){
  try{
   const file=document.getElementById("zankoMediaFile").files[0];
   const mediaType=document.getElementById("zankoMediaType").value;
+  const existing=id?v17Content.questions.find(q=>q.id===id):null;
+  if(existing&&!file&&existing.media_type!==mediaType&&mediaType!=="none")throw new Error("Choose a new media file when changing the media type.");
   let mediaUrl=document.getElementById("zankoMediaUrl").value;
   if(file)mediaUrl=await v17UploadMedia(file,mediaType);
   if(mediaType==="none")mediaUrl="";
@@ -680,6 +683,8 @@ async function savePriceQuestion(event){
  event.preventDefault();const id=document.getElementById("priceQuestionId").value;
  try{
   const file=document.getElementById("priceMediaFile").files[0],mediaType=document.getElementById("priceMediaType").value;
+  const existing=id?v17Content.questions.find(q=>q.id===id):null;
+  if(existing&&!file&&existing.media_type!==mediaType)throw new Error("Choose a new media file when changing the media type.");
   let mediaUrl=document.getElementById("priceMediaUrl").value;if(file)mediaUrl=await v17UploadMedia(file,mediaType);
   if(!mediaUrl)throw new Error("Choose a product photo or media file from your device.");
   const body={game_type:"price",difficulty:document.getElementById("priceDifficulty").value,product_name_en:document.getElementById("priceNameEn").value,product_name_ar:document.getElementById("priceNameAr").value,price_value:Number(document.getElementById("priceValue").value),media_type:mediaType,media_url:mediaUrl};
