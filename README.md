@@ -4,7 +4,7 @@ JALSA is a bilingual Arabic/English collection of multiplayer party games with a
 
 ## Development branch
 
-The current V1.6 account work is being prepared on `v1.6-auth-fix`. Do not merge this branch into `main` until the owner has reviewed the preview and approved release.
+The V1.6 account update is being prepared on `v1.6-auth-fix`. The production branch `main` has not been changed or deployed by this work.
 
 ## V1.6 account features
 
@@ -14,11 +14,11 @@ The current V1.6 account work is being prepared on `v1.6-auth-fix`. Do not merge
 - Forgot-password flow with a separate six-digit reset code.
 - PBKDF2-SHA-256 password hashes; passwords are never stored in plaintext.
 - HttpOnly, Secure, SameSite=Lax session cookies.
-- Login attempt throttling and one-hour code-request limits.
+- Login attempt throttling and per-purpose email-code request limits.
 - Admin-only registered-user list, using the configured `ADMIN_EMAIL`.
-- Bilingual English/Arabic account screens and bilingual branded JALSA email templates.
+- Bilingual English/Arabic account screens and branded bilingual JALSA emails.
 
-Existing accounts created by the earlier email-code-only version are retained. Because those accounts do not have a password hash, their owners should use **Forgot password** to set a password before logging in with the new version.
+Existing accounts created by the earlier email-code-only version are retained. Verified existing users can use **Forgot password** to set a password. An older unverified account can repeat registration with the same email and provide a password.
 
 ## Cloudflare configuration
 
@@ -33,33 +33,31 @@ Configured non-secret variables:
 - `REPLY_TO`: `support@jalsa.me`
 - `ADMIN_EMAIL`: `1mr.cute3@gmail.com`
 
-The email templates load the JALSA logo from `https://jalsa.me/jalsa-logo.png`. The sender address must remain verified in Resend.
+The email templates load the JALSA logo from `https://jalsa.me/jalsa-logo.png`. Keep the sender domain verified in Resend.
 
 ## Database migration
 
-The original V1.6 database schema is updated by `migrations/0002_password_auth.sql`. This migration adds the nullable `password_hash` column, rebuilds the verification-code table to allow password-reset codes while preserving old registration and sign-in codes, and creates the login-attempt throttle table.
+The existing V1.6 database is updated by `migrations/0002_password_auth.sql`. It adds the nullable `password_hash` column, rebuilds the verification-code table to allow password-reset codes while preserving old registration and sign-in codes, and creates the login-attempt throttle table.
 
-Before deploying the new Worker, inspect the migration target:
+**Do not run a remote migration command until the target database ID has been checked.** The production database ID in this config is `f147c99a-9be7-4ce4-88e2-8e465420e3ce`. The Preview binding points to a different ID, `5a867196-333c-416c-94c2-a0833f69728a`.
+
+For a Preview migration, Cloudflare's recommended workflow is a separate Wrangler config that points at the exact same Preview database ID as `previews.d1_databases`. The Preview database's exact Cloudflare database name still needs to be confirmed before creating that migration config. Do not point a Preview migration at the production database.
+
+Only after the production release has been approved should the production migration be inspected and applied:
 ```sh
 npx wrangler d1 migrations list jalsa-auth --remote
-```
-
-Then apply the migration to the intended D1 database:
-```sh
 npx wrangler d1 migrations apply jalsa-auth --remote
 ```
 
-**Check the database ID in `wrangler.jsonc` before running the command.** The configured production D1 ID is `f147c99a-9be7-4ce4-88e2-8e465420e3ce`. The preview D1 ID is different, so only use Wrangler's `--preview` option after confirming that the preview database is the one you intend to update. Do not run the production migration merely to test a preview.
-
-For a brand-new database, `schema.sql` describes the complete current schema; do not apply both the baseline schema and the migration to the same empty database.
+For a brand-new database, `schema.sql` describes the complete current schema; do not apply both that baseline schema and the migration to the same empty database.
 
 ## Release checklist
 
-1. Apply the migration to the chosen test database.
-2. Confirm both Worker secrets are configured for that environment.
+1. Confirm the Preview D1 database and its name, then apply the migration to that Preview database only.
+2. Confirm `RESEND_API_KEY` and `VERIFICATION_SECRET` are configured for the Preview environment.
 3. Test registration, email verification, password login, forgot password, reset password, logout, and the admin users list.
-4. Check the English and Arabic layouts and play both existing games while signed in.
-5. Review the branch preview.
+4. Check English and Arabic layouts, then play both existing games while signed in.
+5. Review the Preview.
 6. Merge into `main` and deploy only after explicit approval.
 
-Production deployment is intentionally not performed as part of development edits.
+Production deployment is intentionally not part of these development edits.
