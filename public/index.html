@@ -499,8 +499,9 @@ async function saveProfile(event){event.preventDefault();const button=event.subm
 function v17BuildLegacySeed(){const categories=CATEGORIES.map((c,i)=>({id:c.id,name_en:c.name,name_ar:c.ar,image_url:c.image,icon:c.icon}));const questions=[];Object.keys(FIXED_QUESTIONS).forEach(categoryId=>{const en=FIXED_QUESTIONS[categoryId]||[],ar=FIXED_QUESTIONS_AR[categoryId]||[];en.forEach((q,i)=>{questions.push({id:"legacy-zanko-"+categoryId+"-"+i,game_type:"zanko",category_id:categoryId,difficulty:q.points===100?"easy":q.points===600?"hard":"medium",question_en:q.q,question_ar:ar[i]?ar[i].q:q.q,answer_en:q.a,answer_ar:ar[i]?ar[i].a:q.a,media_type:"none",media_url:""})})});["easy","medium","hard"].forEach(tier=>{(MUSIC_BANK[tier]||[]).forEach((q,i)=>{const ar=(MUSIC_BANK_AR[tier]||[])[i]||q;questions.push({id:"legacy-zanko-music-"+tier+"-"+i,game_type:"zanko",category_id:"music",difficulty:tier,question_en:q.q,question_ar:ar.q,answer_en:q.a,answer_ar:ar.a,media_type:"none",media_url:""})})});return{categories,questions}}
 async function v17EnsureSeeded(){let data=await v17Request("/admin/content","GET");if(!data.questions||data.questions.length===0){const seed=v17BuildLegacySeed();await v17Request("/admin/content/seed","POST",seed);data=await v17Request("/admin/content","GET")}return data}
 async function v17LoadGameContent(){const data=await v17Request("/game-content","GET");v17Content.categories=data.categories||[];v17Content.questions=data.questions||[];v17Content.priceItems=v17Content.questions.filter(q=>q.game_type==="price"&&q.media_url&&q.media_type!=="none").map(q=>[q.product_name_en,"",Number(q.price_value||0),q.media_type,q.media_url,q.product_name_ar]);if(v17Content.categories.length){CATEGORIES=v17Content.categories.map(c=>({id:c.id,name:c.name_en,ar:c.name_ar,image:c.image_url||"category-music.svg",icon:c.icon||"🎯"}))}v17ContentLoaded=true;return data}
-async function v17UploadMedia(file){
+async function v17UploadMedia(file,expectedType){
  if(!file)throw new Error("Choose a file from your device.");
+ if(expectedType&&!(file.type||"").toLowerCase().startsWith(expectedType+"/"))throw new Error("The selected file does not match the media type. Choose an "+expectedType+" file.");
  const form=new FormData();form.append("file",file);
  const response=await fetch("/api/admin/media",{method:"POST",credentials:"same-origin",body:form});
  let data={};try{data=await response.json()}catch{}
@@ -569,7 +570,7 @@ async function saveAdminUser(event){
  event.preventDefault();if(!v17EditingUser)return;const button=event.submitter;if(button)button.disabled=true;
  try{
   let avatar=document.getElementById("adminUserRemoveAvatar").checked?"":(v17EditingUser.avatar_data_url||"");
-  const file=document.getElementById("adminUserAvatarFile").files[0];if(file)avatar=await v17UploadMedia(file);
+  const file=document.getElementById("adminUserAvatarFile").files[0];if(file)avatar=await v17UploadMedia(file,"image");
   const newPassword=document.getElementById("adminUserNewPassword").value;
   await v17Request("/admin/users/"+encodeURIComponent(v17EditingUser.id),"PATCH",{
    action:"save-details",name:document.getElementById("adminUserName").value,
@@ -608,7 +609,7 @@ async function saveCategory(event){
  event.preventDefault();
  try{
   const id=document.getElementById("categoryId").value,file=document.getElementById("categoryImageFile").files[0];
-  let imageUrl=document.getElementById("categoryImageUrl").value;if(file)imageUrl=await v17UploadMedia(file);
+  let imageUrl=document.getElementById("categoryImageUrl").value;if(file)imageUrl=await v17UploadMedia(file,"image");
   await v17Request(id?"/admin/categories/"+encodeURIComponent(id):"/admin/categories",id?"PATCH":"POST",{
    name_en:document.getElementById("categoryNameEn").value,name_ar:document.getElementById("categoryNameAr").value,
    image_url:imageUrl,icon:document.getElementById("categoryIcon").value
@@ -640,7 +641,7 @@ async function saveZankoQuestion(event){
   const file=document.getElementById("zankoMediaFile").files[0];
   const mediaType=document.getElementById("zankoMediaType").value;
   let mediaUrl=document.getElementById("zankoMediaUrl").value;
-  if(file)mediaUrl=await v17UploadMedia(file);
+  if(file)mediaUrl=await v17UploadMedia(file,mediaType);
   if(mediaType==="none")mediaUrl="";
   if(mediaType!=="none"&&!mediaUrl)throw new Error("Choose a media file from your device.");
   const body={game_type:"zanko",category_id:document.getElementById("zankoQuestionCategory").value,difficulty:document.getElementById("zankoQuestionDifficulty").value,question_en:document.getElementById("zankoQuestionEn").value,question_ar:document.getElementById("zankoQuestionAr").value,answer_en:document.getElementById("zankoAnswerEn").value,answer_ar:document.getElementById("zankoAnswerAr").value,media_type:mediaType,media_url:mediaUrl};
@@ -679,7 +680,7 @@ async function savePriceQuestion(event){
  event.preventDefault();const id=document.getElementById("priceQuestionId").value;
  try{
   const file=document.getElementById("priceMediaFile").files[0],mediaType=document.getElementById("priceMediaType").value;
-  let mediaUrl=document.getElementById("priceMediaUrl").value;if(file)mediaUrl=await v17UploadMedia(file);
+  let mediaUrl=document.getElementById("priceMediaUrl").value;if(file)mediaUrl=await v17UploadMedia(file,mediaType);
   if(!mediaUrl)throw new Error("Choose a product photo or media file from your device.");
   const body={game_type:"price",difficulty:document.getElementById("priceDifficulty").value,product_name_en:document.getElementById("priceNameEn").value,product_name_ar:document.getElementById("priceNameAr").value,price_value:Number(document.getElementById("priceValue").value),media_type:mediaType,media_url:mediaUrl};
   await v17Request(id?"/admin/questions/"+encodeURIComponent(id):"/admin/questions",id?"PATCH":"POST",body);
