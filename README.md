@@ -71,3 +71,23 @@ Production deployment and production database migration are intentionally not pa
 - Price Guessing editor manages product names, JOD prices, difficulty, and optional media links.
 - Question media uses publicly accessible HTTPS image/video/audio URLs; direct binary uploads are not enabled in this first V1.7 iteration.
 - Migration 0003_v17_dashboard.sql adds profile, feedback, account moderation, category, and question tables. Apply to Preview first and verify before Production.
+
+
+## V1.7 preview-only features in progress
+
+- Admin user details editor: view account metadata, update display name, birth date and profile image, set a new password, and verify/unverify email. Email addresses are read-only.
+- Randomized Zanko selection: categories and questions are shuffled for each new game; duplicate prompts are filtered within a session.
+- Price Guessing is being rebuilt as an empty, USD-only product bank. Products need a real uploaded image or media asset; the old JOD/emoji products are removed by migration 0004.
+- Admin editors accept local image, video, and audio uploads. Files are stored in Cloudflare R2, not embedded as data URLs or saved as external links.
+- Production and Preview use different R2 buckets. The Preview bucket is `jalsa-media-preview`; the Production bucket is `jalsa-media`. The Worker binding name in code is `MEDIA`.
+- Supported uploads: JPG, PNG, WebP, GIF (up to 20 MB); MP4, WebM, MOV (up to 35 MB); MP3, M4A, AAC, OGG, WAV (up to 25 MB).
+
+### V1.7 Preview setup
+
+1. Create the R2 bucket `jalsa-media-preview` in Cloudflare before testing local uploads in a Worker Preview.
+2. The `previews.r2_buckets` entry in `wrangler.jsonc` binds Preview runtime to that bucket; Production uses `jalsa-media`.
+3. Apply `migrations/0004_price_usd_media_storage.sql` to `jalsa-auth-preview` only. It removes all legacy Price Guessing products and records the migration.
+4. Do not apply migration 0004 to Production until V1.7 has been reviewed and explicitly approved for release.
+5. Production's R2 bucket `jalsa-media` must exist before the approved Production release is deployed.
+
+Preview bindings are separate from Production bindings; check the Wrangler `previews` block when changing resource bindings. Uploads are private in R2 and are served through the Worker media route.
