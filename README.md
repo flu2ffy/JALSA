@@ -43,7 +43,7 @@ The production database is `jalsa-auth` (ID `f147c99a-9be7-4ce4-88e2-8e465420e3c
 
 The migration `migrations/0002_password_auth.sql` adds the nullable `password_hash` column, rebuilds the verification-code table to allow password-reset codes while preserving existing registration and login-code records, and creates the login-attempt throttle table.
 
-**Preview migration status:** Applied to `jalsa-auth-preview` from the Cloudflare D1 Console and recorded in `d1_migrations` as `0002_password_auth.sql`. The `password_hash` column and migration record were verified in the Preview database. Production has not been migrated.
+**Migration status:** Applied to both `jalsa-auth-preview` and Production `jalsa-auth` from the Cloudflare D1 Console. In both databases, the `password_hash` column and `0002_password_auth.sql` record were verified in `d1_migrations`. Production's migration was taken after creating a Cloudflare D1 recovery bookmark.
 
 A dedicated config, `wrangler.preview-migrations.jsonc`, targets only `jalsa-auth-preview`. Do not run the migration against Production. For future migration changes, inspect the Preview target carefully before applying.
 
@@ -51,9 +51,10 @@ For a brand-new database, `schema.sql` describes the complete current schema; do
 
 ## Preview and release checklist
 
-1. Confirm the Cloudflare Preview deployment uses the Preview Base secrets and `jalsa-auth-preview` D1 binding.
-2. Test registration, email verification, password login, forgot password, reset password, logout, and the admin users list.
-3. Check English and Arabic layouts, then play both existing games while signed in.
-4. Review the Preview. Merge into `main` and deploy only after explicit approval.
+1. The Preview and Production D1 migrations are applied and verified.
+2. Preview and Production Runtime secrets are configured in Cloudflare; never commit their values.
+3. Test registration, email verification, password login, forgot password, reset password, logout, and the admin users list.
+4. Check English and Arabic layouts, then play both existing games while signed in.
+5. Review the Preview. Merge into `main` and deploy only after explicit approval.
 
 Production deployment and production database migration are intentionally not part of these development edits.
