@@ -1,5 +1,5 @@
 -- Password-based authentication migration for existing JALSA accounts.
--- Existing users remain in place and can set a password through Forgot password.
+-- Existing users remain in place; legacy accounts can set a password through Forgot password.
 ALTER TABLE users ADD COLUMN password_hash TEXT;
 
 DROP INDEX IF EXISTS idx_verification_email_created;
@@ -9,17 +9,17 @@ CREATE TABLE verification_codes (
   id TEXT PRIMARY KEY NOT NULL,
   email TEXT NOT NULL COLLATE NOCASE,
   code_hash TEXT NOT NULL,
-  purpose TEXT NOT NULL CHECK (purpose IN ('register', 'reset')),
+  purpose TEXT NOT NULL CHECK (purpose IN ('register', 'login', 'reset')),
   attempts INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
   expires_at TEXT NOT NULL
 );
 
--- Keep any still-pending registration codes. Old login OTP codes are no longer used.
+-- Preserve pending verification and legacy sign-in records during rollout.
 INSERT INTO verification_codes (id, email, code_hash, purpose, attempts, created_at, expires_at)
-SELECT id, email, code_hash, 'register', attempts, created_at, expires_at
+SELECT id, email, code_hash, purpose, attempts, created_at, expires_at
 FROM verification_codes_legacy
-WHERE purpose = 'register';
+WHERE purpose IN ('register', 'login');
 
 DROP TABLE verification_codes_legacy;
 
