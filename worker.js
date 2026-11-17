@@ -40,6 +40,8 @@ export default {
       if (url.pathname === "/api/reset-password" && request.method === "POST") return await resetPassword(request, env);
       if (url.pathname === "/api/logout" && request.method === "POST") return await logout(request, env);
       if (url.pathname === "/api/admin/users" && request.method === "GET") return await listUsers(request, env);
+      if (url.pathname === "/api/admin/media" && request.method === "POST") return await uploadAdminMedia(request, env);
+      if (url.pathname.startsWith("/api/media/") && (request.method === "GET" || request.method === "HEAD")) return await servePublicMedia(request, env, url);
       if (url.pathname === "/api/profile" && request.method === "POST") return await updateProfile(request, env);
       if (url.pathname === "/api/feedback" && request.method === "POST") return await submitFeedback(request, env);
       if (url.pathname === "/api/game-content" && request.method === "GET") return await getGameContent(request, env);
@@ -486,7 +488,9 @@ async function logout(request, env) {
 async function listUsers(request, env) {
   if (!await requireAdmin(request, env)) return json({ error: "Administrator access required." }, 403);
   const result = await env.DB.prepare(
-    `SELECT id, display_name AS name, email, email_verified, created_at, verified_at, last_login_at, banned_at, banned_reason
+    `SELECT id, display_name AS name, email, email_verified, created_at, verified_at, last_login_at,
+            birth_date, avatar_data_url, banned_at, banned_reason,
+            CASE WHEN password_hash IS NOT NULL AND password_hash != '' THEN 1 ELSE 0 END AS has_password
      FROM users ORDER BY created_at DESC LIMIT 1000`,
   ).all();
   return json({ users: result.results || [] });
@@ -498,11 +502,83 @@ async function requireAdmin(request, env) {
   return user;
 }
 function cleanText(value, max = 2000) { return String(value ?? "").trim().slice(0, max); }
+function isStoredMediaUrl(value) {
+  return /^\/api\/media\/uploads\/[a-zA-Z0-9/_-]+\.(?:jpe?g|png|webp|gif|mp4|webm|mov|mp3|m4a|aac|ogg|wav)$/i.test(String(value || ""));
+}
 function validMedia(type, url) {
   const allowed = ["none", "image", "video", "audio"];
   if (!allowed.includes(type || "none")) return false;
   if (!url) return type === "none";
+  if (isStoredMediaUrl(url)) return true;
   try { return new URL(url).protocol === "https:"; } catch { return false; }
+}
+async function deleteStoredMedia(env, value) {
+  if (!env.MEDIA || !isStoredMediaUrl(value)) return;
+  const key = String(value).slice("/api/media/".length);
+  await env.MEDIA.delete(key);
+}
+async function uploadAdminMedia(request, env) {
+  if (!await requireAdmin(request, env)) return json({ error: "Administrator access required." }, 403);
+  if (!env.MEDIA) return json({ error: "File storage is not connected yet. Configure the JALSA R2 media bucket first." }, 503);
+  const form = await request.formData();
+  const file = form.get("file");
+  if (!file || typeof file.arrayBuffer !== "function" || !Number.isFinite(file.size)) {
+    return json({ error: "Choose a file from your device." }, 400);
+  }
+  const mime = String(file.type || "").toLowerCase();
+  const types = {
+    "image/jpeg": ["jpg", 20 * 1024 * 1024],
+    "image/png": ["png", 20 * 1024 * 1024],
+    "image/webp": ["webp", 20 * 1024 * 1024],
+    "image/gif": ["gif", 20 * 1024 * 1024],
+    "video/mp4": ["mp4", 35 * 1024 * 1024],
+    "video/webm": ["webm", 35 * 1024 * 1024],
+    "video/quicktime": ["mov", 35 * 1024 * 1024],
+    "audio/mpeg": ["mp3", 25 * 1024 * 1024],
+    "audio/mp4": ["m4a", 25 * 1024 * 1024],
+    "audio/aac": ["aac", 25 * 1024 * 1024],
+    "audio/ogg": ["ogg", 25 * 1024 * 1024],
+    "audio/wav": ["wav", 25 * 1024 * 1024],
+    "audio/x-wav": ["wav", 25 * 1024 * 1024],
+    "audio/webm": ["webm", 25 * 1024 * 1024],
+  };
+  const spec = types[mime];
+  if (!spec) return json({ error: "That file type is not supported. Use JPG, PNG, WebP, GIF, MP4, WebM, MOV, MP3, M4A, AAC, OGG, or WAV." }, 415);
+  if (file.size <= 0 || file.size > spec[1]) return json({ error: "This file is too large. Images: 20 MB; video: 35 MB; audio: 25 MB." }, 413);
+  const date = new Date().toISOString().slice(0, 10).replace(/-/g, "/");
+  const key = "uploads/" + date + "/" + crypto.randomUUID() + "." + spec[0];
+  const bytes = await file.arrayBuffer();
+  await env.MEDIA.put(key, bytes, {
+    httpMetadata: {
+      contentType: mime,
+      cacheControl: "public, max-age=31536000, immutable",
+      contentDisposition: "inline",
+    },
+    customMetadata: { uploadedBy: (await requireAdmin(request, env)).id },
+  });
+  return json({ ok: true, url: "/api/media/" + key, key, contentType: mime, size: file.size });
+}
+async function servePublicMedia(request, env, url) {
+  if (!env.MEDIA) return new Response("Media storage is not configured.", { status: 503 });
+  let key;
+  try { key = decodeURIComponent(url.pathname.slice("/api/media/".length)); } catch { return new Response("Not found.", { status: 404 }); }
+  if (!/^uploads\/[a-zA-Z0-9/_-]+\.(?:jpe?g|png|webp|gif|mp4|webm|mov|mp3|m4a|aac|ogg|wav)$/i.test(key)) {
+    return new Response("Not found.", { status: 404 });
+  }
+  const object = await env.MEDIA.get(key, request.headers.has("Range") ? { range: request.headers } : {});
+  if (!object || !object.body && request.method !== "HEAD") return new Response("Not found.", { status: 404 });
+  const headers = new Headers();
+  if (object.writeHttpMetadata) object.writeHttpMetadata(headers);
+  headers.set("X-Content-Type-Options", "nosniff");
+  headers.set("Cache-Control", "public, max-age=31536000, immutable");
+  headers.set("Accept-Ranges", "bytes");
+  headers.set("Content-Length", String(object.range?.length ?? object.size));
+  let status = 200;
+  if (object.range && Number.isFinite(object.range.offset) && Number.isFinite(object.range.length)) {
+    headers.set("Content-Range", "bytes " + object.range.offset + "-" + (object.range.offset + object.range.length - 1) + "/" + object.size);
+    status = 206;
+  }
+  return new Response(request.method === "HEAD" ? null : object.body, { status, headers });
 }
 async function updateProfile(request, env) {
   const user = await getSessionUser(request, env);
@@ -514,7 +590,7 @@ async function updateProfile(request, env) {
   if (name.length < 2) return json({ error: "Your name must contain at least 2 characters." }, 400);
   if (birthDate && !/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) return json({ error: "Enter a valid birth date." }, 400);
   if (birthDate && new Date(birthDate + "T00:00:00Z").getTime() > Date.now()) return json({ error: "Birth date cannot be in the future." }, 400);
-  if (avatar && (!/^data:image\/(?:jpeg|png|webp);base64,/.test(avatar) || avatar.length > 360000)) return json({ error: "Please choose a smaller JPG, PNG, or WebP profile image." }, 400);
+  if (avatar && !((/^data:image\/(?:jpeg|png|webp);base64,/.test(avatar) && avatar.length <= 360000) || isStoredMediaUrl(avatar))) return json({ error: "Please choose a supported JPG, PNG, or WebP profile image." }, 400);
   await env.DB.prepare("UPDATE users SET display_name = ?, birth_date = ?, avatar_data_url = ?, updated_at = ? WHERE id = ?")
     .bind(name, birthDate || null, avatar || null, new Date().toISOString(), user.id).run();
   return json({ ok: true, user: publicUser({ ...user, display_name: name, birth_date: birthDate, avatar_data_url: avatar }, env) });
@@ -542,18 +618,57 @@ async function updateFeedbackStatus(request, env, id) {
   return json({ ok: true });
 }
 async function updateAdminUser(request, env, id) {
-  if (!await requireAdmin(request, env)) return json({ error: "Administrator access required." }, 403);
-  const target = await env.DB.prepare("SELECT id, email FROM users WHERE id = ? LIMIT 1").bind(id).first();
+  const actor = await requireAdmin(request, env);
+  if (!actor) return json({ error: "Administrator access required." }, 403);
+  const target = await env.DB.prepare("SELECT id, email, email_verified FROM users WHERE id = ? LIMIT 1").bind(id).first();
   if (!target) return json({ error: "User not found." }, 404);
-  if (normalizeEmail(target.email) === normalizeEmail(env.ADMIN_EMAIL)) return json({ error: "The administrator account cannot be banned." }, 403);
-  const body = await readBody(request), action = cleanText(body.action, 16), now = new Date().toISOString();
+  const body = await readBody(request), action = cleanText(body.action, 24), now = new Date().toISOString();
   if (action === "ban") {
+    if (target.id === actor.id) return json({ error: "You cannot ban your own administrator account." }, 403);
     await env.DB.prepare("UPDATE users SET banned_at = ?, banned_reason = ?, updated_at = ? WHERE id = ?")
       .bind(now, cleanText(body.reason || "Account suspended by JALSA administrator.", 240), now, id).run();
     await env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(id).run();
-  } else if (action === "unban") {
+    return json({ ok: true });
+  }
+  if (action === "unban") {
     await env.DB.prepare("UPDATE users SET banned_at = NULL, banned_reason = NULL, updated_at = ? WHERE id = ?").bind(now, id).run();
-  } else return json({ error: "Choose ban or unban." }, 400);
+    return json({ ok: true });
+  }
+  if (action !== "save-details") return json({ error: "Choose a valid account action." }, 400);
+
+  const name = cleanText(body.name, 80);
+  const birthDate = cleanText(body.birth_date, 10);
+  const avatar = String(body.avatar_data_url || "");
+  if (name.length < 2) return json({ error: "A username must contain at least 2 characters." }, 400);
+  if (birthDate && !/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) return json({ error: "Enter a valid birth date." }, 400);
+  if (birthDate && (!Number.isFinite(new Date(birthDate + "T00:00:00Z").getTime()) || new Date(birthDate + "T00:00:00Z").getTime() > Date.now())) {
+    return json({ error: "Birth date cannot be in the future." }, 400);
+  }
+  if (avatar && !((/^data:image\/(?:jpeg|png|webp);base64,/.test(avatar) && avatar.length <= 360000) || isStoredMediaUrl(avatar))) {
+    return json({ error: "Choose a supported profile image." }, 400);
+  }
+  if (typeof body.email_verified !== "boolean") return json({ error: "Choose whether this account is verified." }, 400);
+  if (target.id === actor.id && !body.email_verified) return json({ error: "The administrator account must remain verified." }, 403);
+  let passwordHash = null;
+  if (body.new_password) {
+    if (!validPassword(body.new_password)) return json({ error: "A new password must contain 10 to 128 characters." }, 400);
+    passwordHash = await hashPassword(body.new_password);
+  }
+  const verifiedAt = body.email_verified ? (target.email_verified ? undefined : now) : null;
+  await env.DB.prepare(
+    `UPDATE users SET display_name = ?, birth_date = ?, avatar_data_url = ?, email_verified = ?,
+       verified_at = CASE WHEN ? = 1 THEN COALESCE(verified_at, ?) ELSE NULL END,
+       password_hash = COALESCE(?, password_hash), updated_at = ? WHERE id = ?`,
+  ).bind(name, birthDate || null, avatar || null, body.email_verified ? 1 : 0,
+    body.email_verified ? 1 : 0, verifiedAt || now, passwordHash, now, id).run();
+
+  if (!body.email_verified || passwordHash) {
+    await env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(id).run();
+    if (actor.id === id && passwordHash && body.email_verified) {
+      const token = await createSession(id, env);
+      return json({ ok: true, user: "updated" }, 200, { "Set-Cookie": sessionCookie(token) });
+    }
+  }
   return json({ ok: true });
 }
 async function deleteAdminUser(request, env, id) {
@@ -625,13 +740,17 @@ async function updateCategory(request, env, id) {
   if (!await requireAdmin(request, env)) return json({ error: "Administrator access required." }, 403);
   const body = await readBody(request), c = cleanCategory(body,id);
   if (c.error) return json({ error: c.error },400);
+  const previous = await env.DB.prepare("SELECT image_url FROM game_categories WHERE id=? LIMIT 1").bind(id).first();
   await env.DB.prepare("UPDATE game_categories SET name_en=?,name_ar=?,image_url=?,icon=?,updated_at=? WHERE id=?")
     .bind(c.name_en,c.name_ar,c.image_url || null,c.icon,new Date().toISOString(),id).run();
+  if (previous?.image_url && previous.image_url !== c.image_url) await deleteStoredMedia(env, previous.image_url);
   return json({ok:true});
 }
 async function deleteCategory(request, env, id) {
   if (!await requireAdmin(request, env)) return json({ error: "Administrator access required." }, 403);
+  const previous = await env.DB.prepare("SELECT image_url FROM game_categories WHERE id=? LIMIT 1").bind(id).first();
   await env.DB.prepare("DELETE FROM game_categories WHERE id=?").bind(id).run();
+  if (previous?.image_url) await deleteStoredMedia(env, previous.image_url);
   return json({ok:true});
 }
 function cleanQuestion(body, id) {
@@ -644,8 +763,9 @@ function cleanQuestion(body, id) {
     return {id:id || crypto.randomUUID(),game_type:game,category_id:cleanText(body.category_id,48),difficulty,question_en:q,question_ar:cleanText(body.question_ar,1000),answer_en:a,answer_ar:cleanText(body.answer_ar,1000),media_type:mediaType,media_url:mediaUrl || null,product_name_en:null,product_name_ar:null,product_emoji:null,price_value:null};
   }
   const name=cleanText(body.product_name_en,160), price=Number(body.price_value);
-  if (name.length<2 || !Number.isFinite(price) || price<0) return {error:"Enter a product name and a valid price in JOD."};
-  return {id:id || crypto.randomUUID(),game_type:game,category_id:null,difficulty,question_en:"",question_ar:"",answer_en:"",answer_ar:"",media_type:mediaType,media_url:mediaUrl || null,product_name_en:name,product_name_ar:cleanText(body.product_name_ar,160),product_emoji:cleanText(body.product_emoji,12)||"🛍️",price_value:price};
+  if (name.length<2 || !Number.isFinite(price) || price<=0) return {error:"Enter a product name and a valid price above zero in USD."};
+  if (mediaType === "none" || !mediaUrl) return {error:"Add a real product photo or another media file before saving."};
+  return {id:id || crypto.randomUUID(),game_type:game,category_id:null,difficulty,question_en:"",question_ar:"",answer_en:"",answer_ar:"",media_type:mediaType,media_url:mediaUrl,product_name_en:name,product_name_ar:cleanText(body.product_name_ar,160),product_emoji:null,price_value:price};
 }
 async function createQuestion(request, env) {
   if (!await requireAdmin(request, env)) return json({error:"Administrator access required."},403);
@@ -662,12 +782,17 @@ async function updateQuestion(request, env, id) {
   const body=await readBody(request),q=cleanQuestion(body,id);
   if(q.error)return json({error:q.error},400);
   if(q.game_type==="zanko" && !await env.DB.prepare("SELECT id FROM game_categories WHERE id=? LIMIT 1").bind(q.category_id).first())return json({error:"Choose an existing category."},400);
+  const previous = await env.DB.prepare("SELECT media_url FROM game_questions WHERE id=? LIMIT 1").bind(id).first();
   await env.DB.prepare("UPDATE game_questions SET game_type=?,category_id=?,difficulty=?,question_en=?,question_ar=?,answer_en=?,answer_ar=?,media_type=?,media_url=?,product_name_en=?,product_name_ar=?,product_emoji=?,price_value=?,updated_at=? WHERE id=?")
     .bind(q.game_type,q.category_id,q.difficulty,q.question_en,q.question_ar,q.answer_en,q.answer_ar,q.media_type,q.media_url,q.product_name_en,q.product_name_ar,q.product_emoji,q.price_value,new Date().toISOString(),id).run();
+  if (previous?.media_url && previous.media_url !== q.media_url) await deleteStoredMedia(env, previous.media_url);
   return json({ok:true});
 }
 async function deleteQuestion(request, env, id) {
   if (!await requireAdmin(request, env)) return json({error:"Administrator access required."},403);
-  await env.DB.prepare("DELETE FROM game_questions WHERE id=?").bind(id).run(); return json({ok:true});
+  const previous = await env.DB.prepare("SELECT media_url FROM game_questions WHERE id=? LIMIT 1").bind(id).first();
+  await env.DB.prepare("DELETE FROM game_questions WHERE id=?").bind(id).run();
+  if (previous?.media_url) await deleteStoredMedia(env, previous.media_url);
+  return json({ok:true});
 }
 
