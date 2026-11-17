@@ -578,8 +578,10 @@ async function servePublicMedia(request, env, url) {
   if (!/^uploads\/[a-zA-Z0-9/_-]+\.(?:jpe?g|png|webp|gif|mp4|webm|mov|mp3|m4a|aac|ogg|wav)$/i.test(key)) {
     return new Response("Not found.", { status: 404 });
   }
-  const object = await env.MEDIA.get(key, request.headers.has("Range") ? { range: request.headers } : {});
-  if (!object || !object.body && request.method !== "HEAD") return new Response("Not found.", { status: 404 });
+  const object = request.method === "HEAD"
+    ? await env.MEDIA.head(key)
+    : await env.MEDIA.get(key, request.headers.has("Range") ? { range: request.headers } : {});
+  if (!object || (!("body" in object) && request.method !== "HEAD")) return new Response("Not found.", { status: 404 });
   const headers = new Headers();
   if (object.writeHttpMetadata) object.writeHttpMetadata(headers);
   headers.set("X-Content-Type-Options", "nosniff");
@@ -677,6 +679,11 @@ async function updateAdminUser(request, env, id) {
 
   if (!body.email_verified || passwordHash) {
     await env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(id).run();
+  }
+  if (passwordHash || Boolean(body.email_verified) !== Boolean(target.email_verified)) {
+    await env.DB.prepare("DELETE FROM login_attempts WHERE email = ?").bind(target.email).run();
+  }
+  if (!body.email_verified || passwordHash) {
     if (actor.id === id && passwordHash && body.email_verified) {
       const token = await createSession(id, env);
       return json({ ok: true, user: "updated" }, 200, { "Set-Cookie": sessionCookie(token) });
