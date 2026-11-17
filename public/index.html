@@ -323,7 +323,7 @@ function openPriceSetup(){if(!authReady){refreshSession().then(()=>{if(currentUs
 function closePriceOverlays(){document.getElementById('priceSetupOverlay').classList.remove('open');document.getElementById('priceGameOverlay').classList.remove('open')}
 function startPriceGame(){if(!requireLogin())return;pricePlayers=document.getElementById('priceNames').value.split(',').map(x=>x.trim()).filter(Boolean);if(pricePlayers.length<2){alert(isArabic?'أدخلوا اسمين على الأقل وافصلوا بينهما بفواصل.':'Enter at least two player names, separated by commas.');return}priceScores=pricePlayers.map(()=>0);priceTurn=0;priceRound=0;priceDeck=shuffled(PRODUCTS);document.getElementById('priceSetupOverlay').classList.remove('open');document.getElementById('priceGameOverlay').classList.add('open');document.getElementById('priceGameTitle').textContent=t('price');document.getElementById('priceNext').hidden=true;document.getElementById('priceSubmit').hidden=false;document.getElementById('priceNext').textContent=t('nextTurn');renderPriceRound()}
 function renderPriceRound(){if(priceRound>=priceDeck.length){finishPriceGame();return}priceAnswered=false;const item=priceDeck[priceRound];document.getElementById('priceTurn').textContent=`${pricePlayers[priceTurn]} · ${t('turn')}`;document.getElementById('priceScore').textContent=`${t('score')||'Score'}: ${priceScores[priceTurn]}`;document.getElementById('priceEmoji').textContent=item[1];document.getElementById('priceProduct').textContent=item[0];document.getElementById('priceGuess').value='';document.getElementById('priceResult').textContent='';document.getElementById('priceGuessLabel').firstChild.textContent=t('guess');document.getElementById('pricePassNote').textContent=t('pricePass');document.getElementById('priceNote').textContent=t('noRepeat');document.getElementById('priceSubmit').textContent=t('submit');document.getElementById('priceSubmit').hidden=false;document.getElementById('priceNext').hidden=true}
-function submitPriceGuess(){if(priceAnswered)return;const raw=document.getElementById('priceGuess').value;const guess=Number(raw);if(raw===''||!Number.isFinite(guess)||guess<0){alert(isArabic?'أدخلوا سعراً صحيحاً.':'Enter a valid price.');return}const actual=priceDeck[priceRound][2],difference=Math.abs(guess-actual);let message;if(difference===0){priceScores[priceTurn]+=3;message=t('exact')}else if(difference/actual<=.15){priceScores[priceTurn]+=2;message=t('close')}else message=`${t('actual')} ${actual} JOD`;document.getElementById('priceResult').textContent=message;priceAnswered=true;document.getElementById('priceScore').textContent=`${t('score')||'Score'}: ${priceScores[priceTurn]}`;document.getElementById('priceSubmit').hidden=true;document.getElementById('priceNext').hidden=false}
+function submitPriceGuess(){if(priceAnswered)return;const raw=document.getElementById('priceGuess').value;const guess=Number(raw);if(raw===''||!Number.isFinite(guess)||guess<0){alert(isArabic?'أدخلوا سعراً صحيحاً.':'Enter a valid price.');return}const actual=priceDeck[priceRound][2],difference=Math.abs(guess-actual);let message;if(difference===0){priceScores[priceTurn]+=3;message=t('exact')}else if(difference/actual<=.15){priceScores[priceTurn]+=2;message=t('close')}else message=`${t('actual')} ${actual.toFixed(2)} USD`;document.getElementById('priceResult').textContent=message;priceAnswered=true;document.getElementById('priceScore').textContent=`${t('score')||'Score'}: ${priceScores[priceTurn]}`;document.getElementById('priceSubmit').hidden=true;document.getElementById('priceNext').hidden=false}
 function nextPriceTurn(){priceRound++;priceTurn=(priceTurn+1)%pricePlayers.length;renderPriceRound()}
 function finishPriceGame(){const ranking=pricePlayers.map((name,i)=>({name,score:priceScores[i]})).sort((a,b)=>b.score-a.score);document.getElementById('priceGameTitle').textContent=t('priceOver');document.getElementById('priceProduct').textContent=ranking.map((p,i)=>`${i+1}. ${p.name} — ${p.score}`).join('  ·  ');document.getElementById('priceEmoji').textContent='🏆';document.getElementById('priceGuessLabel').hidden=true;document.getElementById('priceSubmit').hidden=true;document.getElementById('priceNext').hidden=false;document.getElementById('priceNext').textContent=t('returnHome');document.getElementById('priceNext').onclick=()=>{closePriceOverlays();document.getElementById('priceGuessLabel').hidden=false;document.getElementById('priceNext').onclick=nextPriceTurn;document.getElementById('priceNext').textContent=t('nextTurn')}}
 
@@ -486,6 +486,39 @@ async function saveProfile(event){event.preventDefault();const button=event.subm
 function v17BuildLegacySeed(){const categories=CATEGORIES.map((c,i)=>({id:c.id,name_en:c.name,name_ar:c.ar,image_url:c.image,icon:c.icon}));const questions=[];Object.keys(FIXED_QUESTIONS).forEach(categoryId=>{const en=FIXED_QUESTIONS[categoryId]||[],ar=FIXED_QUESTIONS_AR[categoryId]||[];en.forEach((q,i)=>{questions.push({id:"legacy-zanko-"+categoryId+"-"+i,game_type:"zanko",category_id:categoryId,difficulty:q.points===100?"easy":q.points===600?"hard":"medium",question_en:q.q,question_ar:ar[i]?ar[i].q:q.q,answer_en:q.a,answer_ar:ar[i]?ar[i].a:q.a,media_type:"none",media_url:""})})});["easy","medium","hard"].forEach(tier=>{(MUSIC_BANK[tier]||[]).forEach((q,i)=>{const ar=(MUSIC_BANK_AR[tier]||[])[i]||q;questions.push({id:"legacy-zanko-music-"+tier+"-"+i,game_type:"zanko",category_id:"music",difficulty:tier,question_en:q.q,question_ar:ar.q,answer_en:q.a,answer_ar:ar.a,media_type:"none",media_url:""})})});return{categories,questions}}
 async function v17EnsureSeeded(){let data=await v17Request("/admin/content","GET");if(!data.questions||data.questions.length===0){const seed=v17BuildLegacySeed();await v17Request("/admin/content/seed","POST",seed);data=await v17Request("/admin/content","GET")}return data}
 async function v17LoadGameContent(){const data=await v17Request("/game-content","GET");v17Content.categories=data.categories||[];v17Content.questions=data.questions||[];v17Content.priceItems=v17Content.questions.filter(q=>q.game_type==="price"&&q.media_url&&q.media_type!=="none").map(q=>[q.product_name_en,"",Number(q.price_value||0),q.media_type,q.media_url,q.product_name_ar]);if(v17Content.categories.length){CATEGORIES=v17Content.categories.map(c=>({id:c.id,name:c.name_en,ar:c.name_ar,image:c.image_url||"category-music.svg",icon:c.icon||"🎯"}))}v17ContentLoaded=true;return data}
+async function v17UploadMedia(file){
+ if(!file)throw new Error("Choose a file from your device.");
+ const form=new FormData();form.append("file",file);
+ const response=await fetch("/api/admin/media",{method:"POST",credentials:"same-origin",body:form});
+ let data={};try{data=await response.json()}catch{}
+ if(!response.ok)throw new Error(data.error||v17T("failed"));return data.url;
+}
+function v17SetMediaAccept(game){
+ const type=document.getElementById(game+"MediaType").value,input=document.getElementById(game+"MediaFile");if(!input)return;
+ input.accept=type==="image"?"image/jpeg,image/png,image/webp,image/gif":type==="video"?"video/mp4,video/webm,video/quicktime":type==="audio"?"audio/mpeg,audio/mp4,audio/aac,audio/ogg,audio/wav,audio/webm":"";
+}
+function v17PreviewMedia(game,type,url){
+ const box=document.getElementById(game+"MediaPreview");if(!box)return;box.innerHTML="";
+ if(!url||!type||type==="none")return;
+ const el=document.createElement(type==="image"?"img":type==="video"?"video":"audio");el.src=url;
+ if(type==="video"||type==="audio"){el.controls=true;el.playsInline=true}box.appendChild(el);
+}
+function v17BindFilePreviews(){
+ ["zanko","price"].forEach(game=>{
+  const input=document.getElementById(game+"MediaFile");if(!input)return;
+  input.addEventListener("change",()=>{
+   const file=input.files[0],box=document.getElementById(game+"MediaPreview");if(!box)return;box.innerHTML="";
+   if(file){const url=URL.createObjectURL(file);v17PreviewMedia(game,document.getElementById(game+"MediaType").value,url)}
+  });
+ });
+ const category=document.getElementById("categoryImageFile");
+ if(category)category.addEventListener("change",()=>{
+  const box=document.getElementById("categoryImagePreview");box.innerHTML="";
+  const file=category.files[0];if(file){const img=document.createElement("img");img.src=URL.createObjectURL(file);img.alt="Category image preview";box.appendChild(img)}
+ });
+ const avatar=document.getElementById("adminUserAvatarFile");
+ if(avatar)avatar.addEventListener("change",()=>{const file=avatar.files[0];if(file)v17SetAdminUserAvatar(URL.createObjectURL(file))});
+}
 function v17RenderMedia(container,type,url){if(!container)return;container.innerHTML="";container.hidden=true;if(!url||type==="none")return;let el;if(type==="image"){el=document.createElement("img");el.alt="Question media";el.src=url}else if(type==="video"){el=document.createElement("video");el.src=url;el.controls=true;el.playsInline=true}else if(type==="audio"){el=document.createElement("audio");el.src=url;el.controls=true}else return;container.appendChild(el);container.hidden=false}
 function v17FormatDate(value){if(!value)return v17T("never");const d=new Date(value);if(Number.isNaN(d.getTime()))return String(value);return d.toLocaleString(isArabic?"ar-JO":"en-US",{dateStyle:"medium",timeStyle:"short"})}
 function v17SetAdminStatus(message,error){v17ShowStatus("adminPageStatus",message,error)}
@@ -656,11 +689,37 @@ window.openAdmin=openAdmin;
 window.closeAdmin=closeAdmin;
 window.logout=async function(){closeAccountDrawer();try{await apiRequest("/logout",{})}catch{}currentUser=null;showAdminButton();document.getElementById("adminPage").hidden=true;document.getElementById("feedbackOverlay").classList.remove("open");closeV17Page();if(gameState.screen!=="home")showHome()};
 window.refreshSession=async function(){try{const data=await apiRequest("/me");currentUser=data.user||null}catch{currentUser=null}authReady=true;showAdminButton();if(currentUser){if(currentUser.isAdmin){try{await v17EnsureSeeded()}catch(error){console.warn("JALSA content seed:",error.message)}}try{await v17LoadGameContent()}catch(error){console.warn("JALSA game content:",error.message)}}};
-window.startPriceGame=function(){if(!requireLogin())return;const players=document.getElementById("priceNames").value.split(",").map(x=>x.trim()).filter(Boolean);if(players.length<2){alert(isArabic?"أدخلوا اسمين على الأقل وافصلوا بينهما بفواصل.":"Enter at least two players, separated by commas.");return}pricePlayers=players;priceScores=pricePlayers.map(()=>0);priceTurn=0;priceRound=0;const source=v17Content.priceItems.length?v17Content.priceItems:PRODUCTS.map(p=>[p[0],p[1],p[2],"none","",p[0]]);priceDeck=shuffled(source);document.getElementById("priceSetupOverlay").classList.remove("open");document.getElementById("priceGameOverlay").classList.add("open");document.getElementById("priceGameTitle").textContent=t("price");document.getElementById("priceNext").hidden=true;document.getElementById("priceSubmit").hidden=false;document.getElementById("priceNext").textContent=t("nextTurn");renderPriceRound()};
-window.renderPriceRound=function(){if(priceRound>=priceDeck.length){finishPriceGame();return}priceAnswered=false;const item=priceDeck[priceRound];document.getElementById("priceTurn").textContent=pricePlayers[priceTurn]+" · "+t("turn");document.getElementById("priceScore").textContent=(t("score")||"Score")+": "+priceScores[priceTurn];document.getElementById("priceEmoji").textContent=item[1]||"🛍️";document.getElementById("priceProduct").textContent=isArabic?(item[5]||item[0]):item[0];v17RenderMedia(document.getElementById("priceMedia"),item[3],item[4]);document.getElementById("priceGuess").value="";document.getElementById("priceResult").textContent="";document.getElementById("priceGuessLabel").firstChild.textContent=t("guess");document.getElementById("pricePassNote").textContent=t("pricePass");document.getElementById("priceNote").textContent=t("noRepeat");document.getElementById("priceSubmit").textContent=t("submit");document.getElementById("priceSubmit").hidden=false;document.getElementById("priceNext").hidden=true};
+window.startPriceGame=async function(){
+ if(!requireLogin())return;
+ const players=document.getElementById("priceNames").value.split(",").map(x=>x.trim()).filter(Boolean);
+ if(players.length<2){alert(isArabic?"أدخلوا اسمين على الأقل وافصلوا بينهما بفواصل.":"Enter at least two player names, separated by commas.");return}
+ try{await v17LoadGameContent()}catch(error){showToast(error.message);return}
+ const source=shuffled(v17Content.priceItems.filter(item=>item[3]&&item[4]));
+ if(!source.length){alert(isArabic?"لا توجد منتجات بعد. أضف منتجات بصور حقيقية من لوحة التحكم.":"There are no products yet. Add products with real photos in the admin dashboard.");return}
+ pricePlayers=players;priceScores=pricePlayers.map(()=>0);priceTurn=0;priceRound=0;priceDeck=source;
+ document.getElementById("priceSetupOverlay").classList.remove("open");document.getElementById("priceGameOverlay").classList.add("open");
+ document.getElementById("priceGameTitle").textContent=t("price");document.getElementById("priceNext").hidden=true;
+ document.getElementById("priceSubmit").hidden=false;document.getElementById("priceNext").textContent=t("nextTurn");
+ renderPriceRound();
+};
+window.renderPriceRound=function(){
+ if(priceRound>=priceDeck.length){finishPriceGame();return}
+ priceAnswered=false;const item=priceDeck[priceRound];
+ document.getElementById("priceTurn").textContent=pricePlayers[priceTurn]+" · "+t("turn");
+ document.getElementById("priceScore").textContent=(t("score")||"Score")+": "+priceScores[priceTurn];
+ document.getElementById("priceEmoji").hidden=true;
+ document.getElementById("priceProduct").textContent=isArabic?(item[5]||item[0]):item[0];
+ v17RenderMedia(document.getElementById("priceMedia"),item[3],item[4]);
+ document.getElementById("priceGuess").value="";
+ document.getElementById("priceGuessLabel").firstChild.textContent=isArabic?"تخمينك بالدولار الأمريكي (USD)":"Your guess in US dollars (USD)";
+ document.getElementById("priceResult").textContent="";document.getElementById("pricePassNote").textContent=t("pricePass");
+ document.getElementById("priceNote").textContent=t("noRepeat");document.getElementById("priceSubmit").textContent=t("submit");
+ document.getElementById("priceSubmit").hidden=false;document.getElementById("priceNext").hidden=true;
+};
 window.toggleLanguage=(function(old){return function(){old();v17SyncLanguage();if(!document.getElementById("adminPage").hidden){const active=document.querySelector(".v17-admin-tabs button.active");if(active)switchAdminTab(active.getAttribute("data-admin-tab"))}}})(toggleLanguage);
 window.addEventListener("keydown",function(e){if(e.key==="Escape"){closeAccountDrawer();closeFeedback();if(!document.getElementById("adminPage").hidden)closeAdmin();if(!document.getElementById("profilePage").hidden)closeV17Page()}});
 v17SyncLanguage();
+v17BindFilePreviews();
 </script>
 
 </body></html>
