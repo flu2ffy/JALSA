@@ -603,7 +603,9 @@ async function seedGameContent(request, env) {
         mt, mu || null, cleanText(q.product_name_en,160) || null, cleanText(q.product_name_ar,160) || null, cleanText(q.product_emoji,12) || null,
         q.price_value == null ? null : Number(q.price_value), now, now));
   }
-  if (statements.length) await env.DB.batch(statements);
+  for (let i = 0; i < statements.length; i += 50) {
+    await env.DB.batch(statements.slice(i, i + 50));
+  }
   return json({ ok: true, seeded: true, inserted: statements.length });
 }
 function cleanCategory(body, id) {
