@@ -1,7 +1,37 @@
+
 {
+  "$schema": "node_modules/wrangler/config-schema.json",
   "name": "jalsa",
-  "compatibility_date": "2026-11-15",
+  "main": "worker.js",
+  "compatibility_date": "2026-11-16",
   "assets": {
-    "directory": "./public"
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "jalsa-auth",
+      "database_id": "f147c99a-9be7-4ce4-88e2-8e465420e3ce"
+    }
+  ],
+  "vars": {
+    "MAIL_FROM": "JALSA <Accountservice@jalsa.me>",
+    "REPLY_TO": "support@jalsa.me",
+    "ADMIN_EMAIL": "1mr.cute3@gmail.com"
+  },
+  "previews": {
+    "vars": {
+      "MAIL_FROM": "JALSA <Accountservice@jalsa.me>",
+      "REPLY_TO": "support@jalsa.me",
+      "ADMIN_EMAIL": "1mr.cute3@gmail.com"
+    },
+    "d1_databases": [
+      {
+        "binding": "DB",
+        "database_id": "5a867196-333c-416c-94c2-a0833f69728a"
+      }
+    ]
   }
 }
