@@ -53,9 +53,4 @@ CREATE TABLE game_questions (
 CREATE INDEX idx_game_questions_game_category ON game_questions(game_type, category_id, difficulty);
 CREATE INDEX idx_game_questions_game_type ON game_questions(game_type, created_at DESC);
 
-CREATE TABLE d1_migrations_v17 (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL UNIQUE,
-  applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-INSERT INTO d1_migrations_v17 (name) VALUES ('0003_v17_dashboard.sql');
+INSERT INTO d1_migrations (name) VALUES ('0003_v17_dashboard.sql');
