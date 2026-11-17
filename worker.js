@@ -61,6 +61,7 @@ export default {
         if (adminParts[3] === "questions" && request.method === "PATCH") return await updateQuestion(request, env, itemId);
         if (adminParts[3] === "questions" && request.method === "DELETE") return await deleteQuestion(request, env, itemId);
         if (adminParts[3] === "feedback" && request.method === "PATCH") return await updateFeedbackStatus(request, env, itemId);
+        if (adminParts[3] === "feedback" && request.method === "DELETE") return await deleteFeedback(request, env, itemId);
       }
       return json({ error: "Not found." }, 404);
     } catch (error) {
@@ -632,6 +633,13 @@ async function updateFeedbackStatus(request, env, id) {
   await env.DB.prepare("UPDATE feedback SET status = ?, updated_at = ? WHERE id = ?").bind(status, new Date().toISOString(), id).run();
   return json({ ok: true });
 }
+async function deleteFeedback(request, env, id) {
+  if (!await requireAdmin(request, env)) return json({ error: "Administrator access required." }, 403);
+  const existing = await env.DB.prepare("SELECT id FROM feedback WHERE id = ? LIMIT 1").bind(id).first();
+  if (!existing) return json({ error: "Feedback not found." }, 404);
+  await env.DB.prepare("DELETE FROM feedback WHERE id = ?").bind(id).run();
+  return json({ ok: true });
+}
 async function updateAdminUser(request, env, id) {
   const actor = await requireAdmin(request, env);
   if (!actor) return json({ error: "Administrator access required." }, 403);
@@ -640,8 +648,10 @@ async function updateAdminUser(request, env, id) {
   const body = await readBody(request), action = cleanText(body.action, 24), now = new Date().toISOString();
   if (action === "ban") {
     if (target.id === actor.id) return json({ error: "You cannot ban your own administrator account." }, 403);
+    const reason = cleanText(body.reason, 240);
+    if (reason.length < 3) return json({ error: "Please provide a reason for banning this user." }, 400);
     await env.DB.prepare("UPDATE users SET banned_at = ?, banned_reason = ?, updated_at = ? WHERE id = ?")
-      .bind(now, cleanText(body.reason || "Account suspended by JALSA administrator.", 240), now, id).run();
+      .bind(now, reason, now, id).run();
     await env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(id).run();
     return json({ ok: true });
   }
