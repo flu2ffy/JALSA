@@ -4,7 +4,7 @@ const CODE_MINUTES = 10;
 const MAX_CODE_ATTEMPTS = 5;
 const MAX_LOGIN_FAILURES = 8;
 const LOGIN_WINDOW_MINUTES = 15;
-const PASSWORD_ITERATIONS = 120000;
+const PASSWORD_ITERATIONS = 100000;
 const encoder = new TextEncoder();
 const DUMMY_PASSWORD_HASH = "pbkdf2-sha256$120000$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
@@ -147,7 +147,7 @@ async function verifyPassword(password, storedHash) {
   const parts = String(storedHash || "").split("$");
   if (parts.length !== 4 || parts[0] !== "pbkdf2-sha256") return false;
   const iterations = Number(parts[1]);
-  if (!Number.isInteger(iterations) || iterations < 10000 || iterations > 500000) return false;
+  if (!Number.isInteger(iterations) || iterations < 10000 || iterations > 100000) return false;
   try {
     const salt = fromBase64Url(parts[2]);
     const expected = fromBase64Url(parts[3]);
