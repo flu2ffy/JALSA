@@ -499,18 +499,95 @@ async function renderAdminFeedback(){const holder=document.getElementById("admin
 async function v17FeedbackStatus(id,status){try{await v17Request("/admin/feedback/"+encodeURIComponent(id),"PATCH",{status});await renderAdminFeedback()}catch(error){v17SetAdminStatus(error.message,true)}}
 async function renderZankoAdmin(){v17RenderCategories();const select=document.getElementById("zankoQuestionCategory");select.innerHTML=v17Content.categories.map(c=>"<option value='"+escapeHtml(c.id)+"'>"+escapeHtml(c.name_en)+" / "+escapeHtml(c.name_ar)+"</option>").join("");renderZankoQuestions()}
 function v17RenderCategories(){const holder=document.getElementById("categoryList");if(!v17Content.categories.length){holder.textContent=v17T("noCategories");return}holder.innerHTML=v17Content.categories.map(c=>"<div class='v17-mini-row'><strong>"+escapeHtml(c.name_en)+" / "+escapeHtml(c.name_ar)+"</strong><span class='v17-table-actions'><button class='v17-small-button' onclick=\"v17EditCategory('"+c.id+"')\">"+v17T("edit")+"</button><button class='v17-small-button danger' onclick=\"v17DeleteCategory('"+c.id+"')\">"+v17T("delete")+"</button></span></div>").join("")}
-async function saveCategory(event){event.preventDefault();try{await v17Request("/admin/categories","POST",{name_en:document.getElementById("categoryNameEn").value,name_ar:document.getElementById("categoryNameAr").value,image_url:document.getElementById("categoryImage").value,icon:document.getElementById("categoryIcon").value});document.getElementById("categoryForm").reset();await v17LoadAdminContent();await renderZankoAdmin();v17SetAdminStatus(v17T("categorySaved"),false)}catch(error){v17SetAdminStatus(error.message,true)}}
-async function v17EditCategory(id){const c=v17Content.categories.find(x=>x.id===id);if(!c)return;const nameEn=prompt("English category name",c.name_en);if(nameEn===null)return;const nameAr=prompt("Arabic category name",c.name_ar);if(nameAr===null)return;const image=prompt("Category image URL or asset path",c.image_url||"");if(image===null)return;try{await v17Request("/admin/categories/"+encodeURIComponent(id),"PATCH",{name_en:nameEn,name_ar:nameAr,image_url:image,icon:c.icon});await v17LoadAdminContent();renderZankoAdmin()}catch(error){v17SetAdminStatus(error.message,true)}}
+async function saveCategory(event){
+ event.preventDefault();
+ try{
+  const file=document.getElementById("categoryImageFile").files[0];
+  const imageUrl=file?await v17UploadMedia(file):document.getElementById("categoryImageUrl").value;
+  await v17Request("/admin/categories","POST",{name_en:document.getElementById("categoryNameEn").value,name_ar:document.getElementById("categoryNameAr").value,image_url:imageUrl,icon:document.getElementById("categoryIcon").value});
+  document.getElementById("categoryForm").reset();document.getElementById("categoryImageUrl").value="";document.getElementById("categoryImagePreview").innerHTML="";
+  await v17LoadAdminContent();await renderZankoAdmin();v17SetAdminStatus(v17T("categorySaved"),false);
+ }catch(error){v17SetAdminStatus(error.message,true)}
+}
+
+async function v17EditCategory(id){
+ const c=v17Content.categories.find(x=>x.id===id);if(!c)return;
+ const nameEn=prompt("English category name",c.name_en);if(nameEn===null)return;
+ const nameAr=prompt("Arabic category name",c.name_ar);if(nameAr===null)return;
+ try{await v17Request("/admin/categories/"+encodeURIComponent(id),"PATCH",{name_en:nameEn,name_ar:nameAr,image_url:c.image_url||"",icon:c.icon});await v17LoadAdminContent();renderZankoAdmin()}
+ catch(error){v17SetAdminStatus(error.message,true)}
+}
+
 async function v17DeleteCategory(id){if(!confirm(v17T("confirmDelete")))return;try{await v17Request("/admin/categories/"+encodeURIComponent(id),"DELETE");await v17LoadAdminContent();renderZankoAdmin()}catch(error){v17SetAdminStatus(error.message,true)}}
 function renderZankoQuestions(){const holder=document.getElementById("zankoQuestionList"),term=(document.getElementById("zankoQuestionSearch").value||"").toLowerCase();const rows=v17Content.questions.filter(q=>q.game_type==="zanko"&&((q.question_en+" "+q.question_ar+" "+q.answer_en+" "+q.answer_ar).toLowerCase().includes(term)));if(!rows.length){holder.textContent=v17T("noQuestions");return}let html="<table class='v17-table'><thead><tr><th>"+v17T("category")+"</th><th>"+v17T("difficulty")+"</th><th>"+v17T("questionEnglish")+"</th><th>"+v17T("mediaType")+"</th><th>"+v17T("actions")+"</th></tr></thead><tbody>";rows.forEach(q=>{const cat=v17Content.categories.find(c=>c.id===q.category_id);html+="<tr><td>"+escapeHtml(cat?cat.name_en:q.category_id)+"</td><td>"+escapeHtml(q.difficulty)+"</td><td>"+escapeHtml(q.question_en)+"</td><td>"+escapeHtml(q.media_type||"none")+"</td><td><div class='v17-table-actions'><button class='v17-small-button' onclick=\"v17EditQuestion('"+q.id+"')\">"+v17T("edit")+"</button><button class='v17-small-button danger' onclick=\"v17DeleteQuestion('"+q.id+"')\">"+v17T("delete")+"</button></div></td></tr>"});html+="</tbody></table>";holder.innerHTML=html}
-async function saveZankoQuestion(event){event.preventDefault();const id=document.getElementById("zankoQuestionId").value;const body={game_type:"zanko",category_id:document.getElementById("zankoQuestionCategory").value,difficulty:document.getElementById("zankoQuestionDifficulty").value,question_en:document.getElementById("zankoQuestionEn").value,question_ar:document.getElementById("zankoQuestionAr").value,answer_en:document.getElementById("zankoAnswerEn").value,answer_ar:document.getElementById("zankoAnswerAr").value,media_type:document.getElementById("zankoMediaType").value,media_url:document.getElementById("zankoMediaUrl").value};try{await v17Request(id?"/admin/questions/"+encodeURIComponent(id):"/admin/questions",id?"PATCH":"POST",body);resetZankoQuestionForm();await v17LoadAdminContent();renderZankoQuestions();v17SetAdminStatus(v17T("questionSaved"),false)}catch(error){v17SetAdminStatus(error.message,true)}}
-function resetZankoQuestionForm(){document.getElementById("zankoQuestionForm").reset();document.getElementById("zankoQuestionId").value="";document.getElementById("zankoMediaType").value="none"}
-function v17EditQuestion(id){const q=v17Content.questions.find(x=>x.id===id);if(!q)return;document.getElementById("zankoQuestionId").value=q.id;document.getElementById("zankoQuestionCategory").value=q.category_id;document.getElementById("zankoQuestionDifficulty").value=q.difficulty;document.getElementById("zankoQuestionEn").value=q.question_en;document.getElementById("zankoQuestionAr").value=q.question_ar;document.getElementById("zankoAnswerEn").value=q.answer_en;document.getElementById("zankoAnswerAr").value=q.answer_ar;document.getElementById("zankoMediaType").value=q.media_type||"none";document.getElementById("zankoMediaUrl").value=q.media_url||"";document.getElementById("zankoQuestionEn").focus()}
+async function saveZankoQuestion(event){
+ event.preventDefault();const id=document.getElementById("zankoQuestionId").value;
+ try{
+  const file=document.getElementById("zankoMediaFile").files[0];
+  const mediaType=document.getElementById("zankoMediaType").value;
+  let mediaUrl=document.getElementById("zankoMediaUrl").value;
+  if(file)mediaUrl=await v17UploadMedia(file);
+  if(mediaType==="none")mediaUrl="";
+  if(mediaType!=="none"&&!mediaUrl)throw new Error("Choose a media file from your device.");
+  const body={game_type:"zanko",category_id:document.getElementById("zankoQuestionCategory").value,difficulty:document.getElementById("zankoQuestionDifficulty").value,question_en:document.getElementById("zankoQuestionEn").value,question_ar:document.getElementById("zankoQuestionAr").value,answer_en:document.getElementById("zankoAnswerEn").value,answer_ar:document.getElementById("zankoAnswerAr").value,media_type:mediaType,media_url:mediaUrl};
+  await v17Request(id?"/admin/questions/"+encodeURIComponent(id):"/admin/questions",id?"PATCH":"POST",body);
+  resetZankoQuestionForm();await v17LoadAdminContent();renderZankoQuestions();v17SetAdminStatus(v17T("questionSaved"),false);
+ }catch(error){v17SetAdminStatus(error.message,true)}
+}
+
+function resetZankoQuestionForm(){
+ document.getElementById("zankoQuestionForm").reset();document.getElementById("zankoQuestionId").value="";
+ document.getElementById("zankoMediaType").value="none";document.getElementById("zankoMediaUrl").value="";
+ document.getElementById("zankoMediaFile").value="";document.getElementById("zankoMediaPreview").innerHTML="";
+}
+
+function v17EditQuestion(id){
+ const q=v17Content.questions.find(x=>x.id===id);if(!q)return;
+ document.getElementById("zankoQuestionId").value=q.id;document.getElementById("zankoQuestionCategory").value=q.category_id;
+ document.getElementById("zankoQuestionDifficulty").value=q.difficulty;document.getElementById("zankoQuestionEn").value=q.question_en;
+ document.getElementById("zankoQuestionAr").value=q.question_ar;document.getElementById("zankoAnswerEn").value=q.answer_en;
+ document.getElementById("zankoAnswerAr").value=q.answer_ar;document.getElementById("zankoMediaType").value=q.media_type||"none";
+ document.getElementById("zankoMediaUrl").value=q.media_url||"";document.getElementById("zankoMediaFile").value="";
+ v17PreviewMedia("zanko",q.media_type,q.media_url);document.getElementById("zankoQuestionEn").focus();
+}
+
 async function v17DeleteQuestion(id){if(!confirm(v17T("confirmDelete")))return;try{await v17Request("/admin/questions/"+encodeURIComponent(id),"DELETE");await v17LoadAdminContent();renderZankoQuestions()}catch(error){v17SetAdminStatus(error.message,true)}}
-async function renderPriceAdmin(){const holder=document.getElementById("priceQuestionList"),rows=v17Content.questions.filter(q=>q.game_type==="price");if(!rows.length){holder.textContent=v17T("noQuestions");return}holder.innerHTML=rows.map(q=>"<div class='v17-mini-row'><div><strong>"+escapeHtml(q.product_name_en)+"</strong><div class='v17-muted'>"+escapeHtml(q.price_value)+" JOD · "+escapeHtml(q.difficulty)+"</div></div><span class='v17-table-actions'><button class='v17-small-button' onclick=\"v17EditPrice('"+q.id+"')\">"+v17T("edit")+"</button><button class='v17-small-button danger' onclick=\"v17DeletePrice('"+q.id+"')\">"+v17T("delete")+"</button></span></div>").join("")}
-async function savePriceQuestion(event){event.preventDefault();const id=document.getElementById("priceQuestionId").value;const body={game_type:"price",difficulty:document.getElementById("priceDifficulty").value,product_name_en:document.getElementById("priceNameEn").value,product_name_ar:document.getElementById("priceNameAr").value,price_value:Number(document.getElementById("priceValue").value),product_emoji:document.getElementById("priceEmoji").value,media_type:document.getElementById("priceMediaType").value,media_url:document.getElementById("priceMediaUrl").value};try{await v17Request(id?"/admin/questions/"+encodeURIComponent(id):"/admin/questions",id?"PATCH":"POST",body);resetPriceQuestionForm();await v17LoadAdminContent();renderPriceAdmin();v17SetAdminStatus(v17T("priceSaved"),false)}catch(error){v17SetAdminStatus(error.message,true)}}
-function resetPriceQuestionForm(){document.getElementById("priceQuestionForm").reset();document.getElementById("priceQuestionId").value="";document.getElementById("priceEmoji").value="🛍️";document.getElementById("priceMediaType").value="none"}
-function v17EditPrice(id){const q=v17Content.questions.find(x=>x.id===id);if(!q)return;document.getElementById("priceQuestionId").value=q.id;document.getElementById("priceNameEn").value=q.product_name_en;document.getElementById("priceNameAr").value=q.product_name_ar||"";document.getElementById("priceValue").value=q.price_value;document.getElementById("priceEmoji").value=q.product_emoji||"🛍️";document.getElementById("priceDifficulty").value=q.difficulty;document.getElementById("priceMediaType").value=q.media_type||"none";document.getElementById("priceMediaUrl").value=q.media_url||"";document.getElementById("priceNameEn").focus()}
+async function renderPriceAdmin(){
+ const holder=document.getElementById("priceQuestionList"),rows=v17Content.questions.filter(q=>q.game_type==="price");
+ if(!rows.length){holder.textContent=v17T("noProducts");return}
+ holder.innerHTML=rows.map(q=>"<div class='v17-mini-row'><div style='display:flex;align-items:center;gap:10px'>"+
+ (q.media_type==="image"&&q.media_url?"<img src='"+escapeHtml(q.media_url)+"' alt='' style='width:56px;height:56px;object-fit:cover;border-radius:10px'>":"")+
+ "<div><strong>"+escapeHtml(q.product_name_en)+"</strong><div class='v17-muted'>$"+Number(q.price_value||0).toFixed(2)+" USD · "+escapeHtml(q.difficulty)+" · "+escapeHtml(q.media_type||"no media")+"</div></div></div>"+
+ "<span class='v17-table-actions'><button class='v17-small-button' onclick=\"v17EditPrice('"+q.id+"')\">"+v17T("edit")+"</button><button class='v17-small-button danger' onclick=\"v17DeletePrice('"+q.id+"')\">"+v17T("delete")+"</button></span></div>").join("");
+}
+
+async function savePriceQuestion(event){
+ event.preventDefault();const id=document.getElementById("priceQuestionId").value;
+ try{
+  const file=document.getElementById("priceMediaFile").files[0],mediaType=document.getElementById("priceMediaType").value;
+  let mediaUrl=document.getElementById("priceMediaUrl").value;if(file)mediaUrl=await v17UploadMedia(file);
+  if(!mediaUrl)throw new Error("Choose a product photo or media file from your device.");
+  const body={game_type:"price",difficulty:document.getElementById("priceDifficulty").value,product_name_en:document.getElementById("priceNameEn").value,product_name_ar:document.getElementById("priceNameAr").value,price_value:Number(document.getElementById("priceValue").value),media_type:mediaType,media_url:mediaUrl};
+  await v17Request(id?"/admin/questions/"+encodeURIComponent(id):"/admin/questions",id?"PATCH":"POST",body);
+  resetPriceQuestionForm();await v17LoadAdminContent();renderPriceAdmin();v17SetAdminStatus(v17T("priceSaved"),false);
+ }catch(error){v17SetAdminStatus(error.message,true)}
+}
+
+function resetPriceQuestionForm(){
+ document.getElementById("priceQuestionForm").reset();document.getElementById("priceQuestionId").value="";
+ document.getElementById("priceMediaType").value="image";document.getElementById("priceMediaUrl").value="";
+ document.getElementById("priceMediaFile").value="";document.getElementById("priceMediaPreview").innerHTML="";
+}
+
+function v17EditPrice(id){
+ const q=v17Content.questions.find(x=>x.id===id);if(!q)return;
+ document.getElementById("priceQuestionId").value=q.id;document.getElementById("priceNameEn").value=q.product_name_en;
+ document.getElementById("priceNameAr").value=q.product_name_ar||"";document.getElementById("priceValue").value=q.price_value;
+ document.getElementById("priceDifficulty").value=q.difficulty;document.getElementById("priceMediaType").value=q.media_type||"image";
+ document.getElementById("priceMediaUrl").value=q.media_url||"";document.getElementById("priceMediaFile").value="";
+ v17PreviewMedia("price",q.media_type,q.media_url);document.getElementById("priceNameEn").focus();
+}
+
 async function v17DeletePrice(id){if(!confirm(v17T("confirmDelete")))return;try{await v17Request("/admin/questions/"+encodeURIComponent(id),"DELETE");await v17LoadAdminContent();renderPriceAdmin()}catch(error){v17SetAdminStatus(error.message,true)}}
 window.showAdminButton=showAdminButton;
 window.startZankoSetup=startZankoSetup;
