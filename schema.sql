@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS verification_codes (
   id TEXT PRIMARY KEY NOT NULL,
   email TEXT NOT NULL COLLATE NOCASE,
   code_hash TEXT NOT NULL,
-  purpose TEXT NOT NULL CHECK (purpose IN ('register', 'reset')),
+  purpose TEXT NOT NULL CHECK (purpose IN ('register', 'login', 'reset')),
   attempts INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
   expires_at TEXT NOT NULL
