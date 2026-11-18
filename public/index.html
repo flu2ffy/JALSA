@@ -308,7 +308,7 @@ async function remoteApi(path,body){
 }
 function remoteSnapshot(){
  const tile=gameState.currentTile;
- return {screen:gameState.screen,teamNames:gameState.teamNames,scores:gameState.scores,turn:gameState.turn,question:tile?(isArabic?tile.qAr:tile.q):"",category:tile?(CATEGORIES.find(c=>c.id===tile.category)?.[isArabic?"ar":"name"]||""):"",points:tile?.actualPoints||0,revealed:!!(tile&&!document.getElementById("questionAnswer").hidden),paused:!!gameState.remotePaused,language:isArabic?"ar":"en"};
+ return {screen:gameState.screen,teamNames:gameState.teamNames,scores:gameState.scores,turn:gameState.turn,question:tile?(isArabic?tile.qAr:tile.q):"",answer:tile?(isArabic?tile.aAr:tile.a):"",category:tile?(CATEGORIES.find(c=>c.id===tile.category)?.[isArabic?"ar":"name"]||""):"",points:tile?.actualPoints||0,revealed:!!(tile&&!document.getElementById("questionAnswer").hidden),paused:!!gameState.remotePaused,language:isArabic?"ar":"en"};
 }
 async function publishRemoteState(){
  if(!remoteRoomId)return;
