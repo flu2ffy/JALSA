@@ -127,7 +127,8 @@ async function imposterRoomByKey(body,env){
  let state={};try{state=JSON.parse(room.state_json||"{}")}catch{}return {...room,state};
 }
 async function saveImposterState(env,room,state){
- await env.DB.prepare("UPDATE imposter_rooms SET state_json=? WHERE room_id=? AND ended_at IS NULL").bind(JSON.stringify(state),room.room_id).run();
+ const result=await env.DB.prepare("UPDATE imposter_rooms SET state_json=? WHERE room_id=? AND state_json=? AND ended_at IS NULL").bind(JSON.stringify(state),room.room_id,room.state_json).run();
+ return Number(result.meta?.changes||0)>0;
 }
 function imposterPublicState(state){
  return {stage:state.stage,players:state.players.map(p=>({id:p.id,name:p.name})),roundIndex:state.roundIndex||0,roundsTotal:4,round:state.rounds?.[state.roundIndex]||null,readyCount:(state.ready||[]).length,voteCount:Object.keys(state.votes||{}).length,result:state.stage==="results"?state.result:null};
@@ -147,7 +148,7 @@ async function joinImposterRoom(request,env){
  if(room.state.stage!=="lobby")return json({error:"This game has already started."},409);
  if(room.state.players.some(p=>p.name.toLowerCase()===name.toLowerCase()))return json({error:"That name is already taken. Choose another."},409);
  if(room.state.players.length>=24)return json({error:"This game is full (24 players maximum)."},409);
- const playerId=toBase64Url(randomBytes(18));room.state.players.push({id:playerId,name});await saveImposterState(env,room,room.state);
+ const playerId=toBase64Url(randomBytes(18));room.state.players.push({id:playerId,name});if(!await saveImposterState(env,room,room.state))return json({error:"Another player just joined. Please try again."},409);
  return json({ok:true,playerId,name});
 }
 async function getImposterHostState(request,env,url){
@@ -203,7 +204,7 @@ async function imposterPlayerAction(request,env){
    state.stage="results";
   }
  }else return json({error:"Unknown player action."},400);
- await saveImposterState(env,room,state);return json({ok:true});
+ if(!await saveImposterState(env,room,state))return json({error:"The game just updated. Please tap again."},409);return json({ok:true});
 }
 
 async function createRemoteRoom(request, env) {
