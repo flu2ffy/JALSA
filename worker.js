@@ -29,6 +29,12 @@ export default {
     }
 
     try {
+
+      if (url.pathname === "/api/remote/create" && request.method === "POST") return await createRemoteRoom(request, env);
+      if (url.pathname === "/api/remote/poll" && request.method === "GET") return await pollRemoteHost(request, env, url);
+      if (url.pathname === "/api/remote/state" && request.method === "POST") return await getRemoteState(request, env);
+      if (url.pathname === "/api/remote/command" && request.method === "POST") return await sendRemoteCommand(request, env);
+      if (url.pathname === "/api/remote/end" && request.method === "POST") return await endRemoteRoom(request, env);
       if (url.pathname === "/api/me" && request.method === "GET") {
         const user = await getSessionUser(request, env);
         return json({ user: publicUser(user, env) });
@@ -70,6 +76,69 @@ export default {
     }
   },
 };
+
+
+async function createRemoteRoom(request, env) {
+  const user=await getSessionUser(request,env);if(!user)return json({error:"Sign in on the JALSA game screen first."},401);
+  const roomId=toBase64Url(randomBytes(18)),key=toBase64Url(randomBytes(32)),now=new Date(),expires=new Date(now.getTime()+2*60*60*1000).toISOString();
+  await env.DB.prepare("INSERT INTO remote_rooms (room_id,token_hash,host_user_id,state_json,command_seq,created_at,expires_at) VALUES (?,?,?,'{}',0,?,?)")
+    .bind(roomId,await sha256Hex(key),user.id,now.toISOString(),expires).run();
+  return json({roomId,key,expiresAt:expires});
+}
+async function pollRemoteHost(request,env,url){
+  const user=await getSessionUser(request,env);if(!user)return json({error:"Host session expired. Sign in again."},401);
+  const roomId=url.searchParams.get("roomId")||"";
+  const room=await env.DB.prepare("SELECT host_user_id,command_seq,command_json,expires_at,ended_at FROM remote_rooms WHERE room_id=? LIMIT 1").bind(roomId).first();
+  if(!room||room.host_user_id!==user.id)return json({error:"Remote session not found."},404);
+  if(room.ended_at||room.expires_at<=new Date().toISOString())return json({ended:true,commandSeq:room.command_seq});
+  let command=null;try{command=room.command_json?JSON.parse(room.command_json):null}catch{}
+  return json({ended:false,commandSeq:Number(room.command_seq||0),command});
+}
+async function remoteRoomFromBody(body,env){
+  const roomId=String(body.roomId||""),key=String(body.key||"");
+  if(!/^[A-Za-z0-9_-]{20,40}$/.test(roomId)||key.length<40||key.length>60)return null;
+  const room=await env.DB.prepare("SELECT room_id,token_hash,state_json,command_seq,expires_at,ended_at,last_command_at FROM remote_rooms WHERE room_id=? LIMIT 1").bind(roomId).first();
+  if(!room||room.ended_at||room.expires_at<=new Date().toISOString()||!constantTimeEqual(room.token_hash,await sha256Hex(key)))return null;
+  return room;
+}
+async function getRemoteState(request,env){
+  const body=await readBody(request),room=await remoteRoomFromBody(body,env);if(!room)return json({error:"This QR session is invalid or expired."},404);
+  let state={};try{state=JSON.parse(room.state_json||"{}")}catch{}
+  return json({state,ended:false});
+}
+async function sendRemoteCommand(request,env){
+  const body=await readBody(request),room=await remoteRoomFromBody(body,env);
+  if(!room)return json({error:"This QR session is invalid or expired."},404);
+  const allowed=["next","previous","reveal","award0","award1","pass","pause"];
+  if(!allowed.includes(body.action))return json({error:"Unsupported remote action."},400);
+  const now=new Date().toISOString();
+  if(room.last_command_at&&Date.now()-Date.parse(room.last_command_at)<250)return json({error:"Please wait a moment before sending another command."},429);
+  await env.DB.prepare("UPDATE remote_rooms SET command_seq=command_seq+1,command_json=?,last_command_at=? WHERE room_id=? AND ended_at IS NULL")
+    .bind(JSON.stringify(body.action),now,room.room_id).run();
+  return json({ok:true});
+}
+async function updateRemoteState(request,env){
+  const user=await getSessionUser(request,env);if(!user)return json({error:"Host session expired."},401);
+  const body=await readBody(request),state=body.state;
+  if(!state||typeof state!=="object"||Array.isArray(state))return json({error:"Invalid game state."},400);
+  const safe={screen:["board","question","gameover"].includes(state.screen)?state.screen:"board",
+    teamNames:Array.isArray(state.teamNames)?state.teamNames.slice(0,2).map(x=>String(x).slice(0,26)):["Team 1","Team 2"],
+    scores:Array.isArray(state.scores)?state.scores.slice(0,2).map(x=>Math.max(0,Math.min(999999,Number(x)||0))):[0,0],
+    turn:Number(state.turn)===1?1:0,question:String(state.question||"").slice(0,1000),answer:String(state.answer||"").slice(0,1000),
+    category:String(state.category||"").slice(0,80),points:Math.max(0,Math.min(10000,Number(state.points)||0)),
+    revealed:!!state.revealed,paused:!!state.paused,language:state.language==="ar"?"ar":"en"};
+  const result=await env.DB.prepare("UPDATE remote_rooms SET state_json=? WHERE room_id=? AND host_user_id=? AND ended_at IS NULL AND expires_at>?")
+    .bind(JSON.stringify(safe),body.roomId,user.id,new Date().toISOString()).run();
+  if(!result.meta?.changes)return json({error:"Remote session has ended."},404);
+  return json({ok:true});
+}
+async function endRemoteRoom(request,env){
+  const user=await getSessionUser(request,env);if(!user)return json({error:"Host session expired."},401);
+  const body=await readBody(request);
+  await env.DB.prepare("UPDATE remote_rooms SET ended_at=? WHERE room_id=? AND host_user_id=? AND ended_at IS NULL")
+    .bind(new Date().toISOString(),body.roomId,user.id).run();
+  return json({ok:true});
+}
 
 function json(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data), {
