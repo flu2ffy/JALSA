@@ -127,7 +127,7 @@
 <main id="homePage">
 <section class="home-hero" id="top"><div class="hero-glow"></div><div class="hero-copy"><h1 id="heroTitle">Every game deserves a JALSA.</h1><p id="heroSubtitle">Gather your friends. Pick a game. Make memories.</p><button class="primary-light" id="exploreButton" onclick="document.getElementById('games').scrollIntoView({behavior:'smooth'})">Explore games →</button></div>
 <div class="hero-art" aria-hidden="true"><img id="heroFamily" src="hero-family.png" data-en="hero-family.png" data-ar="hero-family-ar.png" alt="" loading="eager"></div></div></section>
-<section class="games-section" id="games"><div class="section-intro"><h2 id="gamesTitle">Choose your game</h2><p id="gamesIntro">Made for friends, family, and unforgettable game nights.</p></div><div class="game-cards"><article class="game-card"><div class="game-icon">🧠</div><h3 id="zankoCardTitle">Zanko</h3><p id="zankoCardDescription">Quick thinking, clever questions, and friendly competition.</p><button class="primary" id="zankoPlay" onclick="startZankoSetup()">Play together</button></article><article class="game-card"><div class="game-icon">🛍️</div><h3 id="priceCardTitle">Price Guessing</h3><p id="priceCardDescription">Guess the price before everyone else.</p><button class="primary" id="pricePlay" onclick="openPriceSetup()">Play together</button></article><article class="game-card soon-card"><div class="game-icon">🎲</div><h3 id="moreCardTitle">More games coming soon</h3><p id="moreCardDescription">The JALSA game table is just getting started.</p></article></div></section>
+<section class="games-section" id="games"><div class="section-intro"><h2 id="gamesTitle">Choose your game</h2><p id="gamesIntro">Made for friends, family, and unforgettable game nights.</p></div><div class="game-cards"><article class="game-card"><div class="game-icon">🧠</div><h3 id="zankoCardTitle">Zanko</h3><p id="zankoCardDescription">Quick thinking, clever questions, and friendly competition.</p><button class="primary" id="zankoPlay" onclick="startZankoSetup()">Play together</button></article><article class="game-card"><div class="game-icon">🛍️</div><h3 id="priceCardTitle">Price Guessing</h3><p id="priceCardDescription">Guess the price before everyone else.</p><button class="primary" id="pricePlay" onclick="openPriceSetup()">Play together</button></article><article class="game-card"><div class="game-icon">🕵️</div><h3>Imposter</h3><p>Find the player who does not know the secret word.</p><button class="primary" onclick="startImposterGame()">Play together</button></article><article class="game-card soon-card"><div class="game-icon">🎲</div><h3 id="moreCardTitle">More games coming soon</h3><p id="moreCardDescription">The JALSA game table is just getting started.</p></article></div></section>
 </main>
 <footer class="site-footer"><span class="powered">Powered by Noah Jason</span><a class="support" href="mailto:support@jalsa.me">support@jalsa.me</a><span class="version">v1.7</span></footer>
 
@@ -246,6 +246,7 @@
       <button data-admin-tab="feedback" onclick="switchAdminTab('feedback')" data-v17="feedbackInbox">Feedback</button>
       <button data-admin-tab="zanko" onclick="switchAdminTab('zanko')" data-v17="zankoEditor">Zanko editor</button>
       <button data-admin-tab="price" onclick="switchAdminTab('price')" data-v17="priceEditor">Price Guessing editor</button>
+      <button data-admin-tab="imposter" onclick="switchAdminTab('imposter')">Imposter words</button>
     </nav>
     <p class="v17-form-message" id="adminPageStatus" hidden></p>
     <section class="v17-admin-tab" id="adminTabUsers">
@@ -302,7 +303,22 @@
         </section>
         <section class="v17-card"><h2 data-v17="priceGameNotes">Price Guessing products</h2><p class="v17-muted" data-v17="priceMediaNote">Every product uses an uploaded photo, video, or audio file. Prices are in US dollars.</p><div id="priceQuestionList" class="v17-mini-list"></div></section>
       </div>
-    </section>
+    </sec
+    <section class="v17-admin-tab" id="adminTabImposter" hidden>
+      <div class="v17-section-heading"><div><p class="v17-eyebrow">GAME CONTENT</p><h1>Imposter word bank</h1><p>Add words and organize them by category. Players receive one random secret word per game.</p></div><span class="v17-count" id="imposterWordCount">0</span></div>
+      <div class="v17-admin-grid">
+        <section class="v17-card"><h2 id="imposterFormTitle">Add a word</h2>
+          <form id="imposterWordForm" onsubmit="saveImposterWord(event)">
+            <input id="imposterWordId" type="hidden">
+            <label class="v17-field"><span>Category (e.g. Fruit, Restaurant, Cars)</span><input id="imposterWordCategory" required maxlength="60" placeholder="Fruit"></label>
+            <label class="v17-field"><span>Word (English)</span><input id="imposterWordEn" required maxlength="100" placeholder="Watermelon"></label>
+            <label class="v17-field"><span>Word (Arabic, optional)</span><input id="imposterWordAr" maxlength="100" dir="rtl" placeholder="بطيخ"></label>
+            <div class="v17-action-row"><button class="primary" type="submit">Save word</button><button class="v17-secondary" type="button" onclick="resetImposterWordForm()">Clear</button></div>
+          </form>
+        </section>
+        <section class="v17-card"><h2>All Imposter words</h2><input id="imposterWordSearch" class="v17-search" placeholder="Search words or categories..." oninput="renderImposterWords()"><div id="imposterWordList" class="v17-mini-list"></div></section>
+      </div>
+    </section>tion>
   </div>
 </main>
 <div class="v17-modal-backdrop v17-user-edit-layer" id="adminUserModal" onclick="if(event.target===this)closeAdminUserModal()">
@@ -720,7 +736,7 @@ function v17FormatDate(value){if(!value)return v17T("never");const d=new Date(va
 function v17SetAdminStatus(message,error){v17ShowStatus("adminPageStatus",message,error)}
 async function openAdmin(){if(!currentUser||!currentUser.isAdmin)return;document.getElementById("adminPage").hidden=false;document.getElementById("adminSignedInAs").textContent=currentUser.email||"";v17SyncLanguage();switchAdminTab("users");try{const data=await v17EnsureSeeded();v17Content.categories=data.categories||[];v17Content.questions=data.questions||[];v17Content.priceItems=v17Content.questions.filter(q=>q.game_type==="price"&&q.media_url&&q.media_type!=="none").map(q=>[q.product_name_en,"",Number(q.price_value||0),q.media_type,q.media_url,q.product_name_ar]);if(v17Content.categories.length)CATEGORIES=v17Content.categories.map(c=>({id:c.id,name:c.name_en,ar:c.name_ar,image:c.image_url||"category-music.svg",icon:c.icon||"🎯"}));v17ContentLoaded=true;await renderAdminUsers()}catch(error){v17SetAdminStatus(error.message,true)}}
 function closeAdmin(){document.getElementById("adminPage").hidden=true;const old=document.getElementById("adminOverlay");if(old)old.classList.remove("open")}
-function switchAdminTab(name){document.querySelectorAll(".v17-admin-tab").forEach(el=>el.hidden=el.id!=="adminTab"+name.charAt(0).toUpperCase()+name.slice(1));document.querySelectorAll(".v17-admin-tabs button").forEach(el=>el.classList.toggle("active",el.getAttribute("data-admin-tab")===name));if(name==="users")renderAdminUsers();if(name==="feedback")renderAdminFeedback();if(name==="zanko"){v17LoadAdminContent().then(renderZankoAdmin).catch(e=>v17SetAdminStatus(e.message,true))}if(name==="price"){v17LoadAdminContent().then(renderPriceAdmin).catch(e=>v17SetAdminStatus(e.message,true))}}
+function switchAdminTab(name){document.querySelectorAll(".v17-admin-tab").forEach(el=>el.hidden=el.id!=="adminTab"+name.charAt(0).toUpperCase()+name.slice(1));document.querySelectorAll(".v17-admin-tabs button").forEach(el=>el.classList.toggle("active",el.getAttribute("data-admin-tab")===name));if(name==="users")renderAdminUsers();if(name==="feedback")renderAdminFeedback();if(name==="zanko"){v17LoadAdminContent().then(renderZankoAdmin).catch(e=>v17SetAdminStatus(e.message,true))}if(name==="price"){v17LoadAdminContent().then(renderPriceAdmin).catch(e=>v17SetAdminStatus(e.message,true))}if(name==="imposter")loadImposterWords().catch(e=>v17SetAdminStatus(e.message,true))}
 async function v17LoadAdminContent(){const data=await v17Request("/admin/content","GET");v17Content.categories=data.categories||[];v17Content.questions=data.questions||[];v17Content.priceItems=v17Content.questions.filter(q=>q.game_type==="price"&&q.media_url&&q.media_type!=="none").map(q=>[q.product_name_en,"",Number(q.price_value||0),q.media_type,q.media_url,q.product_name_ar]);v17ContentLoaded=true;if(v17Content.categories.length)CATEGORIES=v17Content.categories.map(c=>({id:c.id,name:c.name_en,ar:c.name_ar,image:c.image_url||"category-music.svg",icon:c.icon||"🎯"}));return data}
 let v17UsersCache=[],v17EditingUser=null;
 function v17SetAdminUserAvatar(src){
@@ -798,6 +814,15 @@ async function v17UserAction(id,action){
  try{if(action==="delete")await v17Request("/admin/users/"+encodeURIComponent(id),"DELETE");else await v17Request("/admin/users/"+encodeURIComponent(id),"PATCH",{action});await renderAdminUsers()}
  catch(error){v17SetAdminStatus(error.message,true)}
 }
+
+let imposterWords=[];
+async function loadImposterWords(){const d=await v17Request("/admin/imposter-words","GET");imposterWords=d.words||[];document.getElementById("imposterWordCount").textContent=imposterWords.length;renderImposterWords()}
+function renderImposterWords(){const holder=document.getElementById("imposterWordList");if(!holder)return;const term=(document.getElementById("imposterWordSearch")?.value||"").toLowerCase();const rows=imposterWords.filter(w=>(w.category+" "+w.word_en+" "+(w.word_ar||"")).toLowerCase().includes(term));if(!rows.length){holder.textContent="No words found. Add your first word.";return}holder.innerHTML=rows.map(w=>"<div class='v17-mini-row'><div><strong>"+escapeHtml(w.word_en)+"</strong><div class='v17-muted'>"+escapeHtml(w.category)+(w.word_ar?" · "+escapeHtml(w.word_ar):"")+"</div></div><span class='v17-table-actions'><button class='v17-small-button' onclick=\"editImposterWord('"+w.id+"')\">Edit</button><button class='v17-small-button danger' onclick=\"removeImposterWord('"+w.id+"')\">Delete</button></span></div>").join("")}
+function resetImposterWordForm(){document.getElementById("imposterWordForm").reset();document.getElementById("imposterWordId").value="";document.getElementById("imposterFormTitle").textContent="Add a word"}
+function editImposterWord(id){const w=imposterWords.find(x=>x.id===id);if(!w)return;document.getElementById("imposterWordId").value=w.id;document.getElementById("imposterWordCategory").value=w.category;document.getElementById("imposterWordEn").value=w.word_en;document.getElementById("imposterWordAr").value=w.word_ar||"";document.getElementById("imposterFormTitle").textContent="Edit word";document.getElementById("imposterWordCategory").focus()}
+async function saveImposterWord(event){event.preventDefault();const id=document.getElementById("imposterWordId").value;const body={category:document.getElementById("imposterWordCategory").value,word_en:document.getElementById("imposterWordEn").value,word_ar:document.getElementById("imposterWordAr").value};try{await v17Request(id?"/admin/imposter-words/"+encodeURIComponent(id):"/admin/imposter-words",id?"PATCH":"POST",body);resetImposterWordForm();await loadImposterWords();v17SetAdminStatus("Imposter word saved.",false)}catch(e){v17SetAdminStatus(e.message,true)}}
+async function removeImposterWord(id){if(!confirm("Delete this Imposter word permanently?"))return;try{await v17Request("/admin/imposter-words/"+encodeURIComponent(id),"DELETE");await loadImposterWords();v17SetAdminStatus("Word deleted.",false)}catch(e){v17SetAdminStatus(e.message,true)}}
+function startImposterGame(){if(!currentUser){showAuth("login");return}location.href="/imposter.html"}
 async function renderAdminFeedback(){
  const holder=document.getElementById("adminFeedbackList");
  holder.innerHTML="<p class='v17-muted'>"+v17T("loading")+"</p>";
