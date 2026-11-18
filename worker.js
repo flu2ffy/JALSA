@@ -105,6 +105,31 @@ async function ensureImposterSchema(env){
  }
 }
 function imposterShuffle(items){const a=[...items];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+async function createImposterRoom(request,env){
+ const user=await getSessionUser(request,env);
+ if(!user)return json({error:"Please sign in to host a game."},401);
+ await ensureImposterSchema(env);
+ const words=await env.DB.prepare("SELECT COUNT(*) AS count FROM imposter_words").first();
+ if(!Number(words?.count||0))return json({error:"The Imposter word list is empty. Ask an admin to add words first."},400);
+ const roomId=toBase64Url(randomBytes(18)),key=toBase64Url(randomBytes(32)),now=new Date(),expires=new Date(now.getTime()+3*60*60*1000).toISOString();
+ const state={stage:"lobby",players:[],turnIndex:0,turnsCompleted:0,currentPair:null,pairConfirmations:[],ready:[],votes:{},roles:{},secret:null,result:null};
+ await env.DB.prepare("INSERT INTO imposter_rooms (room_id,token_hash,host_user_id,state_json,created_at,expires_at) VALUES (?,?,?,?,?,?)").bind(roomId,await sha256Hex(key),user.id,JSON.stringify(state),now.toISOString(),expires).run();
+ return json({roomId,key,expiresAt:expires});
+}
+async function joinImposterRoom(request,env){
+ await ensureImposterSchema(env);
+ const body=await readBody(request),room=await imposterRoomByKey(body,env);
+ if(!room)return json({error:"This game QR is invalid or expired."},404);
+ const name=cleanText(body.name,32);
+ if(name.length<2)return json({error:"Enter a name with at least 2 characters."},400);
+ if(room.state.stage!=="lobby")return json({error:"This game has already started."},409);
+ if(room.state.players.some(p=>p.name.toLowerCase()===name.toLowerCase()))return json({error:"That name is already taken. Choose another."},409);
+ if(room.state.players.length>=24)return json({error:"This game is full (24 players maximum)."},409);
+ const playerId=toBase64Url(randomBytes(18));
+ room.state.players.push({id:playerId,name});
+ if(!await saveImposterState(env,room,room.state))return json({error:"Another player just joined. Please try again."},409);
+ return json({ok:true,playerId,name});
+}
 async function listImposterWords(request,env){
  if(!await requireAdmin(request,env))return json({error:"Administrator access required."},403);
  await ensureImposterSchema(env);
