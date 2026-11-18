@@ -227,7 +227,7 @@ async function imposterPlayerAction(request,env){
    }
   }
  }else if(body.action==="ready"){
-  if(state.stage!=="playing"||(state.turnsCompleted||0)<2)return json({error:"Finish at least two questions before voting."},409);
+  if(state.stage!=="playing"||(state.turnIndex||0)<4)return json({error:"Ready to vote becomes available in question 4."},409);
   state.ready=Array.isArray(state.ready)?state.ready:[];
   if(!state.ready.includes(playerId))state.ready.push(playerId);
   if(state.ready.length===state.players.length){state.stage="voting";state.currentPair=null;state.pairConfirmations=[]}
