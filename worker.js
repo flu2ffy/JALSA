@@ -32,6 +32,7 @@ export default {
 
       if (url.pathname === "/api/remote/create" && request.method === "POST") return await createRemoteRoom(request, env);
       if (url.pathname === "/api/remote/poll" && request.method === "GET") return await pollRemoteHost(request, env, url);
+      if (url.pathname === "/api/remote/claim" && request.method === "POST") return await claimRemoteController(request, env);
       if (url.pathname === "/api/remote/state" && request.method === "POST") return await getRemoteState(request, env);
       if (url.pathname === "/api/remote/command" && request.method === "POST") return await sendRemoteCommand(request, env);
       if (url.pathname === "/api/remote/end" && request.method === "POST") return await endRemoteRoom(request, env);
@@ -97,7 +98,24 @@ async function pollRemoteHost(request,env,url){
 async function remoteRoomFromBody(body,env){
   const roomId=String(body.roomId||""),key=String(body.key||"");
   if(!/^[A-Za-z0-9_-]{20,40}$/.test(roomId)||key.length<40||key.length>60)return null;
-  const room=await env.DB.prepare("SELECT room_id,token_hash,state_json,command_seq,expires_at,ended_at,last_command_at FROM remote_rooms WHERE room_id=? LIMIT 1").bind(roomId).first();
+  const room=await env.DB.prepare("SELECT room_id,token_hash,state_json,command_seq,expires_at,ended_at,last_command_at,controller_id FROM remote_rooms WHERE room_id=? LIMIT 1").bind(roomId).first();
+  if(!room||room.ended_at||room.expires_at<=new Date().toISOString()||!constantTimeEqual(room.token_hash,await sha256Hex(key)))return null;
+  if(body.controllerId && room.controller_id && room.controller_id!==body.controllerId)return null;
+  if(!body.controllerId||!room.controller_id)return null;
+  return room;
+}
+async function claimRemoteController(request,env){
+  const body=await readBody(request),room=await remoteRoomFromKey(body,env);if(!room)return json({error:"This QR session is invalid or expired."},404);
+  const controllerId=String(body.controllerId||"");if(!/^[A-Za-z0-9_-]{20,80}$/.test(controllerId))return json({error:"Invalid controller device."},400);
+  await env.DB.prepare("UPDATE remote_rooms SET controller_id=? WHERE room_id=? AND (controller_id IS NULL OR controller_id=?)").bind(controllerId,room.room_id,controllerId).run();
+  const claimed=await env.DB.prepare("SELECT controller_id FROM remote_rooms WHERE room_id=? LIMIT 1").bind(room.room_id).first();
+  if(!claimed||claimed.controller_id!==controllerId)return json({error:"This game is already connected to another phone."},409);
+  return json({ok:true});
+}
+async function remoteRoomFromKey(body,env){
+  const roomId=String(body.roomId||""),key=String(body.key||"");
+  if(!/^[A-Za-z0-9_-]{20,40}$/.test(roomId)||key.length<40||key.length>60)return null;
+  const room=await env.DB.prepare("SELECT room_id,token_hash,expires_at,ended_at,controller_id FROM remote_rooms WHERE room_id=? LIMIT 1").bind(roomId).first();
   if(!room||room.ended_at||room.expires_at<=new Date().toISOString()||!constantTimeEqual(room.token_hash,await sha256Hex(key)))return null;
   return room;
 }
