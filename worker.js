@@ -33,7 +33,8 @@ export default {
       if (url.pathname === "/api/remote/create" && request.method === "POST") return await createRemoteRoom(request, env);
       if (url.pathname === "/api/remote/poll" && request.method === "GET") return await pollRemoteHost(request, env, url);
       if (url.pathname === "/api/remote/claim" && request.method === "POST") return await claimRemoteController(request, env);
-      if (url.pathname === "/api/remote/state" && request.method === "POST") return await getRemoteState(request, env);
+      if (url.pathname === "/api/remote/read" && request.method === "POST") return await getRemoteState(request, env);
+      if (url.pathname === "/api/remote/state" && request.method === "POST") return await updateRemoteState(request, env);
       if (url.pathname === "/api/remote/command" && request.method === "POST") return await sendRemoteCommand(request, env);
       if (url.pathname === "/api/remote/end" && request.method === "POST") return await endRemoteRoom(request, env);
       if (url.pathname === "/api/me" && request.method === "GET") {
