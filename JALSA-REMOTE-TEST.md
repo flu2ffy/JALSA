@@ -4,7 +4,7 @@ This is a preview-only QR controller for Zanko. It does not provide access to th
 
 ## Preview setup
 
-1. Apply `migrations/0005_jalsa_remote.sql` to the **jalsa-auth-preview** D1 database only.
+1. Apply `migrations/0005_remote_rooms.sql` to the **jalsa-auth-preview** D1 database only.
 2. Deploy the PR's Cloudflare Worker Preview.
 3. Sign in to JALSA on the TV/computer and start a Zanko game.
 4. The QR panel appears when the board opens. Scan it with the group leader's phone.
