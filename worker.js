@@ -108,10 +108,10 @@ async function remoteRoomFromBody(body,env){
 async function claimRemoteController(request,env){
   const body=await readBody(request),room=await remoteRoomFromKey(body,env);if(!room)return json({error:"This QR session is invalid or expired."},404);
   const controllerId=String(body.controllerId||"");if(!/^[A-Za-z0-9_-]{20,80}$/.test(controllerId))return json({error:"Invalid controller device."},400);
-  await env.DB.prepare("UPDATE remote_rooms SET controller_id=? WHERE room_id=? AND (controller_id IS NULL OR controller_id=?)").bind(controllerId,room.room_id,controllerId).run();
-  const claimed=await env.DB.prepare("SELECT controller_id FROM remote_rooms WHERE room_id=? LIMIT 1").bind(room.room_id).first();
-  if(!claimed||claimed.controller_id!==controllerId)return json({error:"This game is already connected to another phone."},409);
-  return json({ok:true});
+  // Possession of the unguessable QR key authorizes the phone to take over.
+  // Re-scanning the same live QR replaces a stale controller from a closed tab.
+  await env.DB.prepare("UPDATE remote_rooms SET controller_id=? WHERE room_id=? AND ended_at IS NULL").bind(controllerId,room.room_id).run();
+  return json({ok:true,reconnected:true});
 }
 async function remoteRoomFromKey(body,env){
   const roomId=String(body.roomId||""),key=String(body.key||"");
