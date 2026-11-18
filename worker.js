@@ -129,16 +129,15 @@ async function sendRemoteCommand(request,env){
   const body=await readBody(request),room=await remoteRoomFromBody(body,env);
   if(!room)return json({error:"This QR session is invalid or expired."},404);
   const navigation=["navUp","navDown","navLeft","navRight","navSelect","navBack"];
-  const allowed=["next","previous","reveal","award0","award1","pass","pause","pointerMove","pointerClick",...navigation];
+  const allowed=["next","previous","reveal","award0","award1","pass","pause","powerCall","powerDouble","powerSteal",...navigation];
   if(!allowed.includes(body.action))return json({error:"Unsupported remote action."},400);
-  const pointer=body.action==="pointerMove"||body.action==="pointerClick";
-  const x=pointer?Math.max(0,Math.min(1,Number(body.x)||0)):undefined,y=pointer?Math.max(0,Math.min(1,Number(body.y)||0)):undefined;
+  const pointer=false;
   const now=new Date().toISOString();
-  const fast=pointer||navigation.includes(body.action);
+  const fast=navigation.includes(body.action);
   const cooldown=fast?35:160;
   if(room.last_command_at&&Date.now()-Date.parse(room.last_command_at)<cooldown)return json({error:"Please wait a moment before sending another command."},429);
   await env.DB.prepare("UPDATE remote_rooms SET command_seq=command_seq+1,command_json=?,last_command_at=? WHERE room_id=? AND ended_at IS NULL")
-    .bind(JSON.stringify(pointer?{action:body.action,x,y}:body.action),now,room.room_id).run();
+    .bind(JSON.stringify(body.action),now,room.room_id).run();
   return json({ok:true});
 }
 async function updateRemoteState(request,env){
