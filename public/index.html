@@ -310,7 +310,7 @@ async function remoteApi(path,body){
 }
 function remoteSnapshot(){
  const tile=gameState.currentTile;
- return {screen:gameState.screen,teamNames:gameState.teamNames,scores:gameState.scores,turn:gameState.turn,question:"",answer:tile?(isArabic?tile.aAr:tile.a):"",category:tile?(CATEGORIES.find(c=>c.id===tile.category)?.[isArabic?"ar":"name"]||""):"",points:tile?.actualPoints||0,revealed:!!(tile&&!document.getElementById("questionAnswer").hidden),paused:!!gameState.remotePaused,language:isArabic?"ar":"en"};
+ return {screen:gameState.screen,teamNames:gameState.teamNames,scores:gameState.scores,turn:gameState.turn,power:gameState.power,question:"",answer:tile?(isArabic?tile.aAr:tile.a):"",category:tile?(CATEGORIES.find(c=>c.id===tile.category)?.[isArabic?"ar":"name"]||""):"",points:tile?.actualPoints||0,revealed:!!(tile&&!document.getElementById("questionAnswer").hidden),paused:!!gameState.remotePaused,language:isArabic?"ar":"en"};
 }
 async function publishRemoteState(){
  if(!remoteRoomId)return;
@@ -373,9 +373,10 @@ function applyRemoteCommand(command){
  if(action==="pause"){gameState.remotePaused=!gameState.remotePaused;showToast(gameState.remotePaused?(isArabic?"تم إيقاف اللعبة مؤقتاً من الهاتف":"Game paused from phone"):(isArabic?"تم استئناف اللعبة":"Game resumed"));if(gameState.screen==="board")renderGameHudAndBoard();publishRemoteState();return}
  if(gameState.remotePaused){showToast(isArabic?"استأنفوا اللعبة من الهاتف أولاً":"Resume the game from the phone first.");return}
  if(action==="reveal"){if(gameState.screen==="question")revealCurrentAnswer()}
- else if(action==="award0"){if(gameState.screen==="question")awardQuestion(0)}
- else if(action==="award1"){if(gameState.screen==="question")awardQuestion(1)}
- else if(action==="pass"){if(gameState.screen==="question")finishQuestion(null)}
+ else if(action==="award0"){if(gameState.screen==="question"&&!document.getElementById("questionAnswer").hidden)awardQuestion(0);else showToast("Reveal the answer before awarding points.")}
+ else if(action==="award1"){if(gameState.screen==="question"&&!document.getElementById("questionAnswer").hidden)awardQuestion(1);else showToast("Reveal the answer before awarding points.")}
+ else if(action==="pass"){if(gameState.screen==="question"&&!document.getElementById("questionAnswer").hidden)finishQuestion(null);else showToast("Reveal the answer before ending the question.")}
+  else if(["powerCall","powerDouble","powerSteal"].includes(action)){const key=action==="powerCall"?"call":action==="powerDouble"?"double":"steal";if(gameState.screen==="board"&&!gameState.remotePaused)usePower(gameState.turn,key)}
  else if(action==="previous"){if(gameState.screen==="question"){gameState.currentTile=null;renderGameHudAndBoard();showStageScreen("boardScreen")}}
  else if(action==="next"){
   if(gameState.screen==="question")finishQuestion(null);
