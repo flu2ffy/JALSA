@@ -299,7 +299,7 @@
   </section>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+<script src="/qrcode.min.js"></script>
 <script>
 /* JALSA Remote: one host phone, scoped to this Zanko game only. */
 let remoteRoomId="",remoteRoomKey="",remoteHostPoll=null,remoteLastCommand=0,remoteStateTimer=null,remoteOpening=false;
@@ -338,7 +338,7 @@ function renderRemoteQr(){
  const url=location.origin+"/remote.html#room="+encodeURIComponent(remoteRoomId)+"&key="+encodeURIComponent(remoteRoomKey);
  link.textContent=url;
  if(!window.QRCode){status.textContent="QR generator did not load. Reload the page and try again.";return}
- qr.innerHTML="";QRCode.toCanvas(url,{width:228,margin:1,errorCorrectionLevel:"M"},(err,canvas)=>{if(err){status.textContent="Could not generate QR code.";return}qr.appendChild(canvas);status.textContent=isArabic?"تم إنشاء الاتصال — امسح الرمز بهاتف المضيف":"Ready — scan with the host's phone."});
+ qr.innerHTML="";try{new QRCode(qr,{text:url,width:228,height:228,colorDark:"#16090d",colorLight:"#ffffff",correctLevel:QRCode.CorrectLevel.M});status.textContent=isArabic?"تم إنشاء الاتصال — امسح الرمز بهاتف المضيف":"Ready — scan with the host's phone."}catch(error){status.textContent="Could not generate QR code: "+error.message}
 }
 async function pollRemoteCommands(){
  if(!remoteRoomId)return;
@@ -402,7 +402,7 @@ function renderCategoryCards(){
   {id:'math',name:'Math',ar:'الرياضيات',image:'category-math.svg',icon:'∑'},
   {id:'music',name:'Music',ar:'الموسيقى',image:'category-music.svg',icon:'🎵'}
  ];
- if(!Array.isArray(CATEGORIES)||CATEGORIES.length!==6)CATEGORIES=fallback;
+ if(!Array.isArray(CATEGORIES)||CATEGORIES.length===0)CATEGORIES=fallback;
  grid.replaceChildren();grid.style.display='grid';grid.style.visibility='visible';grid.style.minHeight='180px';
  CATEGORIES.forEach(c=>{
   const selected=gameState.selected.includes(c.id),button=document.createElement('button');
