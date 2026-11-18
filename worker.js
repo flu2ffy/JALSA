@@ -170,6 +170,15 @@ async function saveImposterState(env,room,state){
  const result=await env.DB.prepare("UPDATE imposter_rooms SET state_json=? WHERE room_id=? AND state_json=? AND ended_at IS NULL").bind(JSON.stringify(state),room.room_id,room.state_json).run();
  return Number(result.meta?.changes||0)>0;
 }
+async function getImposterHostState(request,env,url){
+ const user=await getSessionUser(request,env);
+ if(!user)return json({error:"Please sign in again."},401);
+ const roomId=String(url.searchParams.get("roomId")||"");
+ const room=await env.DB.prepare("SELECT * FROM imposter_rooms WHERE room_id=? AND host_user_id=? LIMIT 1").bind(roomId,user.id).first();
+ if(!room||room.ended_at||room.expires_at<=new Date().toISOString())return json({error:"Game session not found or expired."},404);
+ let state={};try{state=JSON.parse(room.state_json||"{}")}catch{return json({error:"Game state is unreadable."},500)}
+ return json({state:imposterPublicState(state)});
+}
 function imposterPublicState(state){
  const pair=state.currentPair||null;
  return {stage:state.stage,players:state.players.map(p=>({id:p.id,name:p.name})),turnIndex:state.turnIndex||0,turnsCompleted:state.turnsCompleted||0,currentPair:pair?{askerName:state.players.find(p=>p.id===pair.askerId)?.name||"Player",targetName:state.players.find(p=>p.id===pair.targetId)?.name||"Player"}:null,confirmedCount:(state.pairConfirmations||[]).length,readyCount:(state.ready||[]).length,voteCount:Object.keys(state.votes||{}).length,result:state.stage==="results"?state.result:null};
