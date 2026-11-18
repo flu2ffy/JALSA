@@ -246,7 +246,7 @@
       <button data-admin-tab="feedback" onclick="switchAdminTab('feedback')" data-v17="feedbackInbox">Feedback</button>
       <button data-admin-tab="zanko" onclick="switchAdminTab('zanko')" data-v17="zankoEditor">Zanko editor</button>
       <button data-admin-tab="price" onclick="switchAdminTab('price')" data-v17="priceEditor">Price Guessing editor</button>
-      <button data-admin-tab="imposter" onclick="switchAdminTab('imposter')">Imposter words</button>
+      <button data-admin-tab="imposter" onclick="switchAdminTab('imposter')">Imposter editor</button>
     </nav>
     <p class="v17-form-message" id="adminPageStatus" hidden></p>
     <section class="v17-admin-tab" id="adminTabUsers">
@@ -303,11 +303,11 @@
         </section>
         <section class="v17-card"><h2 data-v17="priceGameNotes">Price Guessing products</h2><p class="v17-muted" data-v17="priceMediaNote">Every product uses an uploaded photo, video, or audio file. Prices are in US dollars.</p><div id="priceQuestionList" class="v17-mini-list"></div></section>
       </div>
-    </sec
+    </section>
     <section class="v17-admin-tab" id="adminTabImposter" hidden>
-      <div class="v17-section-heading"><div><p class="v17-eyebrow">GAME CONTENT</p><h1>Imposter word bank</h1><p>Add words and organize them by category. Players receive one random secret word per game.</p></div><span class="v17-count" id="imposterWordCount">0</span></div>
+      <div class="v17-section-heading"><div><p class="v17-eyebrow">GAME CONTENT</p><h1>Imposter editor</h1><p>Manage the words and categories used in the Imposter game.</p></div><span class="v17-count" id="imposterWordCount">0</span></div>
       <div class="v17-admin-grid">
-        <section class="v17-card"><h2 id="imposterFormTitle">Add a word</h2>
+        <section class="v17-card"><h2 id="imposterFormTitle">Add an Imposter word</h2>
           <form id="imposterWordForm" onsubmit="saveImposterWord(event)">
             <input id="imposterWordId" type="hidden">
             <label class="v17-field"><span>Category (e.g. Fruit, Restaurant, Cars)</span><input id="imposterWordCategory" required maxlength="60" placeholder="Fruit"></label>
@@ -316,9 +316,9 @@
             <div class="v17-action-row"><button class="primary" type="submit">Save word</button><button class="v17-secondary" type="button" onclick="resetImposterWordForm()">Clear</button></div>
           </form>
         </section>
-        <section class="v17-card"><h2>All Imposter words</h2><input id="imposterWordSearch" class="v17-search" placeholder="Search words or categories..." oninput="renderImposterWords()"><div id="imposterWordList" class="v17-mini-list"></div></section>
+        <section class="v17-card"><h2>All game words</h2><input id="imposterWordSearch" class="v17-search" placeholder="Search words or categories..." oninput="renderImposterWords()"><div id="imposterWordList" class="v17-mini-list"></div></section>
       </div>
-    </section>tion>
+    </section>
   </div>
 </main>
 <div class="v17-modal-backdrop v17-user-edit-layer" id="adminUserModal" onclick="if(event.target===this)closeAdminUserModal()">
@@ -818,7 +818,7 @@ async function v17UserAction(id,action){
 let imposterWords=[];
 async function loadImposterWords(){const d=await v17Request("/admin/imposter-words","GET");imposterWords=d.words||[];document.getElementById("imposterWordCount").textContent=imposterWords.length;renderImposterWords()}
 function renderImposterWords(){const holder=document.getElementById("imposterWordList");if(!holder)return;const term=(document.getElementById("imposterWordSearch")?.value||"").toLowerCase();const rows=imposterWords.filter(w=>(w.category+" "+w.word_en+" "+(w.word_ar||"")).toLowerCase().includes(term));if(!rows.length){holder.textContent="No words found. Add your first word.";return}holder.innerHTML=rows.map(w=>"<div class='v17-mini-row'><div><strong>"+escapeHtml(w.word_en)+"</strong><div class='v17-muted'>"+escapeHtml(w.category)+(w.word_ar?" · "+escapeHtml(w.word_ar):"")+"</div></div><span class='v17-table-actions'><button class='v17-small-button' onclick=\"editImposterWord('"+w.id+"')\">Edit</button><button class='v17-small-button danger' onclick=\"removeImposterWord('"+w.id+"')\">Delete</button></span></div>").join("")}
-function resetImposterWordForm(){document.getElementById("imposterWordForm").reset();document.getElementById("imposterWordId").value="";document.getElementById("imposterFormTitle").textContent="Add a word"}
+function resetImposterWordForm(){document.getElementById("imposterWordForm").reset();document.getElementById("imposterWordId").value="";document.getElementById("imposterFormTitle").textContent="Add an Imposter word"}
 function editImposterWord(id){const w=imposterWords.find(x=>x.id===id);if(!w)return;document.getElementById("imposterWordId").value=w.id;document.getElementById("imposterWordCategory").value=w.category;document.getElementById("imposterWordEn").value=w.word_en;document.getElementById("imposterWordAr").value=w.word_ar||"";document.getElementById("imposterFormTitle").textContent="Edit word";document.getElementById("imposterWordCategory").focus()}
 async function saveImposterWord(event){event.preventDefault();const id=document.getElementById("imposterWordId").value;const body={category:document.getElementById("imposterWordCategory").value,word_en:document.getElementById("imposterWordEn").value,word_ar:document.getElementById("imposterWordAr").value};try{await v17Request(id?"/admin/imposter-words/"+encodeURIComponent(id):"/admin/imposter-words",id?"PATCH":"POST",body);resetImposterWordForm();await loadImposterWords();v17SetAdminStatus("Imposter word saved.",false)}catch(e){v17SetAdminStatus(e.message,true)}}
 async function removeImposterWord(id){if(!confirm("Delete this Imposter word permanently?"))return;try{await v17Request("/admin/imposter-words/"+encodeURIComponent(id),"DELETE");await loadImposterWords();v17SetAdminStatus("Word deleted.",false)}catch(e){v17SetAdminStatus(e.message,true)}}
