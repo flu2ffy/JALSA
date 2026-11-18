@@ -91,3 +91,10 @@ Production deployment and production database migration are intentionally not pa
 5. Production's R2 bucket `jalsa-media` must exist before the approved Production release is deployed.
 
 Preview bindings are separate from Production bindings; check the Wrangler `previews` block when changing resource bindings. Uploads are private in R2 and are served through the Worker media route.
+
+
+## Imposter game (Preview)
+- The Imposter game uses a host QR lobby, private player phone pages, four randomized ask assignments, an all-player Ready gate, and private voting.
+- Administrators manage the word bank in Dashboard → Imposter words. The Preview migration seeds starter words across Fruit, Restaurant, Cars, Electronics, Places, and Animals.
+- For Preview, apply migrations `0005_remote_rooms.sql` and `0006_imposter_game.sql` to **jalsa-auth-preview only**. Apply them to Production only as part of the approved V1.8 release.
+- The game stores room state in the Preview D1 database and expires rooms after three hours.

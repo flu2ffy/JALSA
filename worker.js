@@ -29,6 +29,14 @@ export default {
     }
 
     try {
+
+      if (url.pathname === "/api/remote/create" && request.method === "POST") return await createRemoteRoom(request, env);
+      if (url.pathname === "/api/remote/poll" && request.method === "GET") return await pollRemoteHost(request, env, url);
+      if (url.pathname === "/api/remote/claim" && request.method === "POST") return await claimRemoteController(request, env);
+      if (url.pathname === "/api/remote/read" && request.method === "POST") return await getRemoteState(request, env);
+      if (url.pathname === "/api/remote/state" && request.method === "POST") return await updateRemoteState(request, env);
+      if (url.pathname === "/api/remote/command" && request.method === "POST") return await sendRemoteCommand(request, env);
+      if (url.pathname === "/api/remote/end" && request.method === "POST") return await endRemoteRoom(request, env);
       if (url.pathname === "/api/me" && request.method === "GET") {
         const user = await getSessionUser(request, env);
         return json({ user: publicUser(user, env) });
@@ -50,6 +58,14 @@ export default {
       if (url.pathname === "/api/admin/categories" && request.method === "POST") return await createCategory(request, env);
       if (url.pathname === "/api/admin/questions" && request.method === "POST") return await createQuestion(request, env);
       if (url.pathname === "/api/admin/feedback" && request.method === "GET") return await listFeedback(request, env);
+      if (url.pathname === "/api/admin/imposter-words" && request.method === "GET") return await listImposterWords(request, env);
+      if (url.pathname === "/api/admin/imposter-words" && request.method === "POST") return await saveImposterWord(request, env);
+      if (url.pathname === "/api/imposter/create" && request.method === "POST") return await createImposterRoom(request, env);
+      if (url.pathname === "/api/imposter/join" && request.method === "POST") return await joinImposterRoom(request, env);
+      if (url.pathname === "/api/imposter/host-state" && request.method === "GET") return await getImposterHostState(request, env, url);
+      if (url.pathname === "/api/imposter/player-state" && request.method === "GET") return await getImposterPlayerState(request, env, url);
+      if (url.pathname === "/api/imposter/host-action" && request.method === "POST") return await imposterHostAction(request, env);
+      if (url.pathname === "/api/imposter/player-action" && request.method === "POST") return await imposterPlayerAction(request, env);
       const adminParts = url.pathname.split("/");
       if (adminParts.length === 5 && adminParts[1] === "api" && adminParts[2] === "admin") {
         const itemId = decodeURIComponent(adminParts[4]);
@@ -62,6 +78,8 @@ export default {
         if (adminParts[3] === "questions" && request.method === "DELETE") return await deleteQuestion(request, env, itemId);
         if (adminParts[3] === "feedback" && request.method === "PATCH") return await updateFeedbackStatus(request, env, itemId);
         if (adminParts[3] === "feedback" && request.method === "DELETE") return await deleteFeedback(request, env, itemId);
+        if (adminParts[3] === "imposter-words" && request.method === "PATCH") return await updateImposterWord(request, env, itemId);
+        if (adminParts[3] === "imposter-words" && request.method === "DELETE") return await deleteImposterWord(request, env, itemId);
       }
       return json({ error: "Not found." }, 404);
     } catch (error) {
@@ -70,6 +88,245 @@ export default {
     }
   },
 };
+
+
+
+
+async function ensureImposterSchema(env){
+ await env.DB.prepare("CREATE TABLE IF NOT EXISTS imposter_words (id TEXT PRIMARY KEY, category TEXT NOT NULL, word_en TEXT NOT NULL, word_ar TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)").run();
+ await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_imposter_words_category ON imposter_words(category,word_en)").run();
+ await env.DB.prepare("CREATE TABLE IF NOT EXISTS imposter_rooms (room_id TEXT PRIMARY KEY, token_hash TEXT NOT NULL, host_user_id TEXT NOT NULL, state_json TEXT NOT NULL, created_at TEXT NOT NULL, expires_at TEXT NOT NULL, ended_at TEXT)").run();
+ await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_imposter_rooms_host ON imposter_rooms(host_user_id,created_at)").run();
+ const count=await env.DB.prepare("SELECT COUNT(*) AS count FROM imposter_words").first();
+ if(Number(count?.count||0)===0){
+  const words=[["Fruit","Watermelon","بطيخ"],["Fruit","Pineapple","أناناس"],["Fruit","Strawberry","فراولة"],["Fruit","Mango","مانجو"],["Fruit","Orange","برتقال"],["Restaurant","McDonald's","ماكدونالدز"],["Restaurant","Pizza Hut","بيتزا هت"],["Restaurant","KFC","كنتاكي"],["Restaurant","Shake Shack","شيك شاك"],["Restaurant","Starbucks","ستاربكس"],["Cars","Toyota Camry","تويوتا كامري"],["Cars","Tesla Model 3","تسلا موديل 3"],["Cars","Mercedes-Benz G-Class","مرسيدس جي كلاس"],["Cars","Porsche 911","بورش 911"],["Cars","Jeep Wrangler","جيب رانجلر"],["Electronics","iPhone","آيفون"],["Electronics","PlayStation 5","بلايستيشن 5"],["Electronics","AirPods","إيربودز"],["Electronics","Nintendo Switch","نينتندو سويتش"],["Electronics","MacBook","ماك بوك"],["Places","Airport","مطار"],["Places","Beach","شاطئ"],["Places","Cinema","سينما"],["Places","Shopping mall","مول"],["Places","Amusement park","مدينة ملاهي"],["Animals","Dolphin","دلفين"],["Animals","Penguin","بطريق"],["Animals","Giraffe","زرافة"],["Animals","Tiger","نمر"],["Animals","Camel","جمل"]];
+  const now=new Date().toISOString();
+  for(let i=0;i<words.length;i++){const w=words[i];await env.DB.prepare("INSERT OR IGNORE INTO imposter_words (id,category,word_en,word_ar,created_at,updated_at) VALUES (?,?,?,?,?,?)").bind("seed-"+String(i+1).padStart(3,"0"),w[0],w[1],w[2],now,now).run();}
+ }
+}
+function imposterShuffle(items){const a=[...items];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+async function createImposterRoom(request,env){
+ const user=await getSessionUser(request,env);
+ if(!user)return json({error:"Please sign in to host a game."},401);
+ await ensureImposterSchema(env);
+ const words=await env.DB.prepare("SELECT COUNT(*) AS count FROM imposter_words").first();
+ if(!Number(words?.count||0))return json({error:"The Imposter word list is empty. Ask an admin to add words first."},400);
+ const roomId=toBase64Url(randomBytes(18)),key=toBase64Url(randomBytes(32)),now=new Date(),expires=new Date(now.getTime()+3*60*60*1000).toISOString();
+ const state={stage:"lobby",players:[],turnIndex:0,turnsCompleted:0,currentPair:null,pairConfirmations:[],ready:[],votes:{},roles:{},secret:null,result:null};
+ await env.DB.prepare("INSERT INTO imposter_rooms (room_id,token_hash,host_user_id,state_json,created_at,expires_at) VALUES (?,?,?,?,?,?)").bind(roomId,await sha256Hex(key),user.id,JSON.stringify(state),now.toISOString(),expires).run();
+ return json({roomId,key,expiresAt:expires});
+}
+async function joinImposterRoom(request,env){
+ await ensureImposterSchema(env);
+ const body=await readBody(request),room=await imposterRoomByKey(body,env);
+ if(!room)return json({error:"This game QR is invalid or expired."},404);
+ const name=cleanText(body.name,32);
+ if(name.length<2)return json({error:"Enter a name with at least 2 characters."},400);
+ if(room.state.stage!=="lobby")return json({error:"This game has already started."},409);
+ if(room.state.players.some(p=>p.name.toLowerCase()===name.toLowerCase()))return json({error:"That name is already taken. Choose another."},409);
+ if(room.state.players.length>=24)return json({error:"This game is full (24 players maximum)."},409);
+ const playerId=toBase64Url(randomBytes(18));
+ room.state.players.push({id:playerId,name});
+ if(!await saveImposterState(env,room,room.state))return json({error:"Another player just joined. Please try again."},409);
+ return json({ok:true,playerId,name});
+}
+async function listImposterWords(request,env){
+ if(!await requireAdmin(request,env))return json({error:"Administrator access required."},403);
+ await ensureImposterSchema(env);
+ const rows=await env.DB.prepare("SELECT id,category,word_en,word_ar,created_at FROM imposter_words ORDER BY category,word_en").all();
+ return json({words:rows.results||[]});
+}
+function cleanImposterWord(body){
+ const category=cleanText(body.category,60),wordEn=cleanText(body.word_en,100),wordAr=cleanText(body.word_ar,100);
+ if(category.length<2||wordEn.length<2)return {error:"Enter a category and an English word."};
+ return {category,word_en:wordEn,word_ar:wordAr};
+}
+async function saveImposterWord(request,env){
+ if(!await requireAdmin(request,env))return json({error:"Administrator access required."},403);
+ await ensureImposterSchema(env);
+ const body=await readBody(request),w=cleanImposterWord(body);if(w.error)return json({error:w.error},400);
+ const id=crypto.randomUUID(),now=new Date().toISOString();
+ await env.DB.prepare("INSERT INTO imposter_words (id,category,word_en,word_ar,created_at,updated_at) VALUES (?,?,?,?,?,?)").bind(id,w.category,w.word_en,w.word_ar||null,now,now).run();
+ return json({ok:true,id});
+}
+async function updateImposterWord(request,env,id){
+ if(!await requireAdmin(request,env))return json({error:"Administrator access required."},403);
+ const body=await readBody(request),w=cleanImposterWord(body);if(w.error)return json({error:w.error},400);
+ await env.DB.prepare("UPDATE imposter_words SET category=?,word_en=?,word_ar=?,updated_at=? WHERE id=?").bind(w.category,w.word_en,w.word_ar||null,new Date().toISOString(),id).run();
+ return json({ok:true});
+}
+async function deleteImposterWord(request,env,id){
+ if(!await requireAdmin(request,env))return json({error:"Administrator access required."},403);
+ await env.DB.prepare("DELETE FROM imposter_words WHERE id=?").bind(id).run();return json({ok:true});
+}
+async function imposterRoomByKey(body,env){
+ const roomId=String(body.roomId||""),key=String(body.key||"");
+ if(!/^[A-Za-z0-9_-]{20,40}$/.test(roomId)||key.length<40||key.length>60)return null;
+ const room=await env.DB.prepare("SELECT * FROM imposter_rooms WHERE room_id=? LIMIT 1").bind(roomId).first();
+ if(!room||room.ended_at||room.expires_at<=new Date().toISOString()||!constantTimeEqual(room.token_hash,await sha256Hex(key)))return null;
+ let state={};try{state=JSON.parse(room.state_json||"{}")}catch{}return {...room,state};
+}
+async function saveImposterState(env,room,state){
+ const result=await env.DB.prepare("UPDATE imposter_rooms SET state_json=? WHERE room_id=? AND state_json=? AND ended_at IS NULL").bind(JSON.stringify(state),room.room_id,room.state_json).run();
+ return Number(result.meta?.changes||0)>0;
+}
+async function getImposterHostState(request,env,url){
+ const user=await getSessionUser(request,env);
+ if(!user)return json({error:"Please sign in again."},401);
+ const roomId=String(url.searchParams.get("roomId")||"");
+ const room=await env.DB.prepare("SELECT * FROM imposter_rooms WHERE room_id=? AND host_user_id=? LIMIT 1").bind(roomId,user.id).first();
+ if(!room||room.ended_at||room.expires_at<=new Date().toISOString())return json({error:"Game session not found or expired."},404);
+ let state={};try{state=JSON.parse(room.state_json||"{}")}catch{return json({error:"Game state is unreadable."},500)}
+ return json({state:imposterPublicState(state)});
+}
+function imposterPublicState(state){
+ const pair=state.currentPair||null;
+ return {stage:state.stage,players:state.players.map(p=>({id:p.id,name:p.name})),turnIndex:state.turnIndex||0,turnsCompleted:state.turnsCompleted||0,currentPair:pair?{askerName:state.players.find(p=>p.id===pair.askerId)?.name||"Player",targetName:state.players.find(p=>p.id===pair.targetId)?.name||"Player"}:null,confirmedCount:(state.pairConfirmations||[]).length,readyCount:(state.ready||[]).length,voteCount:Object.keys(state.votes||{}).length,result:state.stage==="results"?state.result:null};
+}
+async function getImposterPlayerState(request,env,url){
+ const room=await imposterRoomByKey({roomId:url.searchParams.get("roomId"),key:url.searchParams.get("key")},env);if(!room)return json({error:"This game session has expired."},404);
+ const playerId=url.searchParams.get("playerId")||"",player=room.state.players.find(p=>p.id===playerId);if(!player)return json({error:"Player not found. Scan the QR again."},404);
+ const state=room.state,pair=state.currentPair||null;
+ return json({state:{stage:state.stage,player:{id:player.id,name:player.name},players:state.players.map(p=>({id:p.id,name:p.name})),turnIndex:state.turnIndex||0,turnsCompleted:state.turnsCompleted||0,currentPair:pair?{askerName:state.players.find(p=>p.id===pair.askerId)?.name||"Player",targetName:state.players.find(p=>p.id===pair.targetId)?.name||"Player",isParticipant:playerId===pair.askerId||playerId===pair.targetId}:null,confirmed:(state.pairConfirmations||[]).includes(playerId),confirmedCount:(state.pairConfirmations||[]).length,role:state.stage==="lobby"?null:(state.roles[playerId]||"player"),word:state.stage==="lobby"||state.roles[playerId]==="imposter"?null:state.secret?.word,wordAr:state.stage==="lobby"||state.roles[playerId]==="imposter"?null:(state.secret?.wordAr||state.secret?.word),category:state.stage==="lobby"||state.roles[playerId]==="imposter"?null:state.secret?.category,ready:(state.ready||[]).includes(playerId),readyCount:(state.ready||[]).length,voted:Object.prototype.hasOwnProperty.call(state.votes||{},playerId),voteOptions:state.stage==="voting"?state.players.filter(p=>p.id!==playerId).map(p=>({id:p.id,name:p.name})):[],result:state.stage==="results"?state.result:null}});
+}
+async function imposterHostAction(request,env){
+ const user=await getSessionUser(request,env);if(!user)return json({error:"Please sign in again."},401);
+ const body=await readBody(request),room=await env.DB.prepare("SELECT * FROM imposter_rooms WHERE room_id=? AND host_user_id=? LIMIT 1").bind(String(body.roomId||""),user.id).first();
+ if(!room||room.ended_at)return json({error:"Game session not found."},404);
+ let state={};try{state=JSON.parse(room.state_json||"{}")}catch{}
+ if(body.action==="start"){
+  if(state.stage!=="lobby"||state.players.length<3)return json({error:"At least 3 players are needed."},400);
+  const words=await env.DB.prepare("SELECT category,word_en,word_ar FROM imposter_words").all();if(!words.results?.length)return json({error:"No words are available."},400);
+  const secret=imposterShuffle(words.results)[0],imposter=imposterShuffle(state.players)[0];
+  const order=imposterShuffle(state.players),asker=order[0],target=order[1];
+  state.stage="playing";state.secret={category:secret.category,word:secret.word_en,wordAr:secret.word_ar||secret.word_en};state.roles={};state.players.forEach(p=>state.roles[p.id]=p.id===imposter.id?"imposter":"player");
+  state.currentPair={askerId:asker.id,targetId:target.id};state.turnIndex=1;state.turnsCompleted=0;state.pairConfirmations=[];state.ready=[];state.votes={};state.result=null;
+ }else if(body.action==="end"){state.stage="ended"}
+ else return json({error:"Unknown host action."},400);
+ await env.DB.prepare("UPDATE imposter_rooms SET state_json=?,ended_at=? WHERE room_id=?").bind(JSON.stringify(state),body.action==="end"?new Date().toISOString():null,room.room_id).run();
+ return json({ok:true});
+}
+async function imposterPlayerAction(request,env){
+ const body=await readBody(request),room=await imposterRoomByKey(body,env);if(!room)return json({error:"This game session has expired."},404);
+ const playerId=String(body.playerId||"");if(!room.state.players.some(p=>p.id===playerId))return json({error:"Player not found."},404);
+ const state=room.state;
+ if(body.action==="next"){
+  if(state.stage!=="playing"||!state.currentPair)return json({error:"There is no active question."},409);
+  const pair=state.currentPair;if(playerId!==pair.askerId&&playerId!==pair.targetId)return json({error:"Only the two players in this question can move to the next one."},403);
+  state.pairConfirmations=Array.isArray(state.pairConfirmations)?state.pairConfirmations:[];
+  if(!state.pairConfirmations.includes(playerId))state.pairConfirmations.push(playerId);
+  if(state.pairConfirmations.includes(pair.askerId)&&state.pairConfirmations.includes(pair.targetId)){
+   state.turnsCompleted=(state.turnsCompleted||0)+1;state.turnIndex=(state.turnIndex||0)+1;state.pairConfirmations=[];
+   if(state.ready?.length===state.players.length){state.stage="voting";state.currentPair=null}
+   else{
+    const candidates=state.players.filter(p=>p.id!==pair.askerId&&p.id!==pair.targetId);
+    const asker=candidates.length?imposterShuffle(candidates)[0]:state.players.find(p=>p.id===pair.targetId);
+    const remaining=state.players.filter(p=>p.id!==asker.id);
+    const target=imposterShuffle(remaining)[0];
+    state.currentPair={askerId:asker.id,targetId:target.id};
+   }
+  }
+ }else if(body.action==="ready"){
+  if(state.stage!=="playing"||(state.turnIndex||0)<4)return json({error:"Ready to vote becomes available in question 4."},409);
+  state.ready=Array.isArray(state.ready)?state.ready:[];
+  if(!state.ready.includes(playerId))state.ready.push(playerId);
+  if(state.ready.length===state.players.length){state.stage="voting";state.currentPair=null;state.pairConfirmations=[]}
+ }else if(body.action==="vote"){
+  if(state.stage!=="voting")return json({error:"Voting is not open."},409);
+  const targetId=String(body.targetId||"");if(targetId===playerId||!state.players.some(p=>p.id===targetId))return json({error:"Choose another player."},400);
+  state.votes=state.votes||{};state.votes[playerId]=targetId;
+  if(Object.keys(state.votes).length===state.players.length){
+   const counts={};Object.values(state.votes).forEach(id=>counts[id]=(counts[id]||0)+1);
+   const ranked=Object.entries(counts).sort((a,b)=>b[1]-a[1]),top=ranked[0]?.[1]||0,winners=ranked.filter(x=>x[1]===top).map(x=>x[0]);
+   const imposterId=Object.keys(state.roles).find(id=>state.roles[id]==="imposter");
+   state.result={votes:counts,imposterId,imposterName:state.players.find(p=>p.id===imposterId)?.name||"",mostVotedIds:winners};
+   state.stage="results";
+  }
+ }else return json({error:"Unknown player action."},400);
+ if(!await saveImposterState(env,room,state))return json({error:"The game just updated. Please tap again."},409);return json({ok:true});
+}
+async function createRemoteRoom(request, env) {
+  const user=await getSessionUser(request,env);if(!user)return json({error:"Sign in on the JALSA game screen first."},401);
+  const roomId=toBase64Url(randomBytes(18)),key=toBase64Url(randomBytes(32)),now=new Date(),expires=new Date(now.getTime()+2*60*60*1000).toISOString();
+  await env.DB.prepare("INSERT INTO remote_rooms (room_id,token_hash,host_user_id,state_json,command_seq,created_at,expires_at) VALUES (?,?,?,'{}',0,?,?)")
+    .bind(roomId,await sha256Hex(key),user.id,now.toISOString(),expires).run();
+  return json({roomId,key,expiresAt:expires});
+}
+async function pollRemoteHost(request,env,url){
+  const user=await getSessionUser(request,env);if(!user)return json({error:"Host session expired. Sign in again."},401);
+  const roomId=url.searchParams.get("roomId")||"";
+  const room=await env.DB.prepare("SELECT host_user_id,command_seq,command_json,expires_at,ended_at FROM remote_rooms WHERE room_id=? LIMIT 1").bind(roomId).first();
+  if(!room||room.host_user_id!==user.id)return json({error:"Remote session not found."},404);
+  if(room.ended_at||room.expires_at<=new Date().toISOString())return json({ended:true,commandSeq:room.command_seq});
+  let command=null;try{command=room.command_json?JSON.parse(room.command_json):null}catch{}
+  return json({ended:false,commandSeq:Number(room.command_seq||0),command});
+}
+async function remoteRoomFromBody(body,env){
+  const roomId=String(body.roomId||""),key=String(body.key||"");
+  if(!/^[A-Za-z0-9_-]{20,40}$/.test(roomId)||key.length<40||key.length>60)return null;
+  const room=await env.DB.prepare("SELECT room_id,token_hash,state_json,command_seq,expires_at,ended_at,last_command_at,controller_id FROM remote_rooms WHERE room_id=? LIMIT 1").bind(roomId).first();
+  if(!room||room.ended_at||room.expires_at<=new Date().toISOString()||!constantTimeEqual(room.token_hash,await sha256Hex(key)))return null;
+  if(body.controllerId && room.controller_id && room.controller_id!==body.controllerId)return null;
+  if(!body.controllerId||!room.controller_id)return null;
+  return room;
+}
+async function claimRemoteController(request,env){
+  const body=await readBody(request),room=await remoteRoomFromKey(body,env);if(!room)return json({error:"This QR session is invalid or expired."},404);
+  const controllerId=String(body.controllerId||"");if(!/^[A-Za-z0-9_-]{20,80}$/.test(controllerId))return json({error:"Invalid controller device."},400);
+  // Possession of the unguessable QR key authorizes the phone to take over.
+  // Re-scanning the same live QR replaces a stale controller from a closed tab.
+  await env.DB.prepare("UPDATE remote_rooms SET controller_id=? WHERE room_id=? AND ended_at IS NULL").bind(controllerId,room.room_id).run();
+  return json({ok:true,reconnected:true});
+}
+async function remoteRoomFromKey(body,env){
+  const roomId=String(body.roomId||""),key=String(body.key||"");
+  if(!/^[A-Za-z0-9_-]{20,40}$/.test(roomId)||key.length<40||key.length>60)return null;
+  const room=await env.DB.prepare("SELECT room_id,token_hash,expires_at,ended_at,controller_id FROM remote_rooms WHERE room_id=? LIMIT 1").bind(roomId).first();
+  if(!room||room.ended_at||room.expires_at<=new Date().toISOString()||!constantTimeEqual(room.token_hash,await sha256Hex(key)))return null;
+  return room;
+}
+async function getRemoteState(request,env){
+  const body=await readBody(request),room=await remoteRoomFromBody(body,env);if(!room)return json({error:"This QR session is invalid or expired."},404);
+  let state={};try{state=JSON.parse(room.state_json||"{}")}catch{}
+  return json({state,ended:false});
+}
+async function sendRemoteCommand(request,env){
+  const body=await readBody(request),room=await remoteRoomFromBody(body,env);
+  if(!room)return json({error:"This QR session is invalid or expired."},404);
+  const navigation=["navUp","navDown","navLeft","navRight","navSelect","navBack"];
+  const allowed=["next","previous","reveal","award0","award1","pass","pause","powerCall","powerDouble","powerSteal",...navigation];
+  if(!allowed.includes(body.action))return json({error:"Unsupported remote action."},400);
+  const pointer=false;
+  const now=new Date().toISOString();
+  const fast=navigation.includes(body.action);
+  const cooldown=fast?35:160;
+  if(room.last_command_at&&Date.now()-Date.parse(room.last_command_at)<cooldown)return json({error:"Please wait a moment before sending another command."},429);
+  await env.DB.prepare("UPDATE remote_rooms SET command_seq=command_seq+1,command_json=?,last_command_at=? WHERE room_id=? AND ended_at IS NULL")
+    .bind(JSON.stringify(body.action),now,room.room_id).run();
+  return json({ok:true});
+}
+async function updateRemoteState(request,env){
+  const user=await getSessionUser(request,env);if(!user)return json({error:"Host session expired."},401);
+  const body=await readBody(request),state=body.state;
+  if(!state||typeof state!=="object"||Array.isArray(state))return json({error:"Invalid game state."},400);
+  const safe={screen:["board","question","gameover"].includes(state.screen)?state.screen:"board",
+    teamNames:Array.isArray(state.teamNames)?state.teamNames.slice(0,2).map(x=>String(x).slice(0,26)):["Team 1","Team 2"],
+    scores:Array.isArray(state.scores)?state.scores.slice(0,2).map(x=>Math.max(0,Math.min(999999,Number(x)||0))):[0,0],
+    turn:Number(state.turn)===1?1:0,question:String(state.question||"").slice(0,1000),answer:String(state.answer||"").slice(0,1000),
+    category:String(state.category||"").slice(0,80),points:Math.max(0,Math.min(10000,Number(state.points)||0)),
+    revealed:!!state.revealed,paused:!!state.paused,language:state.language==="ar"?"ar":"en"};
+  const result=await env.DB.prepare("UPDATE remote_rooms SET state_json=? WHERE room_id=? AND host_user_id=? AND ended_at IS NULL AND expires_at>?")
+    .bind(JSON.stringify(safe),body.roomId,user.id,new Date().toISOString()).run();
+  if(!result.meta?.changes)return json({error:"Remote session has ended."},404);
+  return json({ok:true});
+}
+async function endRemoteRoom(request,env){
+  const user=await getSessionUser(request,env);if(!user)return json({error:"Host session expired."},401);
+  const body=await readBody(request);
+  await env.DB.prepare("UPDATE remote_rooms SET ended_at=? WHERE room_id=? AND host_user_id=? AND ended_at IS NULL")
+    .bind(new Date().toISOString(),body.roomId,user.id).run();
+  return json({ok:true});
+}
 
 function json(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data), {
