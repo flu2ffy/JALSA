@@ -160,7 +160,8 @@ async function getImposterPlayerState(request,env,url){
  const room=await imposterRoomByKey({roomId:url.searchParams.get("roomId"),key:url.searchParams.get("key")},env);if(!room)return json({error:"This game session has expired."},404);
  const playerId=url.searchParams.get("playerId")||"",player=room.state.players.find(p=>p.id===playerId);if(!player)return json({error:"Player not found. Scan the QR again."},404);
  const state=room.state,round=state.rounds?.[state.roundIndex]||null;
- return json({state:{stage:state.stage,player:{id:player.id,name:player.name},players:state.players.map(p=>({id:p.id,name:p.name})),roundIndex:state.roundIndex||0,roundsTotal:4,round,role:state.stage==="lobby"?null:(state.roles[playerId]||"player"),word:state.stage==="lobby"||state.roles[playerId]==="imposter"?null:state.secret?.word,category:state.stage==="lobby"||state.roles[playerId]==="imposter"?null:state.secret?.category,ready:(state.ready||[]).includes(playerId),voted:Object.prototype.hasOwnProperty.call(state.votes||{},playerId),voteOptions:state.stage==="voting"?state.players.filter(p=>p.id!==playerId).map(p=>({id:p.id,name:p.name})):[],result:state.stage==="results"?state.result:null}});
+ const ownPair=round?.pairs?.find(pair=>pair.askerId===playerId)||null;
+ return json({state:{stage:state.stage,player:{id:player.id,name:player.name},players:state.players.map(p=>({id:p.id,name:p.name})),roundIndex:state.roundIndex||0,roundsTotal:4,round:ownPair?{askerName:player.name,targetName:state.players.find(p=>p.id===ownPair.targetId)?.name||"Player"}:null,role:state.stage==="lobby"?null:(state.roles[playerId]||"player"),word:state.stage==="lobby"||state.roles[playerId]==="imposter"?null:state.secret?.word,category:state.stage==="lobby"||state.roles[playerId]==="imposter"?null:state.secret?.category,ready:(state.ready||[]).includes(playerId),voted:Object.prototype.hasOwnProperty.call(state.votes||{},playerId),voteOptions:state.stage==="voting"?state.players.filter(p=>p.id!==playerId).map(p=>({id:p.id,name:p.name})):[],result:state.stage==="results"?state.result:null}});
 }
 async function imposterHostAction(request,env){
  const user=await getSessionUser(request,env);if(!user)return json({error:"Please sign in again."},401);
@@ -171,7 +172,7 @@ async function imposterHostAction(request,env){
   if(state.stage!=="lobby"||state.players.length<3)return json({error:"At least 3 players are needed."},400);
   const words=await env.DB.prepare("SELECT category,word_en,word_ar FROM imposter_words").all();if(!words.results?.length)return json({error:"No words are available."},400);
   const secret=imposterShuffle(words.results)[0],imposter=imposterShuffle(state.players)[0];
-  const rounds=[];for(let i=0;i<4;i++){const pair=imposterShuffle(state.players);rounds.push({askerId:pair[0].id,targetId:pair[1].id})}
+  const rounds=[];for(let i=0;i<4;i++){const order=imposterShuffle(state.players);rounds.push({pairs:order.map((p,index)=>({askerId:p.id,targetId:order[(index+1)%order.length].id}))})}
   state.stage="playing";state.secret={category:secret.category,word:secret.word_en,wordAr:secret.word_ar||secret.word_en};state.roles={};state.players.forEach(p=>state.roles[p.id]=p.id===imposter.id?"imposter":"player");state.rounds=rounds;state.roundIndex=0;state.ready=[];state.votes={};state.result=null;
  }else if(body.action==="end"){state.stage="ended"}
  else return json({error:"Unknown host action."},400);
