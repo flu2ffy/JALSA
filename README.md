@@ -96,5 +96,5 @@ Preview bindings are separate from Production bindings; check the Wrangler `prev
 ## Imposter game (Preview)
 - The Imposter game uses a host QR lobby, private player phone pages, four randomized ask assignments, an all-player Ready gate, and private voting.
 - Administrators manage the word bank in Dashboard → Imposter words. The Preview migration seeds starter words across Fruit, Restaurant, Cars, Electronics, Places, and Animals.
-- Before testing, apply `migrations/0005_imposter_game.sql` to **jalsa-auth-preview only**. Do not apply it to Production before the release is approved.
+- For Preview, apply migrations `0005_remote_rooms.sql` and `0006_imposter_game.sql` to **jalsa-auth-preview only**. Apply them to Production only as part of the approved V1.8 release.
 - The game stores room state in the Preview D1 database and expires rooms after three hours.
