@@ -327,8 +327,8 @@ async function openRemoteModal(){
   renderRemoteQr();
   if(remoteHostPoll)clearInterval(remoteHostPoll);
   if(remoteStateTimer)clearInterval(remoteStateTimer);
-  remoteHostPoll=setInterval(pollRemoteCommands,650);
-  remoteStateTimer=setInterval(publishRemoteState,1100);
+  remoteHostPoll=setInterval(pollRemoteCommands,100);
+  remoteStateTimer=setInterval(publishRemoteState,2500);
   publishRemoteState();
  }catch(error){status.textContent=error.message;qr.innerHTML="<span>Could not create QR</span>"}
  finally{remoteOpening=false}
@@ -348,9 +348,27 @@ async function pollRemoteCommands(){
   if(data.commandSeq>remoteLastCommand&&data.command){remoteLastCommand=data.commandSeq;applyRemoteCommand(data.command)}
  }catch(error){const el=document.getElementById("remoteStatus");if(el)el.textContent=error.message}
 }
+function remoteNavigate(direction){
+ const screen=gameState.screen==="board"?document.getElementById("boardScreen"):gameState.screen==="question"?document.getElementById("questionScreen"):null;
+ if(!screen||screen.hidden)return;
+ if(direction==="back"){if(gameState.screen==="question"){gameState.currentTile=null;renderGameHudAndBoard();showStageScreen("boardScreen")}return}
+ const selector=gameState.screen==="board"?".tile:not(:disabled),.power-btn:not(:disabled)":"#revealAnswerButton:not(:disabled),#awardOne:not(:disabled),#awardTwo:not(:disabled),#noPoints:not(:disabled)";
+ const items=[...screen.querySelectorAll(selector)].filter(el=>el.getClientRects().length&&!el.disabled);
+ if(!items.length)return;
+ if(direction==="select"){const active=screen.querySelector(".remote-focused")||document.activeElement;const target=items.includes(active)?active:items[0];target.click();return}
+ const current=screen.querySelector(".remote-focused")||document.activeElement;
+ const rect=current&&screen.contains(current)?current.getBoundingClientRect():null;
+ let origin=rect?{x:rect.left+rect.width/2,y:rect.top+rect.height/2}:null;
+ if(!origin){const first=items[0].getBoundingClientRect();origin={x:first.left+first.width/2,y:first.top+first.height/2}}
+ const candidates=items.map(el=>{const r=el.getBoundingClientRect();return{el,x:r.left+r.width/2,y:r.top+r.height/2}}).filter(p=>p.el!==current);
+ const scored=candidates.map(p=>{const dx=p.x-origin.x,dy=p.y-origin.y,primary=direction==="left"?-dx:direction==="right"?dx:direction==="up"?-dy:dy,secondary=direction==="left"||direction==="right"?Math.abs(dy):Math.abs(dx);return{...p,primary,score:primary>2?primary+secondary*1.8:Infinity}}).sort((a,b)=>a.score-b.score);
+ if(scored[0]&&Number.isFinite(scored[0].score)){screen.querySelectorAll(".remote-focused").forEach(el=>el.classList.remove("remote-focused"));scored[0].el.classList.add("remote-focused");scored[0].el.scrollIntoView({block:"nearest",inline:"nearest"})}
+}
 function applyRemoteCommand(command){
  const action=typeof command==="string"?command:command?.action;
  if(action==="pointerMove"||action==="pointerClick"){remoteGamePointer(command.x,command.y,action==="pointerClick");return}
+ if(action==="navUp"||action==="navDown"||action==="navLeft"||action==="navRight"||action==="navSelect"||action==="navBack"){remoteNavigate(action.slice(3).toLowerCase());return}
+ if(action==="navUp"||action==="navDown"||action==="navLeft"||action==="navRight"||action==="navSelect"||action==="navBack"){remoteNavigate(action.slice(3).toLowerCase());return}
  if(action==="pause"){gameState.remotePaused=!gameState.remotePaused;showToast(gameState.remotePaused?(isArabic?"تم إيقاف اللعبة مؤقتاً من الهاتف":"Game paused from phone"):(isArabic?"تم استئناف اللعبة":"Game resumed"));if(gameState.screen==="board")renderGameHudAndBoard();publishRemoteState();return}
  if(gameState.remotePaused){showToast(isArabic?"استأنفوا اللعبة من الهاتف أولاً":"Resume the game from the phone first.");return}
  if(action==="reveal"){if(gameState.screen==="question")revealCurrentAnswer()}
