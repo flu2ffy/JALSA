@@ -58,6 +58,14 @@ export default {
       if (url.pathname === "/api/admin/categories" && request.method === "POST") return await createCategory(request, env);
       if (url.pathname === "/api/admin/questions" && request.method === "POST") return await createQuestion(request, env);
       if (url.pathname === "/api/admin/feedback" && request.method === "GET") return await listFeedback(request, env);
+      if (url.pathname === "/api/admin/imposter-words" && request.method === "GET") return await listImposterWords(request, env);
+      if (url.pathname === "/api/admin/imposter-words" && request.method === "POST") return await saveImposterWord(request, env);
+      if (url.pathname === "/api/imposter/create" && request.method === "POST") return await createImposterRoom(request, env);
+      if (url.pathname === "/api/imposter/join" && request.method === "POST") return await joinImposterRoom(request, env);
+      if (url.pathname === "/api/imposter/host-state" && request.method === "GET") return await getImposterHostState(request, env, url);
+      if (url.pathname === "/api/imposter/player-state" && request.method === "GET") return await getImposterPlayerState(request, env, url);
+      if (url.pathname === "/api/imposter/host-action" && request.method === "POST") return await imposterHostAction(request, env);
+      if (url.pathname === "/api/imposter/player-action" && request.method === "POST") return await imposterPlayerAction(request, env);
       const adminParts = url.pathname.split("/");
       if (adminParts.length === 5 && adminParts[1] === "api" && adminParts[2] === "admin") {
         const itemId = decodeURIComponent(adminParts[4]);
@@ -70,6 +78,8 @@ export default {
         if (adminParts[3] === "questions" && request.method === "DELETE") return await deleteQuestion(request, env, itemId);
         if (adminParts[3] === "feedback" && request.method === "PATCH") return await updateFeedbackStatus(request, env, itemId);
         if (adminParts[3] === "feedback" && request.method === "DELETE") return await deleteFeedback(request, env, itemId);
+        if (adminParts[3] === "imposter-words" && request.method === "PATCH") return await updateImposterWord(request, env, itemId);
+        if (adminParts[3] === "imposter-words" && request.method === "DELETE") return await deleteImposterWord(request, env, itemId);
       }
       return json({ error: "Not found." }, 404);
     } catch (error) {
@@ -79,6 +89,121 @@ export default {
   },
 };
 
+
+
+function imposterShuffle(items){const a=[...items];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+async function listImposterWords(request,env){
+ if(!await requireAdmin(request,env))return json({error:"Administrator access required."},403);
+ const rows=await env.DB.prepare("SELECT id,category,word_en,word_ar,created_at FROM imposter_words ORDER BY category,word_en").all();
+ return json({words:rows.results||[]});
+}
+function cleanImposterWord(body){
+ const category=cleanText(body.category,60),wordEn=cleanText(body.word_en,100),wordAr=cleanText(body.word_ar,100);
+ if(category.length<2||wordEn.length<2)return {error:"Enter a category and an English word."};
+ return {category,word_en:wordEn,word_ar:wordAr};
+}
+async function saveImposterWord(request,env){
+ if(!await requireAdmin(request,env))return json({error:"Administrator access required."},403);
+ const body=await readBody(request),w=cleanImposterWord(body);if(w.error)return json({error:w.error},400);
+ const id=crypto.randomUUID(),now=new Date().toISOString();
+ await env.DB.prepare("INSERT INTO imposter_words (id,category,word_en,word_ar,created_at,updated_at) VALUES (?,?,?,?,?,?)").bind(id,w.category,w.word_en,w.word_ar||null,now,now).run();
+ return json({ok:true,id});
+}
+async function updateImposterWord(request,env,id){
+ if(!await requireAdmin(request,env))return json({error:"Administrator access required."},403);
+ const body=await readBody(request),w=cleanImposterWord(body);if(w.error)return json({error:w.error},400);
+ await env.DB.prepare("UPDATE imposter_words SET category=?,word_en=?,word_ar=?,updated_at=? WHERE id=?").bind(w.category,w.word_en,w.word_ar||null,new Date().toISOString(),id).run();
+ return json({ok:true});
+}
+async function deleteImposterWord(request,env,id){
+ if(!await requireAdmin(request,env))return json({error:"Administrator access required."},403);
+ await env.DB.prepare("DELETE FROM imposter_words WHERE id=?").bind(id).run();return json({ok:true});
+}
+async function imposterRoomByKey(body,env){
+ const roomId=String(body.roomId||""),key=String(body.key||"");
+ if(!/^[A-Za-z0-9_-]{20,40}$/.test(roomId)||key.length<40||key.length>60)return null;
+ const room=await env.DB.prepare("SELECT * FROM imposter_rooms WHERE room_id=? LIMIT 1").bind(roomId).first();
+ if(!room||room.ended_at||room.expires_at<=new Date().toISOString()||!constantTimeEqual(room.token_hash,await sha256Hex(key)))return null;
+ let state={};try{state=JSON.parse(room.state_json||"{}")}catch{}return {...room,state};
+}
+async function saveImposterState(env,room,state){
+ await env.DB.prepare("UPDATE imposter_rooms SET state_json=? WHERE room_id=? AND ended_at IS NULL").bind(JSON.stringify(state),room.room_id).run();
+}
+function imposterPublicState(state){
+ return {stage:state.stage,players:state.players.map(p=>({id:p.id,name:p.name})),roundIndex:state.roundIndex||0,roundsTotal:4,round:state.rounds?.[state.roundIndex]||null,readyCount:(state.ready||[]).length,voteCount:Object.keys(state.votes||{}).length,result:state.stage==="results"?state.result:null};
+}
+async function createImposterRoom(request,env){
+ const user=await getSessionUser(request,env);if(!user)return json({error:"Please sign in to host a game."},401);
+ const words=await env.DB.prepare("SELECT id,category,word_en,word_ar FROM imposter_words").all();
+ if(!words.results?.length)return json({error:"The Imposter word list is empty. Ask an admin to add words first."},400);
+ const roomId=toBase64Url(randomBytes(18)),key=toBase64Url(randomBytes(32)),now=new Date(),expires=new Date(now.getTime()+3*60*60*1000).toISOString();
+ const state={stage:"lobby",players:[],roundIndex:0,rounds:[],ready:[],votes:{},roles:{},secret:null,result:null};
+ await env.DB.prepare("INSERT INTO imposter_rooms (room_id,token_hash,host_user_id,state_json,created_at,expires_at) VALUES (?,?,?, ?,?,?)").bind(roomId,await sha256Hex(key),user.id,JSON.stringify(state),now.toISOString(),expires).run();
+ return json({roomId,key,expiresAt:expires});
+}
+async function joinImposterRoom(request,env){
+ const body=await readBody(request),room=await imposterRoomByKey(body,env);if(!room)return json({error:"This game QR is invalid or expired."},404);
+ const name=cleanText(body.name,32);if(name.length<2)return json({error:"Enter a name with at least 2 characters."},400);
+ if(room.state.stage!=="lobby")return json({error:"This game has already started."},409);
+ if(room.state.players.some(p=>p.name.toLowerCase()===name.toLowerCase()))return json({error:"That name is already taken. Choose another."},409);
+ if(room.state.players.length>=24)return json({error:"This game is full (24 players maximum)."},409);
+ const playerId=toBase64Url(randomBytes(18));room.state.players.push({id:playerId,name});await saveImposterState(env,room,room.state);
+ return json({ok:true,playerId,name});
+}
+async function getImposterHostState(request,env,url){
+ const user=await getSessionUser(request,env);if(!user)return json({error:"Please sign in again."},401);
+ const room=await env.DB.prepare("SELECT * FROM imposter_rooms WHERE room_id=? AND host_user_id=? LIMIT 1").bind(url.searchParams.get("roomId")||"",user.id).first();
+ if(!room||room.ended_at||room.expires_at<=new Date().toISOString())return json({error:"Game session not found or expired."},404);
+ let state={};try{state=JSON.parse(room.state_json||"{}")}catch{}return json({state:imposterPublicState(state)});
+}
+async function getImposterPlayerState(request,env,url){
+ const room=await imposterRoomByKey({roomId:url.searchParams.get("roomId"),key:url.searchParams.get("key")},env);if(!room)return json({error:"This game session has expired."},404);
+ const playerId=url.searchParams.get("playerId")||"",player=room.state.players.find(p=>p.id===playerId);if(!player)return json({error:"Player not found. Scan the QR again."},404);
+ const state=room.state,round=state.rounds?.[state.roundIndex]||null;
+ return json({state:{stage:state.stage,player:{id:player.id,name:player.name},players:state.players.map(p=>({id:p.id,name:p.name})),roundIndex:state.roundIndex||0,roundsTotal:4,round,role:state.stage==="lobby"?null:(state.roles[playerId]||"player"),word:state.stage==="lobby"||state.roles[playerId]==="imposter"?null:state.secret?.word,category:state.stage==="lobby"||state.roles[playerId]==="imposter"?null:state.secret?.category,ready:(state.ready||[]).includes(playerId),voted:Object.prototype.hasOwnProperty.call(state.votes||{},playerId),voteOptions:state.stage==="voting"?state.players.filter(p=>p.id!==playerId).map(p=>({id:p.id,name:p.name})):[],result:state.stage==="results"?state.result:null}});
+}
+async function imposterHostAction(request,env){
+ const user=await getSessionUser(request,env);if(!user)return json({error:"Please sign in again."},401);
+ const body=await readBody(request),room=await env.DB.prepare("SELECT * FROM imposter_rooms WHERE room_id=? AND host_user_id=? LIMIT 1").bind(String(body.roomId||""),user.id).first();
+ if(!room||room.ended_at)return json({error:"Game session not found."},404);
+ let state={};try{state=JSON.parse(room.state_json||"{}")}catch{}
+ if(body.action==="start"){
+  if(state.stage!=="lobby"||state.players.length<3)return json({error:"At least 3 players are needed."},400);
+  const words=await env.DB.prepare("SELECT category,word_en,word_ar FROM imposter_words").all();if(!words.results?.length)return json({error:"No words are available."},400);
+  const secret=imposterShuffle(words.results)[0],imposter=imposterShuffle(state.players)[0];
+  const rounds=[];for(let i=0;i<4;i++){const pair=imposterShuffle(state.players);rounds.push({askerId:pair[0].id,targetId:pair[1].id})}
+  state.stage="playing";state.secret={category:secret.category,word:secret.word_en,wordAr:secret.word_ar||secret.word_en};state.roles={};state.players.forEach(p=>state.roles[p.id]=p.id===imposter.id?"imposter":"player");state.rounds=rounds;state.roundIndex=0;state.ready=[];state.votes={};state.result=null;
+ }else if(body.action==="end"){state.stage="ended"}
+ else return json({error:"Unknown host action."},400);
+ await env.DB.prepare("UPDATE imposter_rooms SET state_json=?,ended_at=? WHERE room_id=?").bind(JSON.stringify(state),body.action==="end"?new Date().toISOString():null,room.room_id).run();
+ return json({ok:true});
+}
+async function imposterPlayerAction(request,env){
+ const body=await readBody(request),room=await imposterRoomByKey(body,env);if(!room)return json({error:"This game session has expired."},404);
+ const playerId=String(body.playerId||"");if(!room.state.players.some(p=>p.id===playerId))return json({error:"Player not found."},404);
+ const state=room.state;
+ if(body.action==="next"){
+  if(state.stage!=="playing")return json({error:"This round is not active."},409);
+  state.ready=Array.isArray(state.ready)?state.ready:[];if(!state.ready.includes(playerId))state.ready.push(playerId);
+  if(state.ready.length===state.players.length){state.ready=[];state.roundIndex++;if(state.roundIndex>=4)state.stage="ready"}
+ }else if(body.action==="ready"){
+  if(state.stage!=="ready")return json({error:"Voting is not ready yet."},409);
+  state.ready=Array.isArray(state.ready)?state.ready:[];if(!state.ready.includes(playerId))state.ready.push(playerId);
+  if(state.ready.length===state.players.length){state.stage="voting";state.ready=[]}
+ }else if(body.action==="vote"){
+  if(state.stage!=="voting")return json({error:"Voting is not open."},409);
+  const targetId=String(body.targetId||"");if(targetId===playerId||!state.players.some(p=>p.id===targetId))return json({error:"Choose another player."},400);
+  state.votes=state.votes||{};state.votes[playerId]=targetId;
+  if(Object.keys(state.votes).length===state.players.length){
+   const counts={};Object.values(state.votes).forEach(id=>counts[id]=(counts[id]||0)+1);
+   const ranked=Object.entries(counts).sort((a,b)=>b[1]-a[1]),top=ranked[0]?.[1]||0,winners=ranked.filter(x=>x[1]===top).map(x=>x[0]);
+   const imposterId=Object.keys(state.roles).find(id=>state.roles[id]==="imposter");
+   state.result={votes:counts,imposterId,imposterName:state.players.find(p=>p.id===imposterId)?.name||"",mostVotedIds:winners};
+   state.stage="results";
+  }
+ }else return json({error:"Unknown player action."},400);
+ await saveImposterState(env,room,state);return json({ok:true});
+}
 
 async function createRemoteRoom(request, env) {
   const user=await getSessionUser(request,env);if(!user)return json({error:"Sign in on the JALSA game screen first."},401);
