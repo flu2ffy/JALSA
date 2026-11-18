@@ -92,6 +92,33 @@
 .remote-close{background:#55151c;color:#fff3df}.remote-end{background:#ead6bd;color:#55151c}
 .remote-status{font-size:13px;font-weight:800;color:#286043;min-height:20px}
 
+
+/* Keep the live question board fully visible within the TV viewport. */
+@media (min-width: 851px) and (min-height: 650px){
+ .zanko-stage.active:has(#boardScreen:not([hidden])){overflow:hidden}
+ .zanko-stage.active:has(#boardScreen:not([hidden])) .stage-main{min-height:0;overflow:hidden}
+ .zanko-stage.active:has(#boardScreen:not([hidden])) .stage-shell{height:100%;min-height:0;padding:10px clamp(16px,2vw,28px) 6px;overflow:hidden}
+ .zanko-stage.active:has(#boardScreen:not([hidden])) #boardScreen{min-height:0}
+ .zanko-stage.active:has(#boardScreen:not([hidden])) .remote-launch{margin-bottom:7px}
+ .zanko-stage.active:has(#boardScreen:not([hidden])) .remote-launch button{padding:8px 17px}
+ .zanko-stage.active:has(#boardScreen:not([hidden])) .turn-banner{margin-bottom:9px;padding:8px 22px;font-size:clamp(18px,2vw,24px)}
+ .zanko-stage.active:has(#boardScreen:not([hidden])) .team-hud{gap:12px;margin-bottom:10px}
+ .zanko-stage.active:has(#boardScreen:not([hidden])) .team-hud-card{padding:9px 13px;gap:5px 12px}
+ .zanko-stage.active:has(#boardScreen:not([hidden])) .hud-team-name{font-size:clamp(19px,2vw,26px)}
+ .zanko-stage.active:has(#boardScreen:not([hidden])) .hud-score{font-size:clamp(24px,2.5vw,34px)}
+ .zanko-stage.active:has(#boardScreen:not([hidden])) .power-row{gap:6px}
+ .zanko-stage.active:has(#boardScreen:not([hidden])) .power-btn{padding:6px 9px;font-size:12px}
+ .zanko-stage.active:has(#boardScreen:not([hidden])) .power-btn .power-icon{font-size:17px}
+ .zanko-stage.active:has(#boardScreen:not([hidden])) .board-grid-scroll{min-height:0;overflow-x:auto;overflow-y:hidden;flex:1;padding:2px 0 4px}
+ .zanko-stage.active:has(#boardScreen:not([hidden])) .board-grid{height:100%;align-items:stretch;gap:10px}
+ .zanko-stage.active:has(#boardScreen:not([hidden])) .board-category{height:100%;padding:7px;display:flex;flex-direction:column}
+ .zanko-stage.active:has(#boardScreen:not([hidden])) .board-category img{height:clamp(48px,8vh,76px);flex:0 0 auto}
+ .zanko-stage.active:has(#boardScreen:not([hidden])) .board-category h3{font-size:16px;min-height:0;margin:6px 0 7px;padding:0;flex:0 0 auto}
+ .zanko-stage.active:has(#boardScreen:not([hidden])) .tier-row{flex:1;min-height:0;margin:4px 0;gap:5px}
+ .zanko-stage.active:has(#boardScreen:not([hidden])) .tile{height:100%;min-height:0;padding:5px 3px 4px;font-size:clamp(14px,1.25vw,17px);gap:2px}
+ .zanko-stage.active:has(#boardScreen:not([hidden])) .tile small{font-size:9px}
+ .zanko-stage.active:has(#boardScreen:not([hidden])) .board-progress{margin:3px 0 0;flex:0 0 auto}
+}
 </style>
 </head>
 <body>
