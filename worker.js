@@ -91,9 +91,23 @@ export default {
 
 
 
+
+async function ensureImposterSchema(env){
+ await env.DB.prepare("CREATE TABLE IF NOT EXISTS imposter_words (id TEXT PRIMARY KEY, category TEXT NOT NULL, word_en TEXT NOT NULL, word_ar TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)").run();
+ await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_imposter_words_category ON imposter_words(category,word_en)").run();
+ await env.DB.prepare("CREATE TABLE IF NOT EXISTS imposter_rooms (room_id TEXT PRIMARY KEY, token_hash TEXT NOT NULL, host_user_id TEXT NOT NULL, state_json TEXT NOT NULL, created_at TEXT NOT NULL, expires_at TEXT NOT NULL, ended_at TEXT)").run();
+ await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_imposter_rooms_host ON imposter_rooms(host_user_id,created_at)").run();
+ const count=await env.DB.prepare("SELECT COUNT(*) AS count FROM imposter_words").first();
+ if(Number(count?.count||0)===0){
+  const words=[["Fruit","Watermelon","بطيخ"],["Fruit","Pineapple","أناناس"],["Fruit","Strawberry","فراولة"],["Fruit","Mango","مانجو"],["Fruit","Orange","برتقال"],["Restaurant","McDonald's","ماكدونالدز"],["Restaurant","Pizza Hut","بيتزا هت"],["Restaurant","KFC","كنتاكي"],["Restaurant","Shake Shack","شيك شاك"],["Restaurant","Starbucks","ستاربكس"],["Cars","Toyota Camry","تويوتا كامري"],["Cars","Tesla Model 3","تسلا موديل 3"],["Cars","Mercedes-Benz G-Class","مرسيدس جي كلاس"],["Cars","Porsche 911","بورش 911"],["Cars","Jeep Wrangler","جيب رانجلر"],["Electronics","iPhone","آيفون"],["Electronics","PlayStation 5","بلايستيشن 5"],["Electronics","AirPods","إيربودز"],["Electronics","Nintendo Switch","نينتندو سويتش"],["Electronics","MacBook","ماك بوك"],["Places","Airport","مطار"],["Places","Beach","شاطئ"],["Places","Cinema","سينما"],["Places","Shopping mall","مول"],["Places","Amusement park","مدينة ملاهي"],["Animals","Dolphin","دلفين"],["Animals","Penguin","بطريق"],["Animals","Giraffe","زرافة"],["Animals","Tiger","نمر"],["Animals","Camel","جمل"]];
+  const now=new Date().toISOString();
+  for(let i=0;i<words.length;i++){const w=words[i];await env.DB.prepare("INSERT OR IGNORE INTO imposter_words (id,category,word_en,word_ar,created_at,updated_at) VALUES (?,?,?,?,?,?)").bind("seed-"+String(i+1).padStart(3,"0"),w[0],w[1],w[2],now,now).run();}
+ }
+}
 function imposterShuffle(items){const a=[...items];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 async function listImposterWords(request,env){
  if(!await requireAdmin(request,env))return json({error:"Administrator access required."},403);
+ await ensureImposterSchema(env);
  const rows=await env.DB.prepare("SELECT id,category,word_en,word_ar,created_at FROM imposter_words ORDER BY category,word_en").all();
  return json({words:rows.results||[]});
 }
@@ -104,6 +118,7 @@ function cleanImposterWord(body){
 }
 async function saveImposterWord(request,env){
  if(!await requireAdmin(request,env))return json({error:"Administrator access required."},403);
+ await ensureImposterSchema(env);
  const body=await readBody(request),w=cleanImposterWord(body);if(w.error)return json({error:w.error},400);
  const id=crypto.randomUUID(),now=new Date().toISOString();
  await env.DB.prepare("INSERT INTO imposter_words (id,category,word_en,word_ar,created_at,updated_at) VALUES (?,?,?,?,?,?)").bind(id,w.category,w.word_en,w.word_ar||null,now,now).run();
@@ -135,6 +150,7 @@ function imposterPublicState(state){
 }
 async function createImposterRoom(request,env){
  const user=await getSessionUser(request,env);if(!user)return json({error:"Please sign in to host a game."},401);
+ await ensureImposterSchema(env);
  const words=await env.DB.prepare("SELECT id,category,word_en,word_ar FROM imposter_words").all();
  if(!words.results?.length)return json({error:"The Imposter word list is empty. Ask an admin to add words first."},400);
  const roomId=toBase64Url(randomBytes(18)),key=toBase64Url(randomBytes(32)),now=new Date(),expires=new Date(now.getTime()+3*60*60*1000).toISOString();
