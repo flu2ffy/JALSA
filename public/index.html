@@ -309,7 +309,7 @@ async function remoteApi(path,body){
 }
 function remoteSnapshot(){
  const tile=gameState.currentTile;
- return {screen:gameState.screen,teamNames:gameState.teamNames,scores:gameState.scores,turn:gameState.turn,question:tile?(isArabic?tile.qAr:tile.q):"",answer:tile?(isArabic?tile.aAr:tile.a):"",category:tile?(CATEGORIES.find(c=>c.id===tile.category)?.[isArabic?"ar":"name"]||""):"",points:tile?.actualPoints||0,revealed:!!(tile&&!document.getElementById("questionAnswer").hidden),paused:!!gameState.remotePaused,language:isArabic?"ar":"en"};
+ return {screen:gameState.screen,teamNames:gameState.teamNames,scores:gameState.scores,turn:gameState.turn,question:"",answer:tile?(isArabic?tile.aAr:tile.a):"",category:tile?(CATEGORIES.find(c=>c.id===tile.category)?.[isArabic?"ar":"name"]||""):"",points:tile?.actualPoints||0,revealed:!!(tile&&!document.getElementById("questionAnswer").hidden),paused:!!gameState.remotePaused,language:isArabic?"ar":"en"};
 }
 async function publishRemoteState(){
  if(!remoteRoomId)return;
@@ -349,20 +349,36 @@ async function pollRemoteCommands(){
  }catch(error){const el=document.getElementById("remoteStatus");if(el)el.textContent=error.message}
 }
 function applyRemoteCommand(command){
- if(command==="pause"){gameState.remotePaused=!gameState.remotePaused;showToast(gameState.remotePaused?(isArabic?"تم إيقاف اللعبة مؤقتاً من الهاتف":"Game paused from phone"):(isArabic?"تم استئناف اللعبة":"Game resumed"));if(gameState.screen==="board")renderGameHudAndBoard();publishRemoteState();return}
+ const action=typeof command==="string"?command:command?.action;
+ if(action==="pointerMove"||action==="pointerClick"){remoteGamePointer(command.x,command.y,action==="pointerClick");return}
+ if(action==="pause"){gameState.remotePaused=!gameState.remotePaused;showToast(gameState.remotePaused?(isArabic?"تم إيقاف اللعبة مؤقتاً من الهاتف":"Game paused from phone"):(isArabic?"تم استئناف اللعبة":"Game resumed"));if(gameState.screen==="board")renderGameHudAndBoard();publishRemoteState();return}
  if(gameState.remotePaused){showToast(isArabic?"استأنفوا اللعبة من الهاتف أولاً":"Resume the game from the phone first.");return}
- if(command==="reveal"){if(gameState.screen==="question")revealCurrentAnswer()}
- else if(command==="award0"){if(gameState.screen==="question")awardQuestion(0)}
- else if(command==="award1"){if(gameState.screen==="question")awardQuestion(1)}
- else if(command==="pass"){if(gameState.screen==="question")finishQuestion(null)}
- else if(command==="previous"){if(gameState.screen==="question"){gameState.currentTile=null;renderGameHudAndBoard();showStageScreen("boardScreen")}}
- else if(command==="next"){
+ if(action==="reveal"){if(gameState.screen==="question")revealCurrentAnswer()}
+ else if(action==="award0"){if(gameState.screen==="question")awardQuestion(0)}
+ else if(action==="award1"){if(gameState.screen==="question")awardQuestion(1)}
+ else if(action==="pass"){if(gameState.screen==="question")finishQuestion(null)}
+ else if(action==="previous"){if(gameState.screen==="question"){gameState.currentTile=null;renderGameHudAndBoard();showStageScreen("boardScreen")}}
+ else if(action==="next"){
   if(gameState.screen==="question")finishQuestion(null);
   if(gameState.screen==="board"){const next=Object.values(gameState.tiles).flat().find(tile=>!tile.used&&(tile.owner===gameState.turn||gameState.stealActive));if(next)chooseTile(next.id);else showToast(isArabic?"لا توجد أسئلة متاحة لهذا الفريق":"No available question for this team")}
  }
  publishRemoteState();
 }
 function closeRemoteModal(){document.getElementById("remoteModal").classList.remove("open")}
+function remoteGamePointer(nx,ny,click){
+ const screen=gameState.screen==="board"?document.getElementById("boardScreen"):gameState.screen==="question"?document.getElementById("questionScreen"):null;
+ if(!screen||screen.hidden)return;
+ const rect=screen.getBoundingClientRect(),x=Math.max(0,Math.min(1,Number(nx)||0)),y=Math.max(0,Math.min(1,Number(ny)||0));
+ const px=rect.left+x*rect.width,py=rect.top+y*rect.height;
+ let cursor=document.getElementById("remoteGameCursor");
+ if(!cursor){cursor=document.createElement("div");cursor.id="remoteGameCursor";cursor.textContent="●";cursor.style.cssText="position:fixed;z-index:99999;pointer-events:none;color:#ffb347;text-shadow:0 0 3px #351017,0 0 8px #351017;font-size:28px;line-height:1;transform:translate(-50%,-50%);";document.body.appendChild(cursor)}
+ cursor.style.left=px+"px";cursor.style.top=py+"px";cursor.hidden=false;
+ if(!click)return;
+ const target=document.elementFromPoint(px,py);if(!target||!screen.contains(target))return;
+ const safe=target.closest(".tile:not(:disabled),.power-btn:not(:disabled),#revealAnswerButton:not([hidden]):not(:disabled),#awardOne:not([hidden]):not(:disabled),#awardTwo:not([hidden]):not(:disabled),#noPoints:not([hidden]):not(:disabled)");
+ if(safe&&screen.contains(safe)&&!safe.disabled&&safe.getClientRects().length)safe.click();
+}
+
 function stopRemoteTimers(){if(remoteHostPoll)clearInterval(remoteHostPoll);if(remoteStateTimer)clearInterval(remoteStateTimer);remoteHostPoll=null;remoteStateTimer=null;remoteRoomId="";remoteRoomKey=""}
 async function endRemoteSession(){if(remoteRoomId){try{await remoteApi("end",{roomId:remoteRoomId})}catch{}}stopRemoteTimers();closeRemoteModal();showToast(isArabic?"تم إنهاء التحكم عن بُعد":"Remote control ended")}
 
