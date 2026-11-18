@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS remote_rooms (
   token_hash TEXT NOT NULL,
   host_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   state_json TEXT NOT NULL DEFAULT '{}',
+  controller_id TEXT,
   command_seq INTEGER NOT NULL DEFAULT 0,
   command_json TEXT,
   last_command_at TEXT,
