@@ -514,8 +514,8 @@ async function v17PollGameLocks(){
  const zn=document.getElementById("zankoStoppedNotice");if(zn)zn.hidden=zankoOn;
  const pn=document.getElementById("priceStoppedNotice"),pgn=document.getElementById("priceGameStoppedNotice");
  if(pn)pn.hidden=priceOn;if(pgn)pgn.hidden=priceOn;
- if(!zankoOn){document.querySelectorAll("#boardScreen button,#questionScreen button").forEach(button=>button.disabled=true)}
- if(!priceOn){document.querySelectorAll("#priceSetupOverlay button,#priceGameOverlay button,#priceGameOverlay input").forEach(control=>control.disabled=true)}
+ ["boardScreen","questionScreen"].forEach(id=>{const panel=document.getElementById(id);if(panel)panel.style.pointerEvents=zankoOn?"":"none"});
+ ["priceSetupOverlay","priceGameOverlay"].forEach(id=>{const panel=document.getElementById(id);if(panel){const inner=panel.querySelector(".price-panel");if(inner)inner.style.pointerEvents=priceOn?"":"none"}})
 }
 setInterval(v17PollGameLocks,2500);
 async function v17IsGameEnabled(gameId){
