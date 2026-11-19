@@ -70,7 +70,7 @@ function refreshQrLanguage(){
  if(window.QRCode){$("qr").innerHTML="";try{new QRCode($("qr"),{text:link,width:196,height:196,colorDark:"#16090d",colorLight:"#ffffff",correctLevel:QRCode.CorrectLevel.M})}catch(e){$("qr").textContent=link}}
 }
 function toggleLanguage(){lang=lang==="en"?"ar":"en";localStorage.setItem("jalsa_language",lang);applyLanguage();refreshQrLanguage();lastRenderKey="";poll()}
-const qs=new URLSearchParams(location.search);let roomId=qs.get("roomId"),key=qs.get("key"),playerId=localStorage.getItem("insight:"+roomId),isHost=false,lastRenderKey="",chosenAnswer="",chosenSide="",choiceStep="player",isSending=false,targetRevealSeen=false,activeQuestionKey="",autoAdvanceKey="",autoAdvanceTimer=null;
+const qs=new URLSearchParams(location.search);let roomId=qs.get("roomId"),key=qs.get("key"),playerId=localStorage.getItem("insight:"+roomId),isHost=false,lastRenderKey="",chosenAnswer="",chosenSide="",choiceStep="player",isSending=false,targetRevealSeen=false,activeQuestionKey="",activeRoundNumber=0,autoAdvanceKey="",autoAdvanceTimer=null;
 const $=id=>document.getElementById(id);
 applyLanguage();
 async function api(path,body){const r=await fetch("/api/insight/"+path,{method:body?"POST":"GET",headers:body?{"Content-Type":"application/json"}:{},body:body?JSON.stringify(body):undefined});const d=await r.json();if(!r.ok)throw Error(d.error||"Something went wrong.");return d}
@@ -89,6 +89,7 @@ function esc(v){return String(v||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&l
 async function poll(){try{const q=new URLSearchParams({roomId,key});if(playerId)q.set("playerId",playerId);const d=await api("state?"+q.toString());render(d.state)}catch(e){if(isHost)$("hostMessage").textContent=e.message;else $("phoneContent").textContent=e.message}setTimeout(poll,1100)}
 function render(s){
  const questionKey=s.questionForTarget?String(s.round)+":"+String(s.targetName||"")+":"+String(s.questionForTarget):"";
+ if(s.round!==activeRoundNumber){activeRoundNumber=s.round;activeQuestionKey="";targetRevealSeen=false;choiceStep="player";chosenAnswer="";chosenSide="";isSending=false}
  if(questionKey&&questionKey!==activeQuestionKey){
   activeQuestionKey=questionKey;targetRevealSeen=false;choiceStep="player";chosenAnswer="";chosenSide="";isSending=false;
  }
