@@ -687,7 +687,14 @@ async function handleResetPassword(event){
 }
 async function logout(){try{await apiRequest('/logout',{})}catch{}currentUser=null;showAdminButton();if(gameState.screen!=='home')showHome()}
 function closeAdmin(){document.getElementById('adminOverlay').classList.remove('open')}
-async function openAdmin(){if(!currentUser||!currentUser.isAdmin)return;const overlay=document.getElementById('adminOverlay'),holder=document.getElementById('adminUsers');overlay.classList.add('open');holder.innerHTML='';document.getElementById('adminMessage').hidden=true;try{const data=await apiRequest('/admin/users');const rows=data.users||[];if(!rows.length){holder.textContent=t('noUsers');return}const table=document.createElement('table');table.className='users-table';const thead=document.createElement('thead'),hr=document.createElement('tr');[t('tableName'),t('tableEmail'),t('tableVerified'),t('tableRegistered')].forEach(label=>{const th=document.createElement('th');th.textContent=label;hr.appendChild(th)});thead.appendChild(hr);table.appendChild(thead);const tbody=document.createElement('tbody');rows.forEach(user=>{const tr=document.createElement('tr');[user.name,user.email,user.email_verified?'Yes':'No',user.created_at].forEach(value=>{const td=document.createElement('td');td.textContent=value??'';tr.appendChild(td)});tbody.appendChild(tr)});table.appendChild(tbody);holder.appendChild(table)}catch(error){const message=document.getElementById('adminMessage');message.textContent=error.message;message.hidden=false}}
+async function openAdmin(){
+ if(!currentUser||!currentUser.isAdmin)return;
+ const old=document.getElementById("adminOverlay");if(old)old.classList.remove("open");
+ const page=document.getElementById("adminPage");if(page)page.hidden=false;
+ const signed=document.getElementById("adminSignedInAs");if(signed)signed.textContent=currentUser.email||"";
+ if(typeof v17SyncLanguage==="function")v17SyncLanguage();
+ if(typeof switchAdminTab==="function")switchAdminTab("games");
+}
 window.addEventListener('DOMContentLoaded',()=>{refreshSession()});
 
 </script>
