@@ -63,7 +63,8 @@ function render(s){
  if(s.waitingForDelivery){$("phoneContent").innerHTML="<h2>Focus on the screen</h2><p>Your question is on its way…</p>";return}
  $("phoneContent").innerHTML="<h2>"+(s.role==="heartbreaker"?"Your question was sent.":"Focus on the screen")+"</h2><p>Wait for the next moment.</p>";
 }
-function showTargetChoices(){targetRevealSeen=true;lastRenderKey='';poll()}\nfunction targetChoiceMarkup(players){
+function showTargetChoices(){targetRevealSeen=true;lastRenderKey='';poll()}
+function targetChoiceMarkup(players){
  if(choiceStep==="player")return "<div class='choice-step'><h2>Choose the person you think is the answer</h2><div id='answerChoices'>"+players.filter(p=>p.id!==playerId).map(p=>"<button class='name-choice "+(chosenAnswer===p.id?"selected":"")+"' onclick='chooseAnswer("+JSON.stringify(p.id)+")'>"+esc(p.name)+"</button>").join("")+"</div><button onclick='continueToCoin()' "+(!chosenAnswer?"disabled":"")+">Continue</button></div>";
  return "<div class='choice-step'><button class='name-choice' onclick='backToPlayers()'>← Back · Change person</button><h2>Choose heads or tails</h2><div class='row'><button class='name-choice "+(chosenSide==="heads"?"selected":"")+"' onclick=\"chooseSide('heads')\">Heads</button><button class='name-choice "+(chosenSide==="tails"?"selected":"")+"' onclick=\"chooseSide('tails')\">Tails</button></div><div class='coin-stage'><div id='coin' class='coin'><div class='coin-face'>JALSA</div><div class='coin-face coin-back'>ولع الجلسة</div></div></div><button onclick='flipCoin()' "+(!chosenSide||isSending?"disabled":"")+">Flip coin</button><p id='flipError' class='status'></p></div>";
 }
