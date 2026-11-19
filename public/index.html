@@ -121,6 +121,17 @@
  .zanko-stage.active:has(#boardScreen:not([hidden])) .board-progress{margin:3px 0 0;flex:0 0 auto}
 }
 
+
+/* JALSA v1.9: keep the existing games-section background bar; add artwork only inside the first three game cards. */
+.game-card{position:relative;isolation:isolate;overflow:hidden}
+.game-card:before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:.30;background-repeat:no-repeat;background-size:300% 100%}
+.game-card:nth-child(1):before{background-image:url('/jalsa-games-en.webp');background-position:50% center}
+.game-card:nth-child(2):before{background-image:url('/jalsa-games-en.webp');background-position:100% center}
+.game-card:nth-child(3):before{background-image:url('/jalsa-games-en.webp');background-position:0% center}
+html[dir="rtl"] .game-card:nth-child(1):before{background-image:url('/jalsa-games-ar.webp');background-position:50% center}
+html[dir="rtl"] .game-card:nth-child(2):before{background-image:url('/jalsa-games-ar.webp');background-position:100% center}
+html[dir="rtl"] .game-card:nth-child(3):before{background-image:url('/jalsa-games-ar.webp');background-position:0% center}
+
 </style>
 </head>
 <body>
