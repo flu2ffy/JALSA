@@ -247,6 +247,7 @@
       <button data-admin-tab="zanko" onclick="switchAdminTab('zanko')" data-v17="zankoEditor">Zanko editor</button>
       <button data-admin-tab="price" onclick="switchAdminTab('price')" data-v17="priceEditor">Price Guessing editor</button>
       <button data-admin-tab="imposter" onclick="switchAdminTab('imposter')">Imposter editor</button>
+      <button data-admin-tab="games" onclick="switchAdminTab('games')">Game availability</button>
     </nav>
     <p class="v17-form-message" id="adminPageStatus" hidden></p>
     <section class="v17-admin-tab" id="adminTabUsers">
@@ -303,6 +304,11 @@
         </section>
         <section class="v17-card"><h2 data-v17="priceGameNotes">Price Guessing products</h2><p class="v17-muted" data-v17="priceMediaNote">Every product uses an uploaded photo, video, or audio file. Prices are in US dollars.</p><div id="priceQuestionList" class="v17-mini-list"></div></section>
       </div>
+    </section>
+    <section class="v17-admin-tab" id="adminTabGames" hidden>
+      <div class="v17-section-heading"><div><p class="v17-eyebrow">LIVE GAME CONTROL</p><h1>Game availability</h1><p>Stop a game for everyone while you update it. Players will see a notice and cannot start or continue a stopped game.</p></div></div>
+      <div class="v17-card-list" id="adminGameAvailability"><p class="v17-muted">Loading game controls…</p></div>
+      <p class="v17-form-message" id="gameAvailabilityStatus" hidden></p>
     </section>
     <section class="v17-admin-tab" id="adminTabImposter" hidden>
       <div class="v17-section-heading"><div><p class="v17-eyebrow">GAME CONTENT</p><h1>Imposter editor</h1><p>Manage the words and categories used in the Imposter game.</p></div><span class="v17-count" id="imposterWordCount">0</span></div>
@@ -736,7 +742,7 @@ function v17FormatDate(value){if(!value)return v17T("never");const d=new Date(va
 function v17SetAdminStatus(message,error){v17ShowStatus("adminPageStatus",message,error)}
 async function openAdmin(){if(!currentUser||!currentUser.isAdmin)return;document.getElementById("adminPage").hidden=false;document.getElementById("adminSignedInAs").textContent=currentUser.email||"";v17SyncLanguage();switchAdminTab("users");try{const data=await v17EnsureSeeded();v17Content.categories=data.categories||[];v17Content.questions=data.questions||[];v17Content.priceItems=v17Content.questions.filter(q=>q.game_type==="price"&&q.media_url&&q.media_type!=="none").map(q=>[q.product_name_en,"",Number(q.price_value||0),q.media_type,q.media_url,q.product_name_ar]);if(v17Content.categories.length)CATEGORIES=v17Content.categories.map(c=>({id:c.id,name:c.name_en,ar:c.name_ar,image:c.image_url||"category-music.svg",icon:c.icon||"🎯"}));v17ContentLoaded=true;await renderAdminUsers()}catch(error){v17SetAdminStatus(error.message,true)}}
 function closeAdmin(){document.getElementById("adminPage").hidden=true;const old=document.getElementById("adminOverlay");if(old)old.classList.remove("open")}
-function switchAdminTab(name){document.querySelectorAll(".v17-admin-tab").forEach(el=>el.hidden=el.id!=="adminTab"+name.charAt(0).toUpperCase()+name.slice(1));document.querySelectorAll(".v17-admin-tabs button").forEach(el=>el.classList.toggle("active",el.getAttribute("data-admin-tab")===name));if(name==="users")renderAdminUsers();if(name==="feedback")renderAdminFeedback();if(name==="zanko"){v17LoadAdminContent().then(renderZankoAdmin).catch(e=>v17SetAdminStatus(e.message,true))}if(name==="price"){v17LoadAdminContent().then(renderPriceAdmin).catch(e=>v17SetAdminStatus(e.message,true))}if(name==="imposter")loadImposterWords().catch(e=>v17SetAdminStatus(e.message,true))}
+function switchAdminTab(name){document.querySelectorAll(".v17-admin-tab").forEach(el=>el.hidden=el.id!=="adminTab"+name.charAt(0).toUpperCase()+name.slice(1));document.querySelectorAll(".v17-admin-tabs button").forEach(el=>el.classList.toggle("active",el.getAttribute("data-admin-tab")===name));if(name==="users")renderAdminUsers();if(name==="feedback")renderAdminFeedback();if(name==="zanko"){v17LoadAdminContent().then(renderZankoAdmin).catch(e=>v17SetAdminStatus(e.message,true))}if(name==="price"){v17LoadAdminContent().then(renderPriceAdmin).catch(e=>v17SetAdminStatus(e.message,true))}if(name==="imposter")loadImposterWords().catch(e=>v17SetAdminStatus(e.message,true));if(name==="games")loadAdminGameAvailability().catch(e=>v17SetAdminStatus(e.message,true))}
 async function v17LoadAdminContent(){const data=await v17Request("/admin/content","GET");v17Content.categories=data.categories||[];v17Content.questions=data.questions||[];v17Content.priceItems=v17Content.questions.filter(q=>q.game_type==="price"&&q.media_url&&q.media_type!=="none").map(q=>[q.product_name_en,"",Number(q.price_value||0),q.media_type,q.media_url,q.product_name_ar]);v17ContentLoaded=true;if(v17Content.categories.length)CATEGORIES=v17Content.categories.map(c=>({id:c.id,name:c.name_en,ar:c.name_ar,image:c.image_url||"category-music.svg",icon:c.icon||"🎯"}));return data}
 let v17UsersCache=[],v17EditingUser=null;
 function v17SetAdminUserAvatar(src){
@@ -815,6 +821,18 @@ async function v17UserAction(id,action){
  catch(error){v17SetAdminStatus(error.message,true)}
 }
 
+
+async function loadAdminGameAvailability(){
+ const holder=document.getElementById("adminGameAvailability");
+ const data=await v17Request("/admin/game-availability","GET");
+ const labels={zanko:"Zanko",price:"Price Game",imposter:"Imposter",insight:"INSIGHT"};
+ holder.innerHTML=(data.games||[]).map(game=>`<article class="v17-feedback-card"><div class="v17-feedback-meta"><div><strong>${escapeHtml(labels[game.id]||game.name)}</strong><div class="v17-muted">${game.enabled?"Available to all players":"Stopped for everyone"}</div></div><span class="v17-status-pill ${game.enabled?"good":""}">${game.enabled?"Available":"Stopped"}</span></div><div class="v17-action-row"><button class="v17-small-button ${game.enabled?"danger":"success"}" onclick="setGameAvailability('${game.id}',${!game.enabled})">${game.enabled?"Stop game":"Resume game"}</button></div></article>`).join("");
+}
+async function setGameAvailability(id,enabled){
+ const status=document.getElementById("gameAvailabilityStatus");status.hidden=false;status.textContent=enabled?"Resuming game…":"Stopping game…";
+ try{await v17Request("/admin/game-availability/"+encodeURIComponent(id),"PATCH",{enabled});await loadAdminGameAvailability();status.textContent=enabled?"Game resumed for everyone.":"Game stopped for everyone."}
+ catch(e){status.textContent=e.message;v17SetAdminStatus(e.message,true)}
+}
 let imposterWords=[];
 async function loadImposterWords(){const d=await v17Request("/admin/imposter-words","GET");imposterWords=d.words||[];document.getElementById("imposterWordCount").textContent=imposterWords.length;renderImposterWords()}
 function renderImposterWords(){const holder=document.getElementById("imposterWordList");if(!holder)return;const term=(document.getElementById("imposterWordSearch")?.value||"").toLowerCase();const rows=imposterWords.filter(w=>(w.category+" "+w.word_en+" "+(w.word_ar||"")).toLowerCase().includes(term));if(!rows.length){holder.textContent="No words found. Add your first word.";return}holder.innerHTML=rows.map(w=>"<div class='v17-mini-row'><div><strong>"+escapeHtml(w.word_en)+"</strong><div class='v17-muted'>"+escapeHtml(w.category)+(w.word_ar?" · "+escapeHtml(w.word_ar):"")+"</div></div><span class='v17-table-actions'><button class='v17-small-button' onclick=\"editImposterWord('"+w.id+"')\">Edit</button><button class='v17-small-button danger' onclick=\"removeImposterWord('"+w.id+"')\">Delete</button></span></div>").join("")}
