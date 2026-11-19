@@ -219,6 +219,7 @@ async function insightAction(request,env) {
     if(!player||player.id!==s.targetId||s.stage!=="active"||!s.deliverAt||Date.now()<Date.parse(s.deliverAt)||s.answerId)return json({error:"You cannot answer now."},403);
     const answer=s.players.find(p=>p.id===String(body.answerId||"")),rawSide=String(body.coinChoice||""),side=rawSide==="warrior"||rawSide==="heads"?"warrior":rawSide==="tree"||rawSide==="tails"?"tree":"";
     if(!answer)return json({error:"Choose a player as your answer."},400);
+    if(answer.id===player.id)return json({error:"You cannot choose yourself. Please choose another player."},400);
     if(!side)return json({error:"Choose the Warrior or the Tree of Life."},400);
     // One unbiased random bit: exactly 50% Warrior and 50% Tree of Life.
     const randomBit=crypto.getRandomValues(new Uint8Array(1))[0]&1;
