@@ -141,9 +141,9 @@ async function getInsightState(request,env,url) {
   const playerId=url.searchParams.get("playerId")||"",player=room.state.players.find(p=>p.id===playerId);
   const user=await getSessionUser(request,env),isHost=!!user&&user.id===room.host_user_id;
   if(!player&&!isHost)return json({error:"Player not found. Scan the QR again."},404);
-  const s=room.state,now=Date.now(),delivered=s.deliverAt&&now>=Date.parse(s.deliverAt);
+  const s=room.state,now=Date.now(),delivered=s.deliverAt&&now>=Date.parse(s.deliverAt),roleReady=!s.roleRevealAt||now>=Date.parse(s.roleRevealAt);
   const reveal=s.revealed?{question:s.question,heartbreakerName:s.players.find(p=>p.id===s.heartbreakerId)?.name||"",targetName:s.players.find(p=>p.id===s.targetId)?.name||"",answerName:s.players.find(p=>p.id===s.answerId)?.name||"",coinChoice:s.coinChoice,coinResult:s.coinResult}:null;
-  return json({state:{stage:s.stage,players:s.players.map(p=>({id:p.id,name:p.name})),round:s.round,isHost,player:player?{id:player.id,name:player.name}:null,role:player&&s.stage!=="lobby"?(player.id===s.heartbreakerId?"heartbreaker":player.id===s.targetId&&delivered?"target":"player"):null,questionForTarget:player&&player.id===s.targetId&&delivered&&!s.revealed?s.question:null,waitingForDelivery:player&&player.id===s.targetId&&!delivered&&!!s.deliverAt,answered:!!s.answerId,revealed:!!s.revealed,reveal,canChoose:s.stage==="active"&&player&&player.id===s.targetId&&delivered&&!s.answerId,heartbreakerCanAsk:s.stage==="active"&&player&&player.id===s.heartbreakerId&&!s.question,heartbreakerName:s.players.find(p=>p.id===s.heartbreakerId)?.name||"",targetName:s.players.find(p=>p.id===s.targetId)?.name||""}});
+  return json({state:{stage:s.stage,players:s.players.map(p=>({id:p.id,name:p.name})),round:s.round,isHost,player:player?{id:player.id,name:player.name}:null,role:player&&s.stage!=="lobby"&&roleReady?(player.id===s.heartbreakerId?"heartbreaker":player.id===s.targetId&&delivered?"target":"player"):null,questionForTarget:player&&player.id===s.targetId&&delivered&&!s.revealed?s.question:null,waitingForDelivery:player&&player.id===s.targetId&&!delivered&&!!s.deliverAt,answered:!!s.answerId,revealed:!!s.revealed,reveal,canChoose:s.stage==="active"&&player&&player.id===s.targetId&&delivered&&!s.answerId,heartbreakerCanAsk:s.stage==="active"&&roleReady&&player&&player.id===s.heartbreakerId&&!s.question,heartbreakerName:s.players.find(p=>p.id===s.heartbreakerId)?.name||"",targetName:s.players.find(p=>p.id===s.targetId)?.name||""}});
 }
 async function insightAction(request,env) {
   const body=await readBody(request),room=await insightRoom(body,env);if(!room)return json({error:"This game session has expired."},404);
@@ -151,7 +151,7 @@ async function insightAction(request,env) {
   if(action==="start"){
     const user=await getSessionUser(request,env);if(!user||user.id!==room.host_user_id)return json({error:"Only the host can start."},403);
     if(s.stage!=="lobby"||s.players.length<3)return json({error:"At least 3 players are required."},400);
-    const chosen=insightShuffle(s.players)[0];Object.assign(s,{stage:"active",round:1,heartbreakerId:chosen.id,question:"",targetId:null,answerId:null,coinChoice:null,coinResult:null,revealed:false,deliverAt:null});
+    const chosen=insightShuffle(s.players)[0];Object.assign(s,{stage:"active",round:1,heartbreakerId:chosen.id,question:"",targetId:null,answerId:null,coinChoice:null,coinResult:null,revealed:false,deliverAt:null,roleRevealAt:new Date(Date.now()+5000).toISOString()});
   } else if(action==="ask"){
     if(!player||player.id!==s.heartbreakerId||s.stage!=="active"||s.question)return json({error:"You cannot send a question now."},403);
     const target=s.players.find(p=>p.id===String(body.targetId||"")),question=cleanText(body.question,240);
