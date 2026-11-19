@@ -125,18 +125,19 @@
 
 
 
-/* Only the four game cards change. The homepage section keeps the original production styling. */
+/* Card artwork only: keep the cream games section and the original homepage background unchanged. */
 .game-card:nth-child(-n+4){position:relative;isolation:isolate;overflow:hidden;background:transparent!important}
-.game-card:nth-child(-n+4)::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background-image:url('/jalsa-card-art.webp');background-size:400% 200%;background-repeat:no-repeat}
-.game-card:nth-child(1)::before{background-position:0% 0%}
-.game-card:nth-child(2)::before{background-position:33.333% 0%}
-.game-card:nth-child(3)::before{background-position:66.667% 0%}
-.game-card:nth-child(4)::before{background-position:100% 0%}
-html[dir="rtl"] .game-card:nth-child(1)::before{background-position:0% 100%}
-html[dir="rtl"] .game-card:nth-child(2)::before{background-position:33.333% 100%}
-html[dir="rtl"] .game-card:nth-child(3)::before{background-position:66.667% 100%}
-html[dir="rtl"] .game-card:nth-child(4)::before{background-position:100% 100%}
-.game-card:nth-child(-n+4)::after{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(180deg,rgba(8,8,18,.02) 0%,rgba(8,8,18,.10) 42%,rgba(8,8,18,.62) 100%)}
+.game-card:nth-child(-n+3)::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background-image:url('/jalsa-games-en.webp');background-size:300% 100%;background-repeat:no-repeat;opacity:1}
+.game-card:nth-child(1)::before{background-position:50% center}
+.game-card:nth-child(2)::before{background-position:100% center}
+.game-card:nth-child(3)::before{background-position:0% center}
+.game-card:nth-child(4)::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background-image:url('/insight-home-en.webp');background-size:cover;background-position:center;background-repeat:no-repeat}
+html[dir="rtl"] .game-card:nth-child(-n+3)::before{background-image:url('/jalsa-games-ar.webp')}
+html[dir="rtl"] .game-card:nth-child(1)::before{background-position:50% center}
+html[dir="rtl"] .game-card:nth-child(2)::before{background-position:100% center}
+html[dir="rtl"] .game-card:nth-child(3)::before{background-position:0% center}
+html[dir="rtl"] .game-card:nth-child(4)::before{background-image:url('/insight-home-ar.webp')}
+.game-card:nth-child(-n+4)::after{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(180deg,rgba(8,8,18,.02) 0%,rgba(8,8,18,.12) 42%,rgba(8,8,18,.62) 100%)}
 .game-card:nth-child(-n+4)>*{position:relative;z-index:2}
 .game-card:nth-child(-n+4) h3,.game-card:nth-child(-n+4) p{color:#fff8ec!important;text-shadow:0 2px 7px rgba(0,0,0,.72)}
 .game-card:nth-child(-n+4) .game-icon{background:rgba(255,250,242,.92)}
