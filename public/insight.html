@@ -18,7 +18,7 @@ button{border:0;border-radius:28px;padding:14px 22px;font-weight:900;background:
 @media(max-width:520px){main{padding:18px 12px 40px}.panel{border-radius:19px}.row{display:grid}}
 </style></head><body>
 <header><a class="brand" href="/">JALSA</a><a href="/">Home</a></header>
-<main><h1>INSIGHT</h1><p class="sub">Secrets. Suspense. One flip can reveal everything.</p>
+<main><h1>INSIGHT</h1><p class="sub">Secrets. Suspense. One flip can reveal everything.</p><div id="gameStoppedNotice" class="notice" hidden>This game is temporarily unavailable while the JALSA team works on it. Please check back later.</div>
 <section id="hostLobby" class="panel hidden"><h2>INSIGHT · Host room</h2><p class="muted">Let everyone scan this QR code and enter their name.</p><div id="qr"><span>Preparing QR…</span></div><p id="joinUrl" class="center muted"></p><div class="players" id="hostPlayers"></div><p id="hostCount" class="center muted">0 players</p><button id="startBtn" disabled onclick="hostAction('start')">Start game</button><p id="hostMessage" class="status"></p></section>
 <section id="joinPanel" class="panel hidden"><h2>Join INSIGHT</h2><label>Your name</label><input id="playerName" maxlength="32" placeholder="Enter your name"><button onclick="joinGame()">Next</button><p id="joinError" class="status"></p></section>
 <section id="phonePanel" class="panel hidden"><div class="center"><strong id="phoneRound">ROUND 1</strong></div><div id="phoneContent" class="center"><h2>Focus on the screen</h2><p>Wait for the game to begin.</p></div></section>
@@ -31,6 +31,7 @@ async function api(path,body){const r=await fetch("/api/insight/"+path,{method:b
 function show(id){["hostLobby","joinPanel","phonePanel","resultPanel"].forEach(x=>$(x).classList.toggle("hidden",x!==id))}
 function roomBody(extra={}){return {roomId,key,...extra}}
 async function init(){
+ try{const availability=await fetch("/api/game-availability").then(r=>r.json());if(!(availability.games||[]).find(g=>g.id==="insight")?.enabled){$("gameStoppedNotice").hidden=false;show("joinPanel");$("joinPanel").innerHTML="<h2>INSIGHT is temporarily unavailable</h2><p>Please check back later.</p>";return}}catch(e){}
  if(roomId&&key){show(playerId?"phonePanel":"joinPanel");if(playerId)poll();return}
  try{const d=await api("create",{});roomId=d.roomId;key=d.key;isHost=true;history.replaceState(null,"","/insight.html?roomId="+encodeURIComponent(roomId)+"&key="+encodeURIComponent(key));show("hostLobby");const link=location.origin+"/insight.html?roomId="+encodeURIComponent(roomId)+"&key="+encodeURIComponent(key);$("joinUrl").textContent=link;if(window.QRCode){$("qr").innerHTML="";try{new QRCode($("qr"),{text:link,width:196,height:196,colorDark:"#16090d",colorLight:"#ffffff",correctLevel:QRCode.CorrectLevel.M})}catch(e){$("qr").textContent=link}}else{$("qr").textContent=link}poll()}catch(e){show("hostLobby");$("hostMessage").textContent=e.message}
 }
@@ -41,7 +42,7 @@ function esc(v){return String(v||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&l
 async function poll(){try{const q=new URLSearchParams({roomId,key});if(playerId)q.set("playerId",playerId);const d=await api("state?"+q.toString());render(d.state)}catch(e){if(isHost)$("hostMessage").textContent=e.message;else $("phoneContent").textContent=e.message}setTimeout(poll,1100)}
 let lastRenderKey="";
 function render(s){
- const renderKey=JSON.stringify({host:s.isHost,stage:s.stage,round:s.round,players:s.players.map(p=>[p.id,p.name]),role:s.role,question:s.questionForTarget,waiting:s.waitingForDelivery,answered:s.answered,revealed:s.revealed,reveal:s.reveal,canChoose:s.canChoose});
+ const renderKey=JSON.stringify({host:s.isHost,stage:s.stage,round:s.round,players:s.players.map(p=>[p.id,p.name]),role:s.role,question:s.questionForTarget,waiting:s.waitingForDelivery,answered:s.answered,revealed:s.revealed,reveal:s.reveal,canChoose:s.canChoose,heartbreakerCanAsk:s.heartbreakerCanAsk,chosenAnswer,chosenSide});
  if(renderKey===lastRenderKey)return;
  lastRenderKey=renderKey;
  if(s.isHost){show("hostLobby");$("hostPlayers").innerHTML=s.players.map(p=>"<span class='player'>"+esc(p.name)+"</span>").join("");$("hostCount").textContent=s.players.length+" players · "+(s.stage==="lobby"?"Waiting to start":"Round "+s.round);$("startBtn").disabled=s.players.length<3||s.stage!=="lobby";if(s.stage==="round-result"){show("resultPanel");$("nextBtn").classList.remove("hidden");$("resultContent").innerHTML=s.revealed?revealMarkup(s.reveal):"<p class='center'>The answer stays secret. The coin landed on the chosen side.</p>"}else if(s.stage==="ended")$("hostMessage").textContent="Game ended.";else if(s.stage==="active")$("hostMessage").textContent="Round "+s.round+" is in progress.";return}
