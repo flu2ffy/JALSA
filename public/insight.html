@@ -39,7 +39,11 @@ async function hostAction(action,extra={}){try{await api("action",roomBody({acti
 async function playerAction(action,extra={}){try{await api("action",roomBody({action,playerId,...extra}));await poll()}catch(e){$("phoneContent").innerHTML="<p class='status'>"+esc(e.message)+"</p>"}}
 function esc(v){return String(v||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 async function poll(){try{const q=new URLSearchParams({roomId,key});if(playerId)q.set("playerId",playerId);const d=await api("state?"+q.toString());render(d.state)}catch(e){if(isHost)$("hostMessage").textContent=e.message;else $("phoneContent").textContent=e.message}setTimeout(poll,1100)}
+let lastRenderKey="";
 function render(s){
+ const renderKey=JSON.stringify({host:s.isHost,stage:s.stage,round:s.round,players:s.players.map(p=>[p.id,p.name]),role:s.role,question:s.questionForTarget,waiting:s.waitingForDelivery,answered:s.answered,revealed:s.revealed,reveal:s.reveal,canChoose:s.canChoose});
+ if(renderKey===lastRenderKey)return;
+ lastRenderKey=renderKey;
  if(s.isHost){show("hostLobby");$("hostPlayers").innerHTML=s.players.map(p=>"<span class='player'>"+esc(p.name)+"</span>").join("");$("hostCount").textContent=s.players.length+" players · "+(s.stage==="lobby"?"Waiting to start":"Round "+s.round);$("startBtn").disabled=s.players.length<3||s.stage!=="lobby";if(s.stage==="round-result"){show("resultPanel");$("nextBtn").classList.remove("hidden");$("resultContent").innerHTML=s.revealed?revealMarkup(s.reveal):"<p class='center'>The answer stays secret. The coin landed on the chosen side.</p>"}else if(s.stage==="ended")$("hostMessage").textContent="Game ended.";else if(s.stage==="active")$("hostMessage").textContent="Round "+s.round+" is in progress.";return}
  show(s.stage==="round-result"?"resultPanel":"phonePanel");$("phoneRound").textContent="ROUND "+s.round;
  if(s.stage==="round-result"){$("resultContent").innerHTML=s.revealed?revealMarkup(s.reveal):"<p class='center'>The answer stays secret. The coin landed on the chosen side.</p>";return}
