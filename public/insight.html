@@ -36,7 +36,7 @@ button{border:0;border-radius:28px;padding:14px 22px;font-weight:900;background:
 <section id="resultPanel" class="panel hidden"><h2 class="center">Round complete</h2><div id="resultContent"></div><div class="center"><button id="nextBtn" class="hidden" onclick="hostAction('next')">Next round</button></div></section>
 </main>
 <script src="/qrcode.min.js"></script><script>
-const qs=new URLSearchParams(location.search);let roomId=qs.get("roomId"),key=qs.get("key"),playerId=localStorage.getItem("insight:"+roomId),isHost=false,lastRenderKey="",chosenAnswer="",chosenSide="",choiceStep="player",isSending=false;
+const qs=new URLSearchParams(location.search);let roomId=qs.get("roomId"),key=qs.get("key"),playerId=localStorage.getItem("insight:"+roomId),isHost=false,lastRenderKey="",chosenAnswer="",chosenSide="",choiceStep="player",isSending=false,targetRevealSeen=false;
 const $=id=>document.getElementById(id);
 async function api(path,body){const r=await fetch("/api/insight/"+path,{method:body?"POST":"GET",headers:body?{"Content-Type":"application/json"}:{},body:body?JSON.stringify(body):undefined});const d=await r.json();if(!r.ok)throw Error(d.error||"Something went wrong.");return d}
 function show(id){["hostLobby","joinPanel","phonePanel","resultPanel"].forEach(x=>$(x).classList.toggle("hidden",x!==id))}
@@ -59,11 +59,11 @@ function render(s){
  if(s.stage==="round-result"){$("resultContent").innerHTML=s.revealed?revealMarkup(s.reveal):"<p class='center'>The answer stays secret. The coin landed on the chosen side.</p>";return}
  if(s.stage==="ended"){$("phoneContent").innerHTML="<h2>Game ended</h2>";return}
  if(s.role==="heartbreaker"&&!s.answered){$("phoneContent").innerHTML="<h2>💔 You're the Heartbreaker</h2><p>Ask anyone a nasty question.</p><label>Choose a player</label><select id='targetSelect'>"+s.players.filter(p=>p.id!==playerId).map(p=>"<option value='"+p.id+"'>"+esc(p.name)+"</option>").join("")+"</select><label for='questionInput'>Your question</label><textarea id='questionInput' maxlength='240' placeholder='Write your question…'></textarea><p id='questionError' class='status' aria-live='polite'></p><button id='sendQuestionBtn' onclick='sendQuestion()' "+(isSending?"disabled":"")+">"+(isSending?"Sending…":"Send question")+"</button>";return}
- if(s.role==="target"&&s.questionForTarget){$("phoneContent").innerHTML="<div class='danger-screen'><div class='inner'><h2>⚠ A question for you</h2><p>"+esc(s.questionForTarget)+"</p></div></div>"+targetChoiceMarkup(s.players);return}
+ if(s.role==="target"&&s.questionForTarget){$("phoneContent").innerHTML=targetRevealSeen?targetChoiceMarkup(s.players):"<div class='danger-screen'><div class='inner'><h2>⚠ A question for you</h2><p>"+esc(s.questionForTarget)+"</p><button onclick='showTargetChoices()'>Continue</button></div></div>";return}
  if(s.waitingForDelivery){$("phoneContent").innerHTML="<h2>Focus on the screen</h2><p>Your question is on its way…</p>";return}
  $("phoneContent").innerHTML="<h2>"+(s.role==="heartbreaker"?"Your question was sent.":"Focus on the screen")+"</h2><p>Wait for the next moment.</p>";
 }
-function targetChoiceMarkup(players){
+function showTargetChoices(){targetRevealSeen=true;lastRenderKey='';poll()}\nfunction targetChoiceMarkup(players){
  if(choiceStep==="player")return "<div class='choice-step'><h2>Choose the person you think is the answer</h2><div id='answerChoices'>"+players.filter(p=>p.id!==playerId).map(p=>"<button class='name-choice "+(chosenAnswer===p.id?"selected":"")+"' onclick='chooseAnswer("+JSON.stringify(p.id)+")'>"+esc(p.name)+"</button>").join("")+"</div><button onclick='continueToCoin()' "+(!chosenAnswer?"disabled":"")+">Continue</button></div>";
  return "<div class='choice-step'><button class='name-choice' onclick='backToPlayers()'>← Back · Change person</button><h2>Choose heads or tails</h2><div class='row'><button class='name-choice "+(chosenSide==="heads"?"selected":"")+"' onclick=\"chooseSide('heads')\">Heads</button><button class='name-choice "+(chosenSide==="tails"?"selected":"")+"' onclick=\"chooseSide('tails')\">Tails</button></div><div class='coin-stage'><div id='coin' class='coin'><div class='coin-face'>JALSA</div><div class='coin-face coin-back'>ولع الجلسة</div></div></div><button onclick='flipCoin()' "+(!chosenSide||isSending?"disabled":"")+">Flip coin</button><p id='flipError' class='status'></p></div>";
 }
