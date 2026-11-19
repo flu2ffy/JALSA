@@ -30,6 +30,14 @@ export default {
 
     try {
 
+      if (url.pathname === "/api/game-availability" && request.method === "GET") return await getGameAvailability(env);
+      if (url.pathname === "/api/admin/game-availability" && request.method === "GET") return await getAdminGameAvailability(request, env);
+      if (url.pathname.startsWith("/api/admin/game-availability/") && request.method === "PATCH") return await updateGameAvailability(request, env, decodeURIComponent(url.pathname.split("/").pop()));
+      if (url.pathname.startsWith("/api/insight/") || url.pathname.startsWith("/api/imposter/")) {
+        const gameId = url.pathname.startsWith("/api/insight/") ? "insight" : "imposter";
+        const availability = await readGameAvailability(env, gameId);
+        if (!availability.enabled) return json({ error: "This game is temporarily unavailable. Please check back later." }, 423);
+      }
       if (url.pathname === "/api/remote/create" && request.method === "POST") return await createRemoteRoom(request, env);
       if (url.pathname === "/api/remote/poll" && request.method === "GET") return await pollRemoteHost(request, env, url);
       if (url.pathname === "/api/remote/claim" && request.method === "POST") return await claimRemoteController(request, env);
@@ -96,6 +104,45 @@ export default {
 
 
 
+
+
+const GAME_AVAILABILITY = [
+  { id: "zanko", name: "Zanko" },
+  { id: "price", name: "Price Game" },
+  { id: "imposter", name: "Imposter" },
+  { id: "insight", name: "INSIGHT" }
+];
+async function ensureGameAvailabilitySchema(env) {
+  await env.DB.prepare("CREATE TABLE IF NOT EXISTS game_availability (game_id TEXT PRIMARY KEY, enabled INTEGER NOT NULL DEFAULT 1, updated_at TEXT NOT NULL, updated_by TEXT)").run();
+  const now = new Date().toISOString();
+  for (const game of GAME_AVAILABILITY) await env.DB.prepare("INSERT OR IGNORE INTO game_availability (game_id, enabled, updated_at) VALUES (?, 1, ?)").bind(game.id, now).run();
+}
+async function readGameAvailability(env, gameId) {
+  await ensureGameAvailabilitySchema(env);
+  const row = await env.DB.prepare("SELECT enabled FROM game_availability WHERE game_id=? LIMIT 1").bind(gameId).first();
+  return { id: gameId, enabled: row ? Number(row.enabled) === 1 : true };
+}
+async function getGameAvailability(env) {
+  await ensureGameAvailabilitySchema(env);
+  const rows = await env.DB.prepare("SELECT game_id, enabled FROM game_availability").all();
+  const values = new Map((rows.results || []).map(row => [row.game_id, Number(row.enabled) === 1]));
+  return json({ games: GAME_AVAILABILITY.map(game => ({ ...game, enabled: values.has(game.id) ? values.get(game.id) : true })) });
+}
+async function getAdminGameAvailability(request, env) {
+  if (!await requireAdmin(request, env)) return json({ error: "Administrator access required." }, 403);
+  return await getGameAvailability(env);
+}
+async function updateGameAvailability(request, env, gameId) {
+  const admin = await requireAdmin(request, env);
+  if (!admin) return json({ error: "Administrator access required." }, 403);
+  if (!GAME_AVAILABILITY.some(game => game.id === gameId)) return json({ error: "Unknown game." }, 404);
+  const body = await readBody(request);
+  if (typeof body.enabled !== "boolean") return json({ error: "Choose whether the game is enabled." }, 400);
+  await ensureGameAvailabilitySchema(env);
+  await env.DB.prepare("UPDATE game_availability SET enabled=?, updated_at=?, updated_by=? WHERE game_id=?")
+    .bind(body.enabled ? 1 : 0, new Date().toISOString(), admin.id, gameId).run();
+  return json({ ok: true, id: gameId, enabled: body.enabled });
+}
 
 async function ensureInsightSchema(env) {
   await env.DB.prepare("CREATE TABLE IF NOT EXISTS insight_rooms (room_id TEXT PRIMARY KEY, token_hash TEXT NOT NULL, host_user_id TEXT NOT NULL, state_json TEXT NOT NULL, created_at TEXT NOT NULL, expires_at TEXT NOT NULL, ended_at TEXT)").run();
