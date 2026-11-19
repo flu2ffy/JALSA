@@ -207,15 +207,17 @@ async function insightAction(request,env) {
     s.question=question;s.targetId=target.id;s.deliverAt=new Date(Date.now()+5000).toISOString();
   } else if(action==="flip"){
     if(!player||player.id!==s.targetId||s.stage!=="active"||!s.deliverAt||Date.now()<Date.parse(s.deliverAt)||s.answerId)return json({error:"You cannot answer now."},403);
-    const answer=s.players.find(p=>p.id===String(body.answerId||"")),side=body.coinChoice==="heads"||body.coinChoice==="tails"?body.coinChoice:"";
-    if(!answer||answer.id===player.id)return json({error:"Choose another player as your answer."},400);
-    if(!side)return json({error:"Choose heads or tails."},400);
-    s.answerId=answer.id;s.coinChoice=side;s.coinResult=crypto.getRandomValues(new Uint8Array(1))[0]<128?"heads":"tails";s.revealed=s.coinResult!==s.coinChoice;s.stage="round-result";
+    const answer=s.players.find(p=>p.id===String(body.answerId||"")),rawSide=String(body.coinChoice||""),side=rawSide==="warrior"||rawSide==="heads"?"warrior":rawSide==="tree"||rawSide==="tails"?"tree":"";
+    if(!answer)return json({error:"Choose a player as your answer."},400);
+    if(!side)return json({error:"Choose the Warrior or the Tree of Life."},400);
+    // One unbiased random bit: exactly 50% Warrior and 50% Tree of Life.
+    const randomBit=crypto.getRandomValues(new Uint8Array(1))[0]&1;
+    s.answerId=answer.id;s.coinChoice=side;s.coinResult=randomBit===0?"warrior":"tree";s.revealed=s.coinResult!==s.coinChoice;s.stage="round-result";s.resultAt=new Date().toISOString();
   } else if(action==="next"){
     const user=await getSessionUser(request,env);if(!user||user.id!==room.host_user_id)return json({error:"Only the host can continue."},403);
     if(s.stage!=="round-result")return json({error:"Finish the current round first."},400);
     const pool=s.players.filter(p=>p.id!==s.heartbreakerId),chosen=insightShuffle(pool)[0];
-    Object.assign(s,{stage:"active",round:s.round+1,heartbreakerId:chosen.id,question:"",targetId:null,answerId:null,coinChoice:null,coinResult:null,revealed:false,deliverAt:null});
+    Object.assign(s,{stage:"active",round:s.round+1,heartbreakerId:chosen.id,question:"",targetId:null,answerId:null,coinChoice:null,coinResult:null,revealed:false,deliverAt:null,resultAt:null,roleRevealAt:new Date(Date.now()+2500).toISOString()});
   } else if(action==="end"){
     const user=await getSessionUser(request,env);if(!user||user.id!==room.host_user_id)return json({error:"Only the host can end."},403);
     s.stage="ended";
