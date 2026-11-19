@@ -183,8 +183,18 @@ async function joinInsightRoom(request,env) {
   return json({ok:true,playerId,name});
 }
 async function getInsightState(request,env,url) {
-  const room=await insightRoom({roomId:url.searchParams.get("roomId"),key:url.searchParams.get("key")},env);
+  let room=await insightRoom({roomId:url.searchParams.get("roomId"),key:url.searchParams.get("key")},env);
   if(!room)return json({error:"This game session has expired."},404);
+  // Advance after the result has been visible for 6.5 seconds. Any participant polling
+  // can trigger this transition; the compare-and-swap save ensures it happens only once.
+  if(room.state.stage==="round-result"&&room.state.resultAt&&Date.now()-Date.parse(room.state.resultAt)>=6500){
+    const previous=room.state,pool=previous.players.filter(p=>p.id!==previous.heartbreakerId);
+    if(pool.length){
+      const chosen=insightShuffle(pool)[0],nextState={...previous,stage:"active",round:previous.round+1,heartbreakerId:chosen.id,question:"",targetId:null,answerId:null,coinChoice:null,coinResult:null,revealed:false,deliverAt:null,resultAt:null,roleRevealAt:new Date(Date.now()+2500).toISOString()};
+      if(await saveInsight(env,room,nextState)){room={...room,state:nextState,state_json:JSON.stringify(nextState)}}
+      else {const latest=await insightRoom({roomId:url.searchParams.get("roomId"),key:url.searchParams.get("key")},env);if(latest)room=latest}
+    }
+  }
   const playerId=url.searchParams.get("playerId")||"",player=room.state.players.find(p=>p.id===playerId);
   const user=await getSessionUser(request,env),isHost=!!user&&user.id===room.host_user_id;
   if(!player&&!isHost)return json({error:"Player not found. Scan the QR again."},404);
