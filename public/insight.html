@@ -52,6 +52,7 @@ function applyLanguage(){
 function toggleLanguage(){lang=lang==="en"?"ar":"en";localStorage.setItem("jalsa_language",lang);applyLanguage();lastRenderKey="";poll()}
 const qs=new URLSearchParams(location.search);let roomId=qs.get("roomId"),key=qs.get("key"),playerId=localStorage.getItem("insight:"+roomId),isHost=false,lastRenderKey="",chosenAnswer="",chosenSide="",choiceStep="player",isSending=false,targetRevealSeen=false;
 const $=id=>document.getElementById(id);
+applyLanguage();
 async function api(path,body){const r=await fetch("/api/insight/"+path,{method:body?"POST":"GET",headers:body?{"Content-Type":"application/json"}:{},body:body?JSON.stringify(body):undefined});const d=await r.json();if(!r.ok)throw Error(d.error||"Something went wrong.");return d}
 function show(id){["hostLobby","joinPanel","phonePanel","resultPanel"].forEach(x=>$(x).classList.toggle("hidden",x!==id))}
 function roomBody(extra={}){return {roomId,key,...extra}}
@@ -66,17 +67,32 @@ async function playerAction(action,extra={}){try{await api("action",roomBody({ac
 function esc(v){return String(v||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 async function poll(){try{const q=new URLSearchParams({roomId,key});if(playerId)q.set("playerId",playerId);const d=await api("state?"+q.toString());render(d.state)}catch(e){if(isHost)$("hostMessage").textContent=e.message;else $("phoneContent").textContent=e.message}setTimeout(poll,1100)}
 function render(s){
- const renderKey=JSON.stringify({host:s.isHost,stage:s.stage,round:s.round,players:s.players.map(p=>[p.id,p.name]),role:s.role,question:s.questionForTarget,waiting:s.waitingForDelivery,answered:s.answered,revealed:s.revealed,reveal:s.reveal,canChoose:s.canChoose,heartbreakerCanAsk:s.heartbreakerCanAsk});
+ const renderKey=JSON.stringify({host:s.isHost,stage:s.stage,round:s.round,players:s.players.map(p=>[p.id,p.name]),role:s.role,question:s.questionForTarget,waiting:s.waitingForDelivery,answered:s.answered,revealed:s.revealed,reveal:s.reveal,canChoose:s.canChoose,heartbreakerCanAsk:s.heartbreakerCanAsk,language:lang});
  if(renderKey===lastRenderKey)return;lastRenderKey=renderKey;
- if(s.isHost){show("hostLobby");$("hostPlayers").innerHTML=s.players.map(p=>"<span class='player'>"+esc(p.name)+"</span>").join("");$("hostCount").textContent=s.players.length+" players · "+(s.stage==="lobby"?"Waiting to start":"Round "+s.round);$("startBtn").disabled=s.players.length<3||s.stage!=="lobby";if(s.stage==="round-result"){show("resultPanel");$("nextBtn").classList.remove("hidden");$("resultContent").innerHTML=s.revealed?revealMarkup(s.reveal):"<p class='center'>The answer stays secret. The coin landed on the chosen side.</p>"}else if(s.stage==="ended")$("hostMessage").textContent="Game ended.";else if(s.stage==="active")$("hostMessage").textContent="Round "+s.round+" is in progress.";return}
- show(s.stage==="round-result"?"resultPanel":"phonePanel");$("phoneRound").textContent="ROUND "+s.round;
- if(s.stage==="round-result"){$("resultContent").innerHTML=s.revealed?revealMarkup(s.reveal):"<p class='center'>The answer stays secret. The coin landed on the chosen side.</p>";return}
- if(s.stage==="ended"){$("phoneContent").innerHTML="<h2>Game ended</h2>";return}
- if(s.role==="heartbreaker"&&s.heartbreakerCanAsk){$("phoneContent").innerHTML="<h2>💔 You're the Heartbreaker</h2><p>Ask anyone a nasty question.</p><label>Choose a player</label><select id='targetSelect'>"+s.players.filter(p=>p.id!==playerId).map(p=>"<option value='"+p.id+"'>"+esc(p.name)+"</option>").join("")+"</select><label for='questionInput'>Your question</label><textarea id='questionInput' maxlength='240' placeholder='Write your question…'></textarea><p id='questionError' class='status' aria-live='polite'></p><button id='sendQuestionBtn' onclick='sendQuestion()' "+(isSending?"disabled":"")+">"+(isSending?"Sending…":"Send question")+"</button>";return}
- if(s.role==="heartbreaker"&&!s.heartbreakerCanAsk){$("phoneContent").innerHTML="<div class='center'><h2>Question sent!</h2><p>Your question is hidden from your screen now.</p><p>Wait for the recipient to make their choice.</p></div>";return}
- if(s.role==="target"&&s.questionForTarget){$("phoneContent").innerHTML=targetRevealSeen?targetChoiceMarkup(s.players):"<div class='danger-screen'><div class='inner'><h2>⚠ A question for you</h2><p>"+esc(s.questionForTarget)+"</p><button onclick='showTargetChoices()'>Continue</button></div></div>";return}
- if(s.waitingForDelivery){$("phoneContent").innerHTML="<h2>Focus on the screen</h2><p>Your question is on its way…</p>";return}
- $("phoneContent").innerHTML="<h2>"+(s.role==="heartbreaker"?"Your question was sent.":"Focus on the screen")+"</h2><p>Wait for the next moment.</p>";
+ if(s.isHost){
+  show("hostLobby");
+  $("hostPlayers").innerHTML=s.players.map(p=>"<span class='player'>"+esc(p.name)+"</span>").join("");
+  $("hostCount").textContent=s.players.length+" "+tr("players")+" · "+(s.stage==="lobby"?tr("waitingStart"):tr("round")+" "+s.round);
+  $("startBtn").disabled=s.players.length<3||s.stage!=="lobby";
+  if(s.stage==="round-result"){show("resultPanel");$("nextBtn").classList.remove("hidden");$("resultContent").innerHTML=s.revealed?revealMarkup(s.reveal):"<p class='center'>"+tr("answerStays")+"</p>"}
+  else if(s.stage==="ended")$("hostMessage").textContent=tr("ended");
+  else if(s.stage==="active")$("hostMessage").textContent=tr("round")+" "+s.round;
+  return
+ }
+ show(s.stage==="round-result"?"resultPanel":"phonePanel");$("phoneRound").textContent=tr("round")+" "+s.round;
+ if(s.stage==="round-result"){$("resultContent").innerHTML=s.revealed?revealMarkup(s.reveal):"<p class='center'>"+tr("answerStays")+"</p>";return}
+ if(s.stage==="ended"){$("phoneContent").innerHTML="<h2>"+tr("ended")+"</h2>";return}
+ if(s.role==="heartbreaker"&&s.heartbreakerCanAsk){
+  $("phoneContent").innerHTML="<h2>💔 "+tr("heartbreaker")+"</h2><p>"+tr("askNasty")+"</p><label>"+tr("choosePlayer")+"</label><select id='targetSelect'>"+s.players.filter(p=>p.id!==playerId).map(p=>"<option value='"+p.id+"'>"+esc(p.name)+"</option>").join("")+"</select><label for='questionInput'>"+tr("yourQuestion")+"</label><textarea id='questionInput' maxlength='240' placeholder='"+tr("questionPlaceholder")+"'></textarea><p id='questionError' class='status' aria-live='polite'></p><button id='sendQuestionBtn' onclick='sendQuestion()' "+(isSending?"disabled":"")+">"+(isSending?tr("sending"):tr("send"))+"</button>";
+  return
+ }
+ if(s.role==="heartbreaker"&&!s.heartbreakerCanAsk){$("phoneContent").innerHTML="<div class='center'><h2>"+tr("sent")+"</h2><p>"+tr("hiddenQuestion")+"</p><p>"+tr("waitRecipient")+"</p></div>";return}
+ if(s.role==="target"&&s.questionForTarget){
+  $("phoneContent").innerHTML=targetRevealSeen?targetChoiceMarkup(s.players):"<div class='danger-screen'><div class='inner'><h2>⚠ "+tr("questionForYou")+"</h2><p>"+esc(s.questionForTarget)+"</p><button onclick='showTargetChoices()'>"+tr("continue")+"</button></div></div>";
+  return
+ }
+ if(s.waitingForDelivery){$("phoneContent").innerHTML="<h2>"+tr("focus")+"</h2><p>"+tr("waitingDelivery")+"</p>";return}
+ $("phoneContent").innerHTML="<h2>"+tr("focus")+"</h2><p>"+tr("waitingNext")+"</p>";
 }
 function showTargetChoices(){targetRevealSeen=true;lastRenderKey='';poll()}
 function targetChoiceMarkup(players){
@@ -85,10 +101,10 @@ function targetChoiceMarkup(players){
 }
 function sendQuestion(){
  const targetId=$("targetSelect")?.value,field=$("questionInput"),question=field?.value.trim()||"",error=$("questionError");
- if(question.length<4){error.textContent="Please write at least 4 characters.";field?.focus();return}
- if(!targetId){error.textContent="Choose a player first.";return}
- isSending=true;$("sendQuestionBtn").disabled=true;$("sendQuestionBtn").textContent="Sending…";
- playerAction("ask",{targetId,question}).then(result=>{isSending=false;if(result!==true){const e=$("questionError");if(e)e.textContent=result;const b=$("sendQuestionBtn");if(b){b.disabled=false;b.textContent="Send question"}}});
+ if(question.length<4){error.textContent=tr("shortQuestion");field?.focus();return}
+ if(!targetId){error.textContent=tr("chooseFirst");return}
+ isSending=true;$("sendQuestionBtn").disabled=true;$("sendQuestionBtn").textContent=tr("sending");
+ playerAction("ask",{targetId,question}).then(result=>{isSending=false;if(result!==true){const e=$("questionError");if(e)e.textContent=result;const b=$("sendQuestionBtn");if(b){b.disabled=false;b.textContent=tr("send")}}});
 }
 function chooseAnswer(id){chosenAnswer=id;document.querySelectorAll("#answerChoices .name-choice").forEach(b=>b.classList.toggle("selected",b.dataset.playerId===id));const next=document.querySelector("#phoneContent .choice-step > button:last-child");if(next)next.disabled=false}
 function continueToCoin(){if(!chosenAnswer)return;choiceStep="coin";lastRenderKey="";poll()}
