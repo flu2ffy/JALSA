@@ -37,6 +37,10 @@ export default {
       if (url.pathname === "/api/remote/state" && request.method === "POST") return await updateRemoteState(request, env);
       if (url.pathname === "/api/remote/command" && request.method === "POST") return await sendRemoteCommand(request, env);
       if (url.pathname === "/api/remote/end" && request.method === "POST") return await endRemoteRoom(request, env);
+      if (url.pathname === "/api/insight/create" && request.method === "POST") return await createInsightRoom(request, env);
+      if (url.pathname === "/api/insight/join" && request.method === "POST") return await joinInsightRoom(request, env);
+      if (url.pathname === "/api/insight/state" && request.method === "GET") return await getInsightState(request, env, url);
+      if (url.pathname === "/api/insight/action" && request.method === "POST") return await insightAction(request, env);
       if (url.pathname === "/api/me" && request.method === "GET") {
         const user = await getSessionUser(request, env);
         return json({ user: publicUser(user, env) });
@@ -91,6 +95,87 @@ export default {
 
 
 
+
+
+async function ensureInsightSchema(env) {
+  await env.DB.prepare("CREATE TABLE IF NOT EXISTS insight_rooms (room_id TEXT PRIMARY KEY, token_hash TEXT NOT NULL, host_user_id TEXT NOT NULL, state_json TEXT NOT NULL, created_at TEXT NOT NULL, expires_at TEXT NOT NULL, ended_at TEXT)").run();
+  await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_insight_rooms_host ON insight_rooms(host_user_id, created_at)").run();
+}
+function insightShuffle(items) {
+  const a=[...items]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a;
+}
+async function insightRoom(body, env) {
+  const roomId=String(body.roomId||""), key=String(body.key||"");
+  if(!/^[A-Za-z0-9_-]{20,40}$/.test(roomId)||key.length<40||key.length>60)return null;
+  const row=await env.DB.prepare("SELECT * FROM insight_rooms WHERE room_id=? LIMIT 1").bind(roomId).first();
+  if(!row||row.ended_at||row.expires_at<=new Date().toISOString()||!constantTimeEqual(row.token_hash,await sha256Hex(key)))return null;
+  let state={};try{state=JSON.parse(row.state_json||"{}")}catch{return null;}
+  return {...row,state};
+}
+async function saveInsight(env, room, state) {
+  const result=await env.DB.prepare("UPDATE insight_rooms SET state_json=? WHERE room_id=? AND state_json=? AND ended_at IS NULL").bind(JSON.stringify(state),room.room_id,room.state_json).run();
+  return Number(result.meta?.changes||0)>0;
+}
+async function createInsightRoom(request,env) {
+  const user=await getSessionUser(request,env); if(!user)return json({error:"Please sign in to host INSIGHT."},401);
+  await ensureInsightSchema(env);
+  const roomId=toBase64Url(randomBytes(18)),key=toBase64Url(randomBytes(32)),now=new Date(),expires=new Date(now.getTime()+3*60*60*1000).toISOString();
+  const state={stage:"lobby",players:[],round:0,heartbreakerId:null,question:"",targetId:null,answerId:null,coinChoice:null,coinResult:null,revealed:false,deliverAt:null};
+  await env.DB.prepare("INSERT INTO insight_rooms (room_id,token_hash,host_user_id,state_json,created_at,expires_at) VALUES (?,?,?,?,?,?)").bind(roomId,await sha256Hex(key),user.id,JSON.stringify(state),now.toISOString(),expires).run();
+  return json({roomId,key,expiresAt:expires});
+}
+async function joinInsightRoom(request,env) {
+  await ensureInsightSchema(env);
+  const body=await readBody(request),room=await insightRoom(body,env); if(!room)return json({error:"This game QR is invalid or expired."},404);
+  const name=cleanText(body.name,32); if(name.length<2)return json({error:"Enter a name with at least 2 characters."},400);
+  if(room.state.stage!=="lobby")return json({error:"This game has already started."},409);
+  if(room.state.players.some(p=>p.name.toLowerCase()===name.toLowerCase()))return json({error:"That name is already taken."},409);
+  if(room.state.players.length>=24)return json({error:"This game is full (24 players maximum)."},409);
+  const playerId=toBase64Url(randomBytes(18));room.state.players.push({id:playerId,name});
+  if(!await saveInsight(env,room,room.state))return json({error:"A player just joined. Please try again."},409);
+  return json({ok:true,playerId,name});
+}
+async function getInsightState(request,env,url) {
+  const room=await insightRoom({roomId:url.searchParams.get("roomId"),key:url.searchParams.get("key")},env);
+  if(!room)return json({error:"This game session has expired."},404);
+  const playerId=url.searchParams.get("playerId")||"",player=room.state.players.find(p=>p.id===playerId);
+  const user=await getSessionUser(request,env),isHost=!!user&&user.id===room.host_user_id;
+  if(!player&&!isHost)return json({error:"Player not found. Scan the QR again."},404);
+  const s=room.state,now=Date.now(),delivered=s.deliverAt&&now>=Date.parse(s.deliverAt);
+  const reveal=s.revealed?{question:s.question,heartbreakerName:s.players.find(p=>p.id===s.heartbreakerId)?.name||"",targetName:s.players.find(p=>p.id===s.targetId)?.name||"",answerName:s.players.find(p=>p.id===s.answerId)?.name||"",coinChoice:s.coinChoice,coinResult:s.coinResult}:null;
+  return json({state:{stage:s.stage,players:s.players.map(p=>({id:p.id,name:p.name})),round:s.round,isHost,player:player?{id:player.id,name:player.name}:null,role:player&&s.stage!=="lobby"?(player.id===s.heartbreakerId?"heartbreaker":player.id===s.targetId&&delivered?"target":"player"):null,questionForTarget:player&&player.id===s.targetId&&delivered&&!s.revealed?s.question:null,waitingForDelivery:player&&player.id===s.targetId&&!delivered&&!!s.deliverAt,answered:!!s.answerId,revealed:!!s.revealed,reveal,canChoose:s.stage==="active"&&player&&player.id===s.targetId&&delivered&&!s.answerId,heartbreakerCanAsk:s.stage==="active"&&player&&player.id===s.heartbreakerId&&!s.question,heartbreakerName:s.players.find(p=>p.id===s.heartbreakerId)?.name||"",targetName:s.players.find(p=>p.id===s.targetId)?.name||""}});
+}
+async function insightAction(request,env) {
+  const body=await readBody(request),room=await insightRoom(body,env);if(!room)return json({error:"This game session has expired."},404);
+  const s=room.state,action=String(body.action||""),player=s.players.find(p=>p.id===String(body.playerId||""));
+  if(action==="start"){
+    const user=await getSessionUser(request,env);if(!user||user.id!==room.host_user_id)return json({error:"Only the host can start."},403);
+    if(s.stage!=="lobby"||s.players.length<3)return json({error:"At least 3 players are required."},400);
+    const chosen=insightShuffle(s.players)[0];Object.assign(s,{stage:"active",round:1,heartbreakerId:chosen.id,question:"",targetId:null,answerId:null,coinChoice:null,coinResult:null,revealed:false,deliverAt:null});
+  } else if(action==="ask"){
+    if(!player||player.id!==s.heartbreakerId||s.stage!=="active"||s.question)return json({error:"You cannot send a question now."},403);
+    const target=s.players.find(p=>p.id===String(body.targetId||"")),question=cleanText(body.question,240);
+    if(!target||target.id===player.id)return json({error:"Choose another player."},400);
+    if(question.length<4)return json({error:"Write a longer question."},400);
+    s.question=question;s.targetId=target.id;s.deliverAt=new Date(Date.now()+5000).toISOString();
+  } else if(action==="flip"){
+    if(!player||player.id!==s.targetId||s.stage!=="active"||!s.deliverAt||Date.now()<Date.parse(s.deliverAt)||s.answerId)return json({error:"You cannot answer now."},403);
+    const answer=s.players.find(p=>p.id===String(body.answerId||"")),side=body.coinChoice==="heads"||body.coinChoice==="tails"?body.coinChoice:"";
+    if(!answer||answer.id===player.id)return json({error:"Choose another player as your answer."},400);
+    if(!side)return json({error:"Choose heads or tails."},400);
+    s.answerId=answer.id;s.coinChoice=side;s.coinResult=crypto.getRandomValues(new Uint8Array(1))[0]<128?"heads":"tails";s.revealed=s.coinResult!==s.coinChoice;s.stage="round-result";
+  } else if(action==="next"){
+    const user=await getSessionUser(request,env);if(!user||user.id!==room.host_user_id)return json({error:"Only the host can continue."},403);
+    if(s.stage!=="round-result")return json({error:"Finish the current round first."},400);
+    const pool=s.players.filter(p=>p.id!==s.heartbreakerId),chosen=insightShuffle(pool)[0];
+    Object.assign(s,{stage:"active",round:s.round+1,heartbreakerId:chosen.id,question:"",targetId:null,answerId:null,coinChoice:null,coinResult:null,revealed:false,deliverAt:null});
+  } else if(action==="end"){
+    const user=await getSessionUser(request,env);if(!user||user.id!==room.host_user_id)return json({error:"Only the host can end."},403);
+    s.stage="ended";
+  } else return json({error:"Unknown INSIGHT action."},400);
+  if(!await saveInsight(env,room,s))return json({error:"The game just updated. Please try again."},409);
+  return json({ok:true});
+}
 
 async function ensureImposterSchema(env){
  await env.DB.prepare("CREATE TABLE IF NOT EXISTS imposter_words (id TEXT PRIMARY KEY, category TEXT NOT NULL, word_en TEXT NOT NULL, word_ar TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)").run();
