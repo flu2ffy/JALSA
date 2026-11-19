@@ -122,15 +122,28 @@
 }
 
 
-/* JALSA v1.9: keep the existing games-section background bar; add artwork only inside the first three game cards. */
-.game-card{position:relative;isolation:isolate;overflow:hidden}
-.game-card:before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:.30;background-repeat:no-repeat;background-size:300% 100%}
-.game-card:nth-child(1):before{background-image:url('/jalsa-games-en.webp');background-position:50% center}
-.game-card:nth-child(2):before{background-image:url('/jalsa-games-en.webp');background-position:100% center}
-.game-card:nth-child(3):before{background-image:url('/jalsa-games-en.webp');background-position:0% center}
-html[dir="rtl"] .game-card:nth-child(1):before{background-image:url('/jalsa-games-ar.webp');background-position:50% center}
-html[dir="rtl"] .game-card:nth-child(2):before{background-image:url('/jalsa-games-ar.webp');background-position:100% center}
-html[dir="rtl"] .game-card:nth-child(3):before{background-image:url('/jalsa-games-ar.webp');background-position:0% center}
+
+
+/* Match the production homepage outside the game-card artwork. */
+.games-section{position:relative;isolation:auto;overflow:visible;padding:52px clamp(20px,6vw,90px) 68px;background:var(--cream)!important}
+.games-section:before,.games-section:after{content:none!important;display:none!important}
+.games-section>.section-intro,.games-section>.game-cards{position:static;z-index:auto}
+.section-intro h2{color:var(--red)!important;text-shadow:none!important}
+.section-intro p{color:#4d3a31!important;text-shadow:none!important}
+.game-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px;max-width:1240px;margin:0 auto}
+.game-card{background:#fffaf2!important;border:1px solid #f0dfc6!important;box-shadow:var(--shadow)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;filter:none!important}
+.game-card:nth-child(-n+3){position:relative;isolation:isolate;overflow:hidden}
+.game-card:nth-child(-n+3):before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background-image:url('/jalsa-card-art.webp');background-size:300% 200%;background-repeat:no-repeat}
+.game-card:nth-child(1):before{background-position:0% 0%}
+.game-card:nth-child(2):before{background-position:50% 0%}
+.game-card:nth-child(3):before{background-position:100% 0%}
+html[dir="rtl"] .game-card:nth-child(1):before{background-position:0% 100%}
+html[dir="rtl"] .game-card:nth-child(2):before{background-position:50% 100%}
+html[dir="rtl"] .game-card:nth-child(3):before{background-position:100% 100%}
+.game-card:nth-child(-n+3):after{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(180deg,rgba(8,8,18,.04) 0%,rgba(8,8,18,.08) 34%,rgba(8,8,18,.68) 100%)}
+.game-card:nth-child(-n+3)>*{position:relative;z-index:2}
+.game-card:nth-child(-n+3) h3,.game-card:nth-child(-n+3) p{color:#fff8ec!important;text-shadow:0 2px 8px rgba(0,0,0,.76)}
+.game-card:nth-child(-n+3) .game-icon{background:rgba(255,250,242,.92)}
 
 </style>
 </head>
