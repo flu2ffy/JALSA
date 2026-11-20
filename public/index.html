@@ -128,12 +128,12 @@
 /* Card artwork only: keep the cream games section and the original homepage background unchanged. */
 .game-card:nth-child(-n+4){position:relative;isolation:isolate;overflow:hidden;background:transparent!important}
 .game-card:nth-child(-n+3)::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background-image:url('/jalsa-games-en.webp');background-size:300% 100%;background-repeat:no-repeat;opacity:.34}
-.game-card:nth-child(1)::before{background-position:0% center}
+.game-card:nth-child(1)::before{background-image:url('/zanko-card-en.webp');background-size:cover;background-position:center}
 .game-card:nth-child(2)::before{background-position:50% center}
 .game-card:nth-child(3)::before{background-position:100% center}
 .game-card:nth-child(4)::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background-image:url('/insight-card-en.webp');background-size:cover;background-position:center;background-repeat:no-repeat;opacity:.34}
 html[dir="rtl"] .game-card:nth-child(-n+3)::before{background-image:url('/jalsa-games-ar.webp')}
-html[dir="rtl"] .game-card:nth-child(1)::before{background-position:0% center}
+html[dir="rtl"] .game-card:nth-child(1)::before{background-image:url('/zanko-card-ar.webp');background-size:cover;background-position:center}
 html[dir="rtl"] .game-card:nth-child(2)::before{background-position:50% center}
 html[dir="rtl"] .game-card:nth-child(3)::before{background-position:100% center}
 html[dir="rtl"] .game-card:nth-child(4)::before{background-image:url('/insight-card-ar.webp')}
