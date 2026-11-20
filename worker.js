@@ -1387,7 +1387,7 @@ async function joinMafiaRoom(request,env) {
 function mafiaHostPublicState(state) {
   const now=Date.now();
   return {
-    stage:state.stage,stageSeq:state.stageSeq||0,round:state.round||1,
+    stage:state.stage,stageSeq:state.stageSeq||0,stageEndsAt:state.stageEndsAt||null,round:state.round||1,
     players:state.players.map(p=>({id:p.id,name:p.name,alive:p.alive!==false})),
     readyCount:(state.ready||[]).length,
     aliveCount:mafiaAlivePlayers(state).length,
