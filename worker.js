@@ -1426,19 +1426,21 @@ async function getMafiaPlayerState(request,env,url) {
     (state.stage==="investigatorOpen"&&role==="investigator")
   );
   return json({state:{
-    stage:state.stage,stageSeq:state.stageSeq||0,round:state.round||1,
+    stage:state.stage,stageSeq:state.stageSeq||0,stageEndsAt:state.stageEndsAt||null,round:state.round||1,
     player:{id:player.id,name:player.name,alive:player.alive!==false},
     role,
     ready:(state.ready||[]).includes(playerId),
     readyCount:(state.ready||[]).length,
     players:state.players.map(p=>({id:p.id,name:p.name,alive:p.alive!==false})),
-    targets:alive.filter(p=>p.id!==playerId).map(p=>({id:p.id,name:p.name})),
+    targets:alive.filter(p=>role==="doctor"||p.id!==playerId).map(p=>({id:p.id,name:p.name})),
     canAct,
     investigationResult:isInvestigator&&investigation&&investigation.playerId===playerId?{targetName:investigation.targetName,result:investigation.result}:null,
     nightOutcome:state.nightOutcome||null,
     voteOutcome:state.voteOutcome||null,
     discussionRemainingMs:state.stage==="discussion"?Math.max(0,(state.discussionEndsAt||Date.now())-Date.now()):0,
     hasVoted:Object.prototype.hasOwnProperty.call(state.votes||{},playerId),
+    voteCount:Object.keys(state.votes||{}).length,
+    aliveCount:alive.length,
     winner:state.winner||null,
     revealedRoles:state.stage==="finished"?state.roles:null
   }});
@@ -1467,8 +1469,8 @@ async function mafiaHostAction(request,env) {
     mafiaSetStage(room.state,"ended",0);
   }else return json({error:"Unknown Mafia host action."},400);
   const next=JSON.stringify(room.state);
-  const result=await env.DB.prepare("UPDATE mafia_rooms SET state_json=?,ended_at=? WHERE room_id=? AND state_json=? AND ended_at IS NULL")
-    .bind(next,body.action==="end"?new Date().toISOString():null,row.room_id,row.state_json).run();
+  const result=await env.DB.prepare("UPDATE mafia_rooms SET state_json=?,ended_at=NULL WHERE room_id=? AND state_json=? AND ended_at IS NULL")
+    .bind(next,row.room_id,room.state_json).run();
   if(!Number(result.meta?.changes||0))return json({error:"The game just updated. Please try again."},409);
   return json({ok:true});
 }
