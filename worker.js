@@ -1432,7 +1432,7 @@ async function getMafiaPlayerState(request,env,url) {
     ready:(state.ready||[]).includes(playerId),
     readyCount:(state.ready||[]).length,
     players:state.players.map(p=>({id:p.id,name:p.name,alive:p.alive!==false})),
-    targets:alive.filter(p=>role==="doctor"||p.id!==playerId).map(p=>({id:p.id,name:p.name})),
+    targets:alive.filter(p=>(state.stage==="doctorOpen"&&role==="doctor")||p.id!==playerId).map(p=>({id:p.id,name:p.name})),
     canAct,
     investigationResult:isInvestigator&&investigation&&investigation.playerId===playerId?{targetName:investigation.targetName,result:investigation.result}:null,
     nightOutcome:state.nightOutcome||null,
