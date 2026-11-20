@@ -33,8 +33,8 @@ export default {
       if (url.pathname === "/api/game-availability" && request.method === "GET") return await getGameAvailability(env);
       if (url.pathname === "/api/admin/game-availability" && request.method === "GET") return await getAdminGameAvailability(request, env);
       if (url.pathname.startsWith("/api/admin/game-availability/") && request.method === "PATCH") return await updateGameAvailability(request, env, decodeURIComponent(url.pathname.split("/").pop()));
-      if (url.pathname.startsWith("/api/insight/") || url.pathname.startsWith("/api/imposter/")) {
-        const gameId = url.pathname.startsWith("/api/insight/") ? "insight" : "imposter";
+      if (url.pathname.startsWith("/api/insight/") || url.pathname.startsWith("/api/imposter/") || url.pathname.startsWith("/api/mafia/")) {
+        const gameId = url.pathname.startsWith("/api/insight/") ? "insight" : url.pathname.startsWith("/api/imposter/") ? "imposter" : "mafia";
         const availability = await readGameAvailability(env, gameId);
         if (!availability.enabled) return json({ error: "This game is temporarily unavailable. Please check back later." }, 423);
       }
@@ -78,6 +78,12 @@ export default {
       if (url.pathname === "/api/imposter/player-state" && request.method === "GET") return await getImposterPlayerState(request, env, url);
       if (url.pathname === "/api/imposter/host-action" && request.method === "POST") return await imposterHostAction(request, env);
       if (url.pathname === "/api/imposter/player-action" && request.method === "POST") return await imposterPlayerAction(request, env);
+      if (url.pathname === "/api/mafia/create" && request.method === "POST") return await createMafiaRoom(request, env);
+      if (url.pathname === "/api/mafia/join" && request.method === "POST") return await joinMafiaRoom(request, env);
+      if (url.pathname === "/api/mafia/host-state" && request.method === "GET") return await getMafiaHostState(request, env, url);
+      if (url.pathname === "/api/mafia/player-state" && request.method === "GET") return await getMafiaPlayerState(request, env, url);
+      if (url.pathname === "/api/mafia/host-action" && request.method === "POST") return await mafiaHostAction(request, env);
+      if (url.pathname === "/api/mafia/player-action" && request.method === "POST") return await mafiaPlayerAction(request, env);
       const adminParts = url.pathname.split("/");
       if (adminParts.length === 5 && adminParts[1] === "api" && adminParts[2] === "admin") {
         const itemId = decodeURIComponent(adminParts[4]);
@@ -110,7 +116,8 @@ const GAME_AVAILABILITY = [
   { id: "zanko", name: "Zanko" },
   { id: "price", name: "Price Game" },
   { id: "imposter", name: "Imposter" },
-  { id: "insight", name: "INSIGHT" }
+  { id: "insight", name: "INSIGHT" },
+  { id: "mafia", name: "Mafia" }
 ];
 async function ensureGameAvailabilitySchema(env) {
   await env.DB.prepare("CREATE TABLE IF NOT EXISTS game_availability (game_id TEXT PRIMARY KEY, enabled INTEGER NOT NULL DEFAULT 1, updated_at TEXT NOT NULL, updated_by TEXT)").run();
