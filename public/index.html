@@ -759,6 +759,7 @@ function v17SyncLanguage(){
  const q=document.getElementById("zankoQuestionSearch");if(q)q.placeholder=v17T("searchQuestions");
  const gamesTab=document.getElementById("adminTabGames");if(gamesTab&&!gamesTab.hidden)loadAdminGameAvailability().catch(e=>v17SetAdminStatus(e.message,true));
  const imposterTab=document.getElementById("adminTabImposter");if(imposterTab&&!imposterTab.hidden)renderImposterWords();
+ const imposterTitle=document.getElementById("imposterFormTitle");if(imposterTitle)imposterTitle.textContent=v17T(document.getElementById("imposterWordId")?.value?"editWord":"addImposterWord");
 }
 function v17ShowStatus(id,message,error){const el=document.getElementById(id);if(!el)return;el.textContent=message;el.hidden=false;el.classList.toggle("error",!!error)}
 async function v17Request(path,method,body){const options={method:method||"GET",credentials:"same-origin",headers:{"Accept":"application/json"}};if(body!==undefined){options.headers["Content-Type"]="application/json";options.body=JSON.stringify(body)}const response=await fetch("/api"+path,options);let data={};try{data=await response.json()}catch{}if(!response.ok)throw new Error(data.error||v17T("failed"));return data}
