@@ -80,7 +80,7 @@ function renderState(s){
  $("actionArea").innerHTML=area;
  updateTimer(s);
 }
-function updateTimer(s){if(!s)return;if(s.stage==="discussion"){$("stageDetail").textContent=t("timeLeft");$("stageText").textContent=fmt(s.discussionRemainingMs)}}
+function updateTimer(s){if(!s)return;if(s.stage==="hide"){$("stageDetail").textContent=t("hide");$("stageText").textContent=fmt((s.stageEndsAt||Date.now())-Date.now())}else if(s.stage==="discussion"){$("stageDetail").textContent=t("timeLeft");$("stageText").textContent=fmt(s.discussionRemainingMs)}}
 function fmt(ms){const sec=Math.max(0,Math.ceil((ms||0)/1000));return String(Math.floor(sec/60)).padStart(2,"0")+":"+String(sec%60).padStart(2,"0")}
 async function sendMafiaAction(action,targetId){unlockVoice();const buttons=$("actionArea").querySelectorAll("button");buttons.forEach(b=>b.disabled=true);try{await api("player-action",{roomId,key,playerId,action,...(targetId?{targetId}:{})});lastRenderKey="";await poll()}catch(e){$("playerStatus").textContent=e.message;lastRenderKey="";await poll()}}
 function voiceLine(s){
