@@ -899,7 +899,7 @@ async function v17UserAction(id,action){
 async function loadAdminGameAvailability(){
  const holder=document.getElementById("adminGameAvailability");
  const data=await v17Request("/admin/game-availability","GET");
- const labels={zanko:"gameZanko",price:"gamePrice",imposter:"gameImposter",insight:"gameInsight"};
+ const labels={zanko:"gameZanko",price:"gamePrice",imposter:"gameImposter",insight:"gameInsight",mafia:"gameMafia"};
  holder.innerHTML=(data.games||[]).map(game=>{
   const name=labels[game.id]?v17T(labels[game.id]):(game.name||game.id);
   const state=game.enabled?v17T("availableAllPlayers"):v17T("stoppedEveryone");
