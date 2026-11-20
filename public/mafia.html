@@ -45,7 +45,7 @@ function render(s){lastState=s;if(!s)return;
  if(["mafiaOpen","doctorOpen","investigatorOpen","mafiaClose","doctorClose","investigatorClose"].includes(s.stage))desc=t("waitingAction");
  if(s.stage==="discussion")desc=t("discussionText");
  $("stageDescription").textContent=desc;
- $("clock").textContent=s.stage==="hide"?"4":s.stage==="discussion"?fmt(s.discussionRemainingMs):"";
+ $("clock").textContent=s.stage==="hide"?fmt((s.stageEndsAt||Date.now())-Date.now()):s.stage==="discussion"?fmt(s.discussionRemainingMs):"";
  $("phaseNotice").textContent=t("noLaptopRoles");
  $("alivePlayers").innerHTML=s.players.map(p=>'<span class="player '+(p.alive?"":"dead")+'"><i class="dot"></i>'+esc(p.name)+'</span>').join("");
  let outcome="";
