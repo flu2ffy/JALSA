@@ -11,7 +11,7 @@ main{max-width:520px;margin:0 auto}.top{display:flex;justify-content:space-betwe
 .player-list{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.player-chip{border-radius:20px;background:#f2e0c4;padding:8px 11px;font-weight:800;font-size:13px}.player-chip.dead{opacity:.4;text-decoration:line-through}.timer{font:900 42px Georgia,serif;color:var(--red);font-variant-numeric:tabular-nums;margin:8px 0}.result-card{background:#fff;border:1px solid #e4c49a;border-radius:16px;padding:15px;margin:12px 0;font-size:18px;font-weight:900;color:var(--wine)}.role-reveal-row{display:flex;align-items:center;gap:10px;text-align:start;border-radius:13px;background:#fffaf2;padding:10px;margin:8px 0}.role-reveal-row .mini{font-size:24px;width:38px;text-align:center}.footer-note{text-align:center;color:#f7e2ca;font-size:12px;margin:14px 8px}
 @media(max-width:420px){.card{padding:17px}.role-icon{width:118px;height:118px;font-size:65px}.stage-text{font-size:21px}}
 </style></head><body><main>
-<header class="top"><a class="brand" href="/" aria-label="JALSA home"><img src="/jalsa-logo.png" alt="JALSA"></a><div style="display:flex;gap:8px;align-items:center"><span class="lang" id="languageLabel">English</span><button class="lang" id="soundEnableBtn" type="button">Enable sound</button></div></header>
+<header class="top"><a class="brand" href="/" aria-label="JALSA home"><img src="/jalsa-logo.png" alt="JALSA"></a><span class="lang" id="languageLabel">English</span></header>
 <section class="card" id="joinPanel"><div class="eyebrow">JALSA MAFIA</div><h1 class="title" id="joinTitle">Join Mafia</h1><p class="muted" id="joinDescription">Enter the name you want everyone to see.</p><input class="field" id="playerName" maxlength="32" placeholder="Your name" autocomplete="nickname"><button class="btn" id="joinBtn">Join game</button><p class="error" id="joinError"></p><p class="muted" id="voiceHint">Your phone will play the narrator during the game. Turn your volume up.</p></section>
 <section class="card hidden" id="gamePanel"><div class="eyebrow" id="roundLabel">MAFIA · ROUND 1</div><h1 class="title" id="stageTitle">Waiting for the host…</h1><div class="stage-card" id="stageCard"><div class="stage-text" id="stageText">You are connected.</div><div class="stage-detail" id="stageDetail"></div><div id="actionArea"></div></div><p class="status" id="playerStatus"></p><div class="player-list" id="playerList"></div></section>
 <p class="footer-note" id="footerNote">Keep your role secret. Do not show your screen to anyone.</p>
@@ -34,8 +34,7 @@ ar:{
 };
 function t(k){return T[lang][k]||T.en[k]||k}
 function esc(v){return String(v||"").replace(/[&<>\"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]))}
-function applyLang(){document.documentElement.lang=lang;document.documentElement.dir=lang==="ar"?"rtl":"ltr";$("languageLabel").textContent=lang==="ar"?"العربية":"English";$("soundEnableBtn").textContent=lang==="ar"?"تفعيل الصوت":"Enable sound";$("joinTitle").textContent=t("joinTitle");$("joinDescription").textContent=t("joinDescription");$("playerName").placeholder=t("yourName");$("joinBtn").textContent=t("join");$("voiceHint").textContent=t("voiceHint");$("footerNote").textContent=lang==="ar"?"حافظ على سرية دورك ولا تعرض الشاشة لأي لاعب.":"Keep your role secret. Do not show your screen to anyone."}
-$("soundEnableBtn").onclick=unlockVoice;
+function applyLang(){document.documentElement.lang=lang;document.documentElement.dir=lang==="ar"?"rtl":"ltr";$("languageLabel").textContent=lang==="ar"?"العربية":"English";$("joinTitle").textContent=t("joinTitle");$("joinDescription").textContent=t("joinDescription");$("playerName").placeholder=t("yourName");$("joinBtn").textContent=t("join");$("voiceHint").textContent=t("voiceHint");$("footerNote").textContent=lang==="ar"?"حافظ على سرية دورك ولا تعرض الشاشة لأي لاعب.":"Keep your role secret. Do not show your screen to anyone."}
 function api(path,body){return fetch("/api/mafia/"+path,{method:body?"POST":"GET",headers:{"Content-Type":"application/json","Accept":"application/json"},...(body?{body:JSON.stringify(body)}:{})}).then(async r=>{let d={};try{d=await r.json()}catch{}if(!r.ok)throw Error(d.error||"Request failed");return d})}
 function showGame(){ $("joinPanel").classList.add("hidden");$("gamePanel").classList.remove("hidden") }
 function unlockVoice(){
@@ -47,7 +46,7 @@ function unlockVoice(){
   const resumed=audioContext.state==="suspended"?audioContext.resume():Promise.resolve();
   const silent=audioContext.createBuffer(1,1,audioContext.sampleRate);
   const source=audioContext.createBufferSource();source.buffer=silent;source.connect(audioContext.destination);source.start(0);
-  Promise.resolve(resumed).then(()=>{if(audioContext&&audioContext.state==="running")$("soundEnableBtn").hidden=true}).catch(()=>{});
+  Promise.resolve(resumed).catch(()=>{});
  }catch{}
 }
 $("joinBtn").onclick=join;
@@ -110,23 +109,6 @@ function voiceLine(s){
  const aa={nightIntro:"الجميع يغمض عينيه.",mafiaOpen:"يا مافيا، افتح عينيك واختر لاعباً لإقصائه.",mafiaClose:"يا مافيا، أغمض عينيك.",doctorOpen:"يا طبيب، افتح عينيك واختر لاعباً لإنقاذه، ويمكنك إنقاذ نفسك.",doctorClose:"يا طبيب، أغمض عينيك.",investigatorOpen:"يا محقق، افتح عينيك واختر لاعباً للتحقيق معه.",investigatorClose:"يا محقق، أغمض عينيك.",nightResult:s.nightOutcome?.eliminatedName?s.nightOutcome.eliminatedName+" تم إقصاؤه.":s.nightOutcome?.saved?"أنقذ الطبيب أحد اللاعبين. لم يتم إقصاء أحد.":"لم يتم إقصاء أي لاعب الليلة.",discussion:"الجميع يفتح عينيه. لديكم عشر دقائق للنقاش.",voteResult:s.voteOutcome?.eliminatedName?s.voteOutcome.eliminatedName+" تم إقصاؤه بالتصويت.":"انتهى التصويت. لم يتم إقصاء أحد."};
  return (ar?aa:en)[k]||"";
 }
-function browserSpeak(text,voiceLang){
- return new Promise(resolve=>{
-  if(!text||!window.speechSynthesis||!window.SpeechSynthesisUtterance){resolve();return}
-  let done=false;
-  const finish=()=>{if(done)return;done=true;clearTimeout(watchdog);resolve()};
-  const watchdog=setTimeout(finish,Math.max(9000,text.length*150));
-  try{
-   const u=new SpeechSynthesisUtterance(text);
-   u.lang=voiceLang==="ar"?"ar":"en-US";u.rate=.9;u.pitch=.82;
-   u.onend=finish;u.onerror=finish;
-   const voices=speechSynthesis.getVoices();
-   const match=voices.find(v=>v.lang.toLowerCase().startsWith(voiceLang));
-   if(match)u.voice=match;
-   speechSynthesis.speak(u);
-  }catch{finish()}
- });
-}
 async function loadNarrationBuffer(url){
  if(!audioContext)throw new Error("Audio is not unlocked yet");
  if(!narrationBufferCache.has(url)){
@@ -152,7 +134,10 @@ async function playNarrationClip(url,text,voiceLang,epoch){
    source.start(0);
   });
  }catch(error){
-  if(epoch===narrationEpoch)await browserSpeak(text,voiceLang);
+  if(epoch===narrationEpoch){
+   $("playerStatus").textContent="Narration audio could not be loaded. Check your connection and refresh.";
+   console.error("JALSA Mafia narration error:",error);
+  }
  }
 }
 function resetNarrationForLanguageChange(){
@@ -181,6 +166,7 @@ function playStageVoice(s){
  }).catch(()=>{});
 }
 function playNarrationEvents(s){
+ if(!audioContext||audioContext.state!=="running")return;
  const events=Array.isArray(s.narrationEvents)?[...s.narrationEvents].sort((a,b)=>a.stageSeq-b.stageSeq):[];
  for(const event of events){
   const seq=Number(event.stageSeq||0);
@@ -192,5 +178,7 @@ function playNarrationEvents(s){
 }
 async function poll(){if(!playerId)return;try{const d=await api("player-state?roomId="+encodeURIComponent(roomId)+"&key="+encodeURIComponent(key)+"&playerId="+encodeURIComponent(playerId));currentState=d.state;renderState(currentState);playStageVoice(currentState)}catch(e){$("playerStatus").textContent=e.message||t("error")}}
 function beginPolling(){if(!pollTimer)pollTimer=setInterval(poll,900);poll()}
+document.addEventListener("pointerdown",unlockVoice,{capture:true,passive:true});
+document.addEventListener("keydown",unlockVoice,{capture:true});
 applyLang();
 </script></body></html>
