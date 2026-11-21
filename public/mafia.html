@@ -2,7 +2,29 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#55151c"><title>JALSA — Mafia</title><script src="/qrcode.min.js"></script>
 <style>
 :root{--wine:#55151c;--red:#a83232;--orange:#ed8245;--gold:#e4b96b;--cream:#fff3df;--ink:#38231f;--muted:#765e50}
-*{box-sizing:border-box}body{margin:0;min-height:100vh;padding:20px;background:radial-gradient(ellipse at 80% 0%,#a64b32,transparent 48%),linear-gradient(145deg,#48131a,#7c2028 62%,#a44b32);font-family:Arial,sans-serif;color:var(--ink)}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  min-height:100vh;
+  padding:20px;
+  background-color:#48131a;
+  background-size:cover;
+  background-position:center;
+  background-repeat:no-repeat;
+  background-attachment:fixed;
+  font-family:Arial,sans-serif;
+  color:var(--ink);
+}
+html[lang="ar"] body{
+  background-image:
+    linear-gradient(rgba(30,8,10,.65),rgba(30,8,10,.65)),
+    url('/mafia-bg.webp');
+}
+html[lang="en"] body{
+  background-image:
+    linear-gradient(rgba(15,8,20,.60),rgba(15,8,20,.60)),
+    url('/mafia-english.webp');
+}
 .wrap{max-width:1120px;margin:0 auto}.top{display:flex;justify-content:space-between;align-items:center;gap:14px;color:#fff2df;margin:4px 0 18px}.logo img{width:170px;height:58px;object-fit:contain;display:block}.top-actions{display:flex;gap:9px;align-items:center}.top a,.top button{border:1px solid #e8c68e;border-radius:22px;background:var(--cream);color:var(--wine);padding:10px 15px;font-weight:900;text-decoration:none;cursor:pointer}
 .panel{background:var(--cream);border:2px solid var(--gold);border-radius:24px;padding:24px;box-shadow:0 16px 40px #1c070a55;margin:14px 0}.hero{text-align:center}.eyebrow{font-size:12px;letter-spacing:2px;text-transform:uppercase;color:#a35a36;font-weight:900}.hero h1{font:900 clamp(34px,5vw,58px) Georgia,serif;color:var(--wine);margin:5px}.muted{color:var(--muted);line-height:1.55}.status{font-weight:900;color:var(--red);margin:8px 0}
 .layout{display:grid;grid-template-columns:320px minmax(0,1fr);gap:22px;align-items:start}.qr{display:grid;place-items:center;min-height:275px;background:white;border-radius:18px;padding:14px}.qr canvas,.qr img{max-width:100%;height:auto!important}.join-link{font-size:12px;overflow-wrap:anywhere;color:#7b5b49}
