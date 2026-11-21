@@ -298,6 +298,24 @@ html[dir="rtl"] .game-card:nth-child(5)::before{background-image:url('/mafia-bg.
 
 
 /* Put winner/score controls at the bottom of the question card, using its free space. */
+
+/* Keep the question content near the top; anchor the action to the card bottom. */
+#questionScreen .question-center .reveal-button:not([hidden]){
+  margin-top:auto!important;
+  margin-bottom:0!important;
+}
+#questionScreen .question-center .answer-result:not([hidden]){
+  margin-top:auto!important;
+  margin-bottom:4px!important;
+}
+#questionScreen .question-center #awardRow:not([hidden]){
+  margin-top:4px!important;
+}
+#questionScreen .question-center #noPoints:not([hidden]){
+  margin-top:6px!important;
+  margin-bottom:0!important;
+}
+
 #questionScreen .question-center{
   justify-content:flex-start;
 }
