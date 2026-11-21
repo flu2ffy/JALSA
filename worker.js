@@ -1509,7 +1509,7 @@ async function mafiaPlayerAction(request,env) {
     if(state.stage!=="roles")return json({error:"The role reveal is not active."},409);
     state.ready=Array.isArray(state.ready)?state.ready:[];
     if(!state.ready.includes(playerId))state.ready.push(playerId);
-    if(state.ready.length===state.players.length){state.night={killId:null,savedId:null,investigation:null};mafiaSetStage(state,"nightIntro",2600);}
+    if(state.ready.length===state.players.length){state.night={killId:null,savedId:null,investigation:null};mafiaSetStage(state,"nightIntro",9000);}
   }else if(action==="kill"){
     if(state.stage!=="mafiaOpen"||state.roles[playerId]!=="mafia")return json({error:"Only the living Mafia player can choose the target."},403);
     const targetId=String(body.targetId||"");
