@@ -547,7 +547,7 @@ async function v17PollGameLocks(){
   if(!response.ok)throw new Error("Availability check failed");
   const data=await response.json(),enabled={};
   (data.games||[]).forEach(game=>enabled[game.id]=game.enabled!==false);
-  const gameButtons={zanko:"zankoPlay",price:"pricePlay",imposter:"imposterPlay",insight:"insightPlay"};
+  const gameButtons={zanko:"zankoPlay",price:"pricePlay",imposter:"imposterPlay",insight:"insightPlay",mafia:"mafiaPlay"};
   Object.entries(gameButtons).forEach(([gameId,buttonId])=>{
    const button=document.getElementById(buttonId);if(!button)return;
    const available=enabled[gameId]!==false;
@@ -560,13 +560,13 @@ async function v17PollGameLocks(){
    button.setAttribute("aria-disabled",String(!available));
    button.setAttribute("aria-label",available?availableLabel:waitText);
   });
-  const zankoOn=enabled.zanko!==false,priceOn=enabled.price!==false,imposterOn=enabled.imposter!==false,insightOn=enabled.insight!==false;
+  const zankoOn=enabled.zanko!==false,priceOn=enabled.price!==false,imposterOn=enabled.imposter!==false,insightOn=enabled.insight!==false,mafiaOn=enabled.mafia!==false;
   const zn=document.getElementById("zankoStoppedNotice");if(zn)zn.hidden=zankoOn;
   const pn=document.getElementById("priceStoppedNotice"),pgn=document.getElementById("priceGameStoppedNotice");
   if(pn)pn.hidden=priceOn;if(pgn)pgn.hidden=priceOn;
   ["boardScreen","questionScreen"].forEach(id=>{const panel=document.getElementById(id);if(panel)panel.style.pointerEvents=zankoOn?"":"none"});
   ["priceSetupOverlay","priceGameOverlay"].forEach(id=>{const panel=document.getElementById(id);if(panel){const inner=panel.querySelector(".price-panel");if(inner)inner.style.pointerEvents=priceOn?"":"none"}});
-  const stopped={zanko:!zankoOn,price:!priceOn,imposter:!imposterOn,insight:!insightOn};
+  const stopped={zanko:!zankoOn,price:!priceOn,imposter:!imposterOn,insight:!insightOn,mafia:!mafiaOn};
   document.querySelectorAll("[data-game-stopped-notice]").forEach(el=>el.hidden=!stopped[el.dataset.gameStoppedNotice]);
  }catch(e){/* Keep the last known button state if the status endpoint is temporarily unavailable. */}
 }
