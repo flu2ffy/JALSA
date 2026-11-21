@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>INSIGHT · JALSA</title>
+<style>
+:root{color-scheme:dark;--wine:#50131b;--red:#a92732;--orange:#ef8b42;--cream:#fff0d8;--ink:#301b1d}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:radial-gradient(circle at 80% 10%,#8d382d,#421018 65%);color:var(--cream);min-height:100vh}
+header{padding:12px 22px;display:flex;justify-content:space-between;align-items:center;gap:18px;background:#fff0d8;color:var(--wine)}header a{color:inherit;text-decoration:none;font-weight:900}.brand{display:flex;align-items:center}.site-logo{display:block;width:190px;height:62px;object-fit:contain}.header-tools{display:flex;align-items:center;gap:12px}.header-tools button{background:#fff;border:1px solid #d7b98f;color:var(--wine);box-shadow:none;padding:10px 15px}.header-tools a{padding:10px 4px}
+main{width:min(760px,100%);margin:0 auto;padding:28px 18px 60px}.panel{background:var(--cream);color:var(--ink);border-radius:24px;padding:clamp(20px,5vw,36px);box-shadow:0 20px 60px #16050966;margin:18px 0}
+h1{font:bold clamp(36px,8vw,58px) Georgia,serif;text-align:center;color:#fff0d8;margin:16px 0 8px}.sub{text-align:center;color:#f3d8bd}.panel h2{margin:0 0 14px;color:var(--wine);font:bold 27px Georgia,serif}
+input,textarea,select{width:100%;padding:15px;border:1px solid #d7b98f;border-radius:12px;font:inherit;background:white;color:#2e2020;margin:8px 0 14px}
+textarea{min-height:125px;resize:vertical;line-height:1.45}
+button{border:0;border-radius:28px;padding:14px 22px;font-weight:900;background:linear-gradient(135deg,#b72e38,#7e1b27);color:white;cursor:pointer;box-shadow:0 5px 0 #59141e}button:disabled{opacity:.5;cursor:not-allowed}
+.row{display:flex;gap:10px;flex-wrap:wrap}.row>*{flex:1}.muted{color:#765f57}.center{text-align:center}.hidden{display:none!important}
+#qr{background:white;border-radius:18px;padding:12px;width:220px;height:220px;margin:18px auto;display:grid;place-items:center}#qr img{max-width:100%}
+.players{display:flex;flex-wrap:wrap;gap:8px}.player{background:#f6dfc3;border:1px solid #e2c49e;padding:9px 13px;border-radius:20px;font-weight:800}
+.status{font-weight:800;text-align:center;margin:14px 0;color:#8c2830;min-height:1.2em}.notice{background:#f8dfc4;padding:14px;border-radius:14px;margin:12px 0}
+.name-choice{display:block;width:100%;margin:8px 0;background:#fff;border:2px solid #dfc19b;color:#4b1b21;box-shadow:none;text-align:left;position:relative;z-index:1;touch-action:manipulation;pointer-events:auto}.name-choice.selected{background:#f5b16e;border-color:#9b3a25}
+.question-kept{background:#fff8ec;border:2px solid #e6bf89;border-radius:16px;padding:15px 17px;margin:14px 0;text-align:start;color:#472126}
+.question-kept small{display:block;font-size:11px;letter-spacing:1.5px;font-weight:900;color:#9a4b32;margin-bottom:7px}
+.question-kept p{font:700 22px/1.4 Georgia,serif;margin:0}
+.coin-pick-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:15px 0}
+.coin-pick{display:flex;flex-direction:column;align-items:center;gap:9px;padding:14px 8px;border-radius:18px;background:#fffaf1;border:2px solid #dec08d;color:#4b1b21;box-shadow:none;min-width:0}
+.coin-pick.selected{border-color:#a62b32;background:#ffe1b8;box-shadow:0 0 0 3px #a62b3222}
+.coin-pick strong{font-size:17px}.coin-pick small{font-size:12px;color:#765f57;text-align:center}
+.coin-pick-face,.coin-face-result{width:clamp(82px,24vw,124px);aspect-ratio:1;border-radius:50%;background-image:url('/insight-coin-faces.webp');background-repeat:no-repeat;background-size:200% 100%;box-shadow:0 8px 18px #45101844,inset 0 0 0 3px #f7d68f}
+.coin-pick-face.warrior,.coin-face-result.warrior{background-position:left center}
+.coin-pick-face.tree,.coin-face-result.tree{background-position:right center}
+.coin-face-result{width:115px;display:block;margin:12px auto}
+.coin-stage{perspective:1000px;margin:20px auto;width:176px;height:176px}
+.coin{width:100%;height:100%;position:relative;transform-style:preserve-3d;border-radius:50%;transition:transform .8s cubic-bezier(.2,.8,.2,1);filter:drop-shadow(0 15px 18px #45101899)}
+.coin-face{position:absolute;inset:0;border-radius:50%;backface-visibility:hidden;border:4px solid #f5d28a;background-image:url('/insight-coin-faces.webp');background-size:200% 100%;background-repeat:no-repeat;box-shadow:inset 0 0 0 3px #f9e3aa}
+.coin-face.warrior{background-position:left center}
+.coin-face.tree{background-position:right center}
+.coin-back{transform:rotateY(180deg)}
+.coin.spinning{animation:coinSpin 1.35s cubic-bezier(.15,.75,.15,1)}
+@keyframes coinSpin{0%{transform:rotateY(0) rotateZ(0)}45%{transform:rotateY(1080deg) rotateZ(16deg)}100%{transform:rotateY(1980deg) rotateZ(0)}}
+@media(max-width:520px){.question-kept p{font-size:18px}.coin-pick-grid{gap:8px}.coin-pick{padding:10px 5px}.coin-stage{width:150px;height:150px}}
+.danger-screen{position:fixed;inset:0;z-index:80;background:radial-gradient(circle at center,#e92a39 0,#a9081d 52%,#45000b 100%);color:white;display:flex;align-items:center;justify-content:center;padding:22px;text-align:center;animation:redPulse 1.4s ease-in-out infinite alternate}
+.danger-screen .inner{width:min(760px,100%);padding:clamp(25px,6vw,58px);border:3px solid #ffb6a6;border-radius:30px;box-shadow:0 0 90px #ff172c99,inset 0 0 50px #ff9b8c33;background:#5a001a66}
+.danger-screen h2{font:bold clamp(32px,7vw,62px) Georgia,serif;color:#fff;margin:0 0 20px}.danger-screen p{font-size:clamp(22px,4vw,36px);line-height:1.3;margin:0}
+@keyframes redPulse{from{filter:saturate(1)}to{filter:saturate(1.4) brightness(1.16)}}
+
+.choice-step{background:#fff7e9;border:2px solid #e5bd8e;border-radius:18px;padding:18px;margin:14px 0}
+@media(max-width:520px){header{padding:9px 12px}.site-logo{width:145px;height:50px}.header-tools{gap:8px}.header-tools button,.header-tools a{font-size:13px;padding:8px 10px}main{padding:18px 12px 40px}.panel{border-radius:19px}.row{display:grid}.danger-screen .inner{border-radius:22px}.coin-stage{width:150px;height:150px}}
+
+.coin-flip-overlay{position:fixed;inset:0;z-index:99999;display:none;align-items:center;justify-content:center;overflow:hidden;padding:24px;color:#fff3d6;background:radial-gradient(ellipse at 50% 42%,#75351e 0%,#381017 58%,#12070b 100%);isolation:isolate}
+.coin-flip-overlay.is-visible{display:flex}
+.coin-flip-overlay:before,.coin-flip-overlay:after{content:"";position:absolute;inset:-25%;z-index:-1;pointer-events:none;border-radius:50%;border:1px solid #e6b85a55;box-shadow:0 0 70px #eda94322,inset 0 0 80px #eda94316;animation:coinHalo 5s linear infinite}
+.coin-flip-overlay:after{inset:-10%;border-style:dashed;border-color:#eecb8066;animation-direction:reverse;animation-duration:18s}
+.coin-flip-content{width:min(760px,100%);display:flex;flex-direction:column;align-items:center;gap:17px;text-align:center}
+.coin-flip-eyebrow{font-size:13px;font-weight:900;letter-spacing:5px;color:#ffd985;text-transform:uppercase;text-shadow:0 2px 16px #ffb83c88}
+.coin-flip-title{font:bold clamp(29px,6vw,54px) Georgia,serif;color:#fff2d4;margin:0;text-shadow:0 4px 25px #ffb64a66}
+.coin-flip-stage{width:min(72vw,420px);aspect-ratio:1;display:grid;place-items:center;perspective:1500px;filter:drop-shadow(0 26px 32px #090306aa)}
+.coin-flip-coin{width:100%;height:100%;position:relative;transform-style:preserve-3d;border-radius:50%;--coin-final:0deg;transform:rotateY(var(--coin-final));}
+.coin-flip-coin:before{content:"";position:absolute;inset:1.5%;border-radius:50%;border:12px ridge #d58b27;background:linear-gradient(135deg,#ffe5a2,#a65b18 45%,#f9ce6d 70%,#754016);box-shadow:0 0 50px #f5b84955,inset 0 0 15px #60300e;transform:translateZ(-9px)}
+.coin-flip-face{position:absolute;inset:0;border-radius:50%;backface-visibility:hidden;background-image:url('/insight-coin-faces.webp');background-repeat:no-repeat;background-size:200% 100%;border:7px solid #f5d68e;box-shadow:inset 0 0 0 3px #7f4a17,0 0 24px #ffce6b66}
+.coin-flip-face.warrior{background-position:left center}
+.coin-flip-face.tree{background-position:right center;transform:rotateY(180deg)}
+.coin-flip-coin.is-spinning{animation:coinFullSpin 3.15s cubic-bezier(.12,.68,.13,1) both}
+@keyframes coinFullSpin{0%{transform:rotateY(0deg) rotateX(18deg) scale(.55)}12%{transform:rotateY(720deg) rotateX(-14deg) scale(.88)}33%{transform:rotateY(1440deg) rotateX(12deg) scale(1.06)}58%{transform:rotateY(2160deg) rotateX(-9deg) scale(1.02)}82%{transform:rotateY(2880deg) rotateX(5deg) scale(1.01)}100%{transform:rotateY(calc(1800deg + var(--coin-final))) rotateX(0deg) scale(1)}}
+.coin-flip-coin.is-settled{transform:rotateY(var(--coin-final));animation:coinSettle .55s cubic-bezier(.2,.8,.2,1)}
+@keyframes coinSettle{0%{transform:rotateY(calc(var(--coin-final) - 12deg)) scale(1.04)}65%{transform:rotateY(calc(var(--coin-final) + 4deg)) scale(.99)}100%{transform:rotateY(var(--coin-final)) scale(1)}}
+.coin-flip-caption{margin:0;color:#ffdda1;font-size:clamp(16px,3vw,22px);font-weight:800;text-shadow:0 2px 14px #000}
+.coin-flip-outcome{max-width:650px;padding:18px 26px;border-radius:20px;border:1px solid #edc36f88;background:#1b0b0ecf;box-shadow:0 10px 40px #0006;animation:outcomeRise .45s ease-out both}
+.coin-flip-outcome[hidden]{display:none}
+.coin-flip-outcome strong{display:block;color:#ffdc8a;font:bold clamp(22px,4vw,32px) Georgia,serif;margin-bottom:7px}
+.coin-flip-outcome p{margin:4px 0;color:#fff0d4;line-height:1.45}
+@keyframes outcomeRise{from{opacity:0;transform:translateY(18px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes coinHalo{to{transform:rotate(360deg)}}
+@media(max-width:520px){.coin-flip-overlay{padding:16px}.coin-flip-stage{width:min(84vw,350px)}.coin-flip-face{border-width:5px}.coin-flip-coin:before{border-width:8px}.coin-flip-outcome{padding:14px 18px}}
+
+</style></head><body>
+<header><a class="brand" href="/" aria-label="JALSA home"><img class="site-logo" src="/jalsa-logo.png" alt="JALSA"></a><div class="header-tools"><button id="langToggle" type="button" onclick="toggleLanguage()">العربية</button><a id="homeLink" href="/">Home</a></div></header>
+<main><h1 id="gameTitle">INSIGHT</h1><p class="sub" id="tagline">Secrets. Suspense. One flip can reveal everything.</p><div id="gameStoppedNotice" class="notice hidden">This game is temporarily unavailable while the JALSA team works on it. Please check back later.</div>
+<section id="hostLobby" class="panel hidden"><h2 id="hostTitle">INSIGHT · Host room</h2><p class="muted" id="hostIntro">Let everyone scan this QR code and enter their name.</p><div id="qr"><span>Preparing QR…</span></div><p id="joinUrl" class="center muted"></p><div class="players" id="hostPlayers"></div><p id="hostCount" class="center muted">0 players</p><button id="startBtn" disabled onclick="hostAction('start')">Start game</button><p id="hostMessage" class="status"></p></section>
+<section id="joinPanel" class="panel hidden"><h2 id="joinTitle">Join INSIGHT</h2><label id="nameLabel" for="playerName">Your name</label><input id="playerName" maxlength="32" placeholder="Enter your name"><button id="joinNext" onclick="joinGame()">Next</button><p id="joinError" class="status"></p></section>
+<section id="phonePanel" class="panel hidden"><div class="center"><strong id="phoneRound">ROUND 1</strong></div><div id="phoneContent" class="center"><h2>Focus on the screen</h2><p>Wait for the game to begin.</p></div></section>
+<section id="resultPanel" class="panel hidden"><h2 id="resultTitle" class="center">Round complete</h2><div id="resultContent"></div><div class="center"><button id="nextBtn" class="hidden" onclick="hostAction('next')">Next round</button></div></section>
+</main>
+<script src="/qrcode.min.js"></script><script>
+const UI={
+en:{title:"INSIGHT",tagline:"Secrets. Suspense. One flip can reveal everything.",home:"Home",hostTitle:"INSIGHT · Host room",hostIntro:"Let everyone scan this QR code and enter their name.",joinTitle:"Join INSIGHT",name:"Your name",namePlaceholder:"Enter your name",next:"Next",start:"Start game",players:"players",waitingStart:"Waiting to start",round:"ROUND",roundComplete:"Round complete",nextRound:"Next round",focus:"Focus on the screen",waitBegin:"Wait for the game to begin.",heartbreaker:"You're the Heartbreaker",askNasty:"Ask anyone a nasty question.",choosePlayer:"Choose a player",yourQuestion:"Your question",questionPlaceholder:"Write your question…",send:"Send question",sending:"Sending…",shortQuestion:"Please write at least 4 characters.",chooseFirst:"Choose a player first.",sent:"Question sent!",hiddenQuestion:"Your question is hidden from your screen now.",waitRecipient:"Wait for the recipient to make their choice.",questionForYou:"A question for you",continue:"Continue",chooseAnswer:"Choose the person you think is the answer",warrior:"The Warrior",warriorDesc:"The sword-bearing woman",tree:"Tree of Life",treeDesc:"The ancient tree",back:"← Back · Change person",chooseCoin:"Choose the coin side",flip:"Flip coin",autoNext:"Next round starts automatically in a few seconds.",safeTitle:"Secret safe!",revealedTitle:"The secret is revealed!",landed:"The coin landed on:",coinInMotion:"The coin is in the air…",ended:"Game ended",waitingDelivery:"Your question is on its way…",waitingNext:"Wait for the next moment.",answerStays:"The answer stays secret. The coin landed on the chosen side.",heartbreakerLabel:"HEARTBREAKER",answered:"answered:",chosenSide:"Chosen side:",coinResult:"Coin:",mark:"INSIGHT",unavailable:"This game is temporarily unavailable. Please check back later."},
+ar:{title:"ولع الجلسة",tagline:"أسئلة سرية وتشويق ورمية عملة قد تكشف كل شيء.",home:"الرئيسية",hostTitle:"ولع الجلسة · غرفة المضيف",hostIntro:"امسحوا رمز QR وأدخلوا أسماءكم للانضمام.",joinTitle:"انضم إلى ولع الجلسة",name:"اسمك",namePlaceholder:"اكتب اسمك",next:"التالي",start:"ابدأ اللعبة",players:"لاعبين",waitingStart:"بانتظار البدء",round:"الجولة",roundComplete:"انتهت الجولة",nextRound:"الجولة التالية",focus:"ركز على الشاشة",waitBegin:"انتظر حتى تبدأ اللعبة.",heartbreaker:"أنت صاحب السؤال",askNasty:"اسأل أي لاعب سؤالاً محرجاً.",choosePlayer:"اختر لاعباً",yourQuestion:"سؤالك",questionPlaceholder:"اكتب سؤالك هنا…",send:"إرسال السؤال",sending:"جارٍ الإرسال…",shortQuestion:"اكتب سؤالاً لا يقل عن 4 أحرف.",chooseFirst:"اختر لاعباً أولاً.",sent:"تم إرسال السؤال!",hiddenQuestion:"لن يظهر سؤالك على شاشتك بعد الآن.",waitRecipient:"انتظر حتى يختار اللاعب المستلم.",questionForYou:"هناك سؤال لك",continue:"متابعة",chooseAnswer:"اختر الشخص الذي تعتقد أنه الإجابة",warrior:"المحاربة",warriorDesc:"السيدة التي تحمل السيف",tree:"شجرة الحياة",treeDesc:"الشجرة العتيقة",back:"← رجوع · تغيير اللاعب",chooseCoin:"اختر وجه العملة",flip:"ارمِ العملة",autoNext:"ستبدأ الجولة التالية تلقائياً بعد لحظات.",safeTitle:"السر بأمان!",revealedTitle:"انكشف السر!",landed:"الوجه الذي ظهر:",coinInMotion:"العملة في الهواء…",ended:"انتهت اللعبة",waitingDelivery:"سؤالك في الطريق…",waitingNext:"انتظر اللحظة التالية.",answerStays:"الإجابة سرية. العملة توقفت على الجانب الذي اخترته.",heartbreakerLabel:"صاحب السؤال",answered:"أجاب:",chosenSide:"الجانب المختار:",coinResult:"نتيجة العملة:",mark:"ولع الجلسة",unavailable:"اللعبة غير متاحة مؤقتاً. يرجى العودة لاحقاً."}
+};
+let lang=(new URLSearchParams(location.search).get("lang")||localStorage.getItem("jalsa_language")||"en")==="ar"?"ar":"en";
+const tr=k=>UI[lang][k]||UI.en[k]||k;
+function applyLanguage(){
+ document.documentElement.lang=lang;document.documentElement.dir=lang==="ar"?"rtl":"ltr";
+ document.title=tr("title")+" · JALSA";
+ $("gameTitle").textContent=tr("title");$("tagline").textContent=tr("tagline");$("langToggle").textContent=lang==="ar"?"English":"العربية";$("homeLink").textContent=tr("home");
+ $("hostTitle").textContent=tr("hostTitle");$("hostIntro").textContent=tr("hostIntro");$("gameStoppedNotice").textContent=tr("unavailable");$("joinTitle").textContent=tr("joinTitle");$("nameLabel").textContent=tr("name");$("playerName").placeholder=tr("namePlaceholder");$("joinNext").textContent=tr("next");
+ $("startBtn").textContent=tr("start");$("resultTitle").textContent=tr("roundComplete");$("nextBtn").textContent=tr("nextRound");
+}
+function refreshQrLanguage(){
+ if(!isHost||!roomId||!key)return;
+ const link=location.origin+"/insight.html?roomId="+encodeURIComponent(roomId)+"&key="+encodeURIComponent(key)+"&lang="+encodeURIComponent(lang);
+ $("joinUrl").textContent=link;
+ if(window.QRCode){$("qr").innerHTML="";try{new QRCode($("qr"),{text:link,width:196,height:196,colorDark:"#16090d",colorLight:"#ffffff",correctLevel:QRCode.CorrectLevel.M})}catch(e){$("qr").textContent=link}}
+}
+function toggleLanguage(){lang=lang==="en"?"ar":"en";localStorage.setItem("jalsa_language",lang);applyLanguage();refreshQrLanguage();lastRenderKey="";poll()}
+const qs=new URLSearchParams(location.search);let roomId=qs.get("roomId"),key=qs.get("key"),playerId=localStorage.getItem("insight:"+roomId),isHost=false,lastRenderKey="",chosenAnswer="",chosenSide="",choiceStep="player",isSending=false,targetRevealSeen=false,activeQuestionKey="",activeRoundNumber=0,coinAnimationRound="";
+const $=id=>document.getElementById(id);
+applyLanguage();
+async function api(path,body){const r=await fetch("/api/insight/"+path,{method:body?"POST":"GET",headers:body?{"Content-Type":"application/json"}:{},body:body?JSON.stringify(body):undefined});const d=await r.json();if(!r.ok)throw Error(d.error||"Something went wrong.");return d}
+function show(id){["hostLobby","joinPanel","phonePanel","resultPanel"].forEach(x=>$(x).classList.toggle("hidden",x!==id))}
+function roomBody(extra={}){return {roomId,key,...extra}}
+async function init(){
+ localStorage.setItem("jalsa_language",lang);
+ try{const availability=await fetch("/api/game-availability").then(r=>r.json());if(!(availability.games||[]).find(g=>g.id==="insight")?.enabled){$("gameStoppedNotice").classList.remove("hidden");show("joinPanel");$("joinPanel").innerHTML="<h2>"+tr("title")+"</h2><p>"+tr("unavailable")+"</p>";return}}catch(e){}
+ if(roomId&&key){show(playerId?"phonePanel":"joinPanel");if(playerId)poll();return}
+ try{const d=await api("create",{});roomId=d.roomId;key=d.key;isHost=true;history.replaceState(null,"","/insight.html?roomId="+encodeURIComponent(roomId)+"&key="+encodeURIComponent(key));show("hostLobby");const link=location.origin+"/insight.html?roomId="+encodeURIComponent(roomId)+"&key="+encodeURIComponent(key)+"&lang="+encodeURIComponent(lang);$("joinUrl").textContent=link;if(window.QRCode){$("qr").innerHTML="";try{new QRCode($("qr"),{text:link,width:196,height:196,colorDark:"#16090d",colorLight:"#ffffff",correctLevel:QRCode.CorrectLevel.M})}catch(e){$("qr").textContent=link}}else{$("qr").textContent=link}poll()}catch(e){show("hostLobby");$("hostMessage").textContent=e.message}
+}
+async function joinGame(){const name=$("playerName").value.trim();try{const d=await api("join",roomBody({name}));playerId=d.playerId;localStorage.setItem("insight:"+roomId,playerId);show("phonePanel");poll()}catch(e){$("joinError").textContent=e.message}}
+async function hostAction(action,extra={}){try{await api("action",roomBody({action,...extra}));await poll()}catch(e){$("hostMessage").textContent=e.message}}
+async function playerAction(action,extra={}){try{await api("action",roomBody({action,playerId,...extra}));await poll();return true}catch(e){return e.message}}
+function esc(v){return String(v||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+async function poll(){try{const q=new URLSearchParams({roomId,key});if(playerId)q.set("playerId",playerId);const d=await api("state?"+q.toString());render(d.state)}catch(e){if(isHost)$("hostMessage").textContent=e.message;else $("phoneContent").textContent=e.message}setTimeout(poll,1100)}
+function render(s){
+ const questionKey=s.questionForTarget?String(s.round)+":"+String(s.targetName||"")+":"+String(s.questionForTarget):"";
+ if(s.round!==activeRoundNumber){activeRoundNumber=s.round;activeQuestionKey="";targetRevealSeen=false;choiceStep="player";chosenAnswer="";chosenSide="";isSending=false}
+ if(questionKey&&questionKey!==activeQuestionKey){
+  activeQuestionKey=questionKey;targetRevealSeen=false;choiceStep="player";chosenAnswer="";chosenSide="";isSending=false;
+ }
+ const renderKey=JSON.stringify({host:s.isHost,stage:s.stage,round:s.round,players:s.players.map(p=>[p.id,p.name]),role:s.role,question:s.questionForTarget,waiting:s.waitingForDelivery,answered:s.answered,revealed:s.revealed,reveal:s.reveal,coinOutcome:s.coinOutcome,canChoose:s.canChoose,heartbreakerCanAsk:s.heartbreakerCanAsk,language:lang,choiceStep,chosenAnswer,chosenSide,targetRevealSeen});
+ if(renderKey===lastRenderKey)return;lastRenderKey=renderKey;
+ if(s.stage==="round-result"){showFullScreenCoinFlip(s);return}else{hideFullScreenCoinFlip()}
+ if(s.isHost){
+  show("hostLobby");
+  $("hostPlayers").innerHTML=s.players.map(p=>"<span class='player'>"+esc(p.name)+"</span>").join("");
+  $("hostCount").textContent=s.players.length+" "+tr("players")+" · "+(s.stage==="lobby"?tr("waitingStart"):tr("round")+" "+s.round);
+  $("startBtn").disabled=s.players.length<3||s.stage!=="lobby";
+  if(s.stage==="round-result"){
+   show("resultPanel");$("nextBtn").classList.add("hidden");
+   $("resultContent").innerHTML=s.revealed?revealMarkup(s.reveal,s.coinOutcome):safeCoinMarkup(s.coinOutcome);
+   $("resultContent").innerHTML+="<p class='center muted'>"+tr("autoNext")+"</p>";
+  }else{
+   if(s.stage==="ended")$("hostMessage").textContent=tr("ended");
+   else if(s.stage==="active")$("hostMessage").textContent=tr("round")+" "+s.round;
+  }
+  return
+ }
+ show(s.stage==="round-result"?"resultPanel":"phonePanel");$("phoneRound").textContent=tr("round")+" "+s.round;
+ if(s.stage==="round-result"){$("resultContent").innerHTML=s.revealed?revealMarkup(s.reveal,s.coinOutcome):safeCoinMarkup(s.coinOutcome);return}
+ if(s.stage==="ended"){$("phoneContent").innerHTML="<h2>"+tr("ended")+"</h2>";return}
+ if(s.role==="heartbreaker"&&s.heartbreakerCanAsk){
+  $("phoneContent").innerHTML="<h2>💔 "+tr("heartbreaker")+"</h2><p>"+tr("askNasty")+"</p><label>"+tr("choosePlayer")+"</label><select id='targetSelect'>"+s.players.filter(p=>p.id!==playerId).map(p=>"<option value='"+p.id+"'>"+esc(p.name)+"</option>").join("")+"</select><label for='questionInput'>"+tr("yourQuestion")+"</label><textarea id='questionInput' maxlength='240' placeholder='"+tr("questionPlaceholder")+"'></textarea><p id='questionError' class='status' aria-live='polite'></p><button id='sendQuestionBtn' onclick='sendQuestion()' "+(isSending?"disabled":"")+">"+(isSending?tr("sending"):tr("send"))+"</button>";
+  return
+ }
+ if(s.role==="heartbreaker"&&!s.heartbreakerCanAsk){$("phoneContent").innerHTML="<div class='center'><h2>"+tr("sent")+"</h2><p>"+tr("hiddenQuestion")+"</p><p>"+tr("waitRecipient")+"</p></div>";return}
+ if(s.role==="target"&&s.questionForTarget){
+  $("phoneContent").innerHTML=targetRevealSeen?targetChoiceMarkup(s.players,s.questionForTarget):"<div class='danger-screen'><div class='inner'><h2>⚠ "+tr("questionForYou")+"</h2><p>"+esc(s.questionForTarget)+"</p><button onclick='showTargetChoices()'>"+tr("continue")+"</button></div></div>";
+  return
+ }
+ if(s.waitingForDelivery){$("phoneContent").innerHTML="<h2>"+tr("focus")+"</h2><p>"+tr("waitingDelivery")+"</p>";return}
+ $("phoneContent").innerHTML="<h2>"+tr("focus")+"</h2><p>"+tr("waitingNext")+"</p>";
+}
+function showTargetChoices(){targetRevealSeen=true;lastRenderKey='';poll()}
+function questionKeptMarkup(question){return "<div class='question-kept'><small>"+tr("questionForYou")+"</small><p>“"+esc(question)+"”</p></div>"}
+function targetChoiceMarkup(players,question){
+ const kept=questionKeptMarkup(question);
+ if(choiceStep==="player")return kept+"<div class='choice-step'><h2>"+tr("chooseAnswer")+"</h2><div id='answerChoices'>"+players.filter(p=>p.id!==playerId).map(p=>"<button type='button' data-player-id='"+esc(p.id)+"' class='name-choice "+(chosenAnswer===p.id?"selected":"")+"'>"+esc(p.name)+"</button>").join("")+"</div><button onclick='continueToCoin()' "+(!chosenAnswer?"disabled":"")+">"+tr("continue")+"</button></div>";
+ return kept+"<div class='choice-step'><button class='name-choice' onclick='backToPlayers()'>"+tr("back")+"</button><h2>"+tr("chooseCoin")+"</h2><div class='coin-pick-grid'><button type='button' data-coin-choice='warrior' class='coin-pick "+(chosenSide==="warrior"?"selected":"")+"'><span class='coin-pick-face warrior'></span><strong>"+tr("warrior")+"</strong><small>"+tr("warriorDesc")+"</small></button><button type='button' data-coin-choice='tree' class='coin-pick "+(chosenSide==="tree"?"selected":"")+"'><span class='coin-pick-face tree'></span><strong>"+tr("tree")+"</strong><small>"+tr("treeDesc")+"</small></button></div><div class='coin-stage'><div id='coin' class='coin'><div class='coin-face warrior'></div><div class='coin-face tree coin-back'></div></div></div><button onclick='flipCoin()' "+(!chosenSide||isSending?"disabled":"")+">"+tr("flip")+"</button><p id='flipError' class='status'></p></div>";
+}
+function sendQuestion(){
+ const targetId=$("targetSelect")?.value,field=$("questionInput"),question=field?.value.trim()||"",error=$("questionError");
+ if(question.length<4){error.textContent=tr("shortQuestion");field?.focus();return}
+ if(!targetId){error.textContent=tr("chooseFirst");return}
+ isSending=true;$("sendQuestionBtn").disabled=true;$("sendQuestionBtn").textContent=tr("sending");
+ playerAction("ask",{targetId,question}).then(result=>{isSending=false;if(result!==true){const e=$("questionError");if(e)e.textContent=result;const b=$("sendQuestionBtn");if(b){b.disabled=false;b.textContent=tr("send")}}});
+}
+function chooseAnswer(id){chosenAnswer=id;lastRenderKey="";poll()}
+function continueToCoin(){if(!chosenAnswer)return;choiceStep="coin";lastRenderKey="";poll()}
+function backToPlayers(){choiceStep="player";chosenSide="";lastRenderKey="";poll()}
+function chooseSide(side){chosenSide=side;lastRenderKey="";poll()}
+async function flipCoin(){if(!chosenAnswer||!chosenSide||isSending)return;isSending=true;const coin=$("coin");if(coin)coin.classList.add("spinning");const result=await playerAction("flip",{answerId:chosenAnswer,coinChoice:chosenSide});if(result!==true){isSending=false;const e=$("flipError");if(e)e.textContent=result;lastRenderKey=""}}
+document.addEventListener("click",event=>{
+ const playerButton=event.target.closest("[data-player-id]");
+ if(playerButton&&$("answerChoices")?.contains(playerButton)){chooseAnswer(playerButton.dataset.playerId);return}
+ const coinButton=event.target.closest("[data-coin-choice]");
+ if(coinButton){chooseSide(coinButton.dataset.coinChoice)}
+});
+
+function showFullScreenCoinFlip(s){
+ const result=s.coinOutcome||{},side=result.coinResult||"warrior",roundKey=String(s.round)+":"+side;
+ if(coinAnimationRound===roundKey)return;
+ coinAnimationRound=roundKey;
+ let overlay=$("coinFlipOverlay");
+ if(!overlay){
+  overlay=document.createElement("div");overlay.id="coinFlipOverlay";overlay.className="coin-flip-overlay";overlay.setAttribute("role","dialog");overlay.setAttribute("aria-modal","true");overlay.setAttribute("aria-live","polite");document.body.appendChild(overlay);
+ }
+ const finalSide=side==="tree"?"tree":"warrior";
+ const status=s.revealed?tr("revealedTitle"):tr("safeTitle");
+ const coinName=finalSide==="tree"?tr("tree"):tr("warrior");
+ let details="";
+ if(s.revealed&&s.reveal){
+  details="<p>“"+esc(s.reveal.question)+"”</p><p>"+esc(s.reveal.targetName)+" "+tr("answered")+" <strong>"+esc(s.reveal.answerName)+"</strong></p>";
+ }
+ overlay.innerHTML="<div class='coin-flip-content'><div class='coin-flip-eyebrow'>JALSA · INSIGHT</div><h2 class='coin-flip-title'>"+tr("coinInMotion")+"</h2><div class='coin-flip-stage'><div id='fullPageCoin' class='coin-flip-coin'><div class='coin-flip-face warrior'></div><div class='coin-flip-face tree'></div></div></div><p class='coin-flip-caption'>"+tr("landed")+" "+coinName+"</p><div id='fullPageCoinOutcome' class='coin-flip-outcome' hidden><strong>"+status+"</strong>"+details+"<p>"+tr("landed")+" "+coinName+"</p></div></div>";
+ overlay.classList.add("is-visible");
+ const coin=$("fullPageCoin");
+ coin.style.setProperty("--coin-final",finalSide==="tree"?"180deg":"0deg");
+ requestAnimationFrame(()=>coin.classList.add("is-spinning"));
+ setTimeout(()=>{
+  if(coinAnimationRound!==roundKey)return;
+  coin.classList.remove("is-spinning");coin.classList.add("is-settled");
+  $("fullPageCoinOutcome").hidden=false;
+  const title=overlay.querySelector(".coin-flip-title");
+  if(title)title.textContent=status;
+ },3300);
+}
+function hideFullScreenCoinFlip(){
+ const overlay=$("coinFlipOverlay");
+ if(overlay){overlay.classList.remove("is-visible");overlay.remove()}
+ coinAnimationRound="";
+}
+
+function coinFaceMarkup(side){const isWarrior=side==="warrior";return "<span class='coin-face-result "+(isWarrior?"warrior":"tree")+"'></span><strong>"+(isWarrior?tr("warrior"):tr("tree"))+"</strong>"}
+function safeCoinMarkup(outcome){const side=outcome?.coinResult||"warrior";return "<div class='center'><h2>"+tr("safeTitle")+"</h2><p>"+tr("answerStays")+"</p>"+coinFaceMarkup(side)+"<p>"+tr("landed")+" "+(side==="warrior"?tr("warrior"):tr("tree"))+"</p></div>"}
+function revealMarkup(r,outcome){const side=outcome?.coinResult||r.coinResult||"warrior";return "<div class='danger-screen'><div class='inner'><p>💔 "+tr("heartbreakerLabel")+": "+esc(r.heartbreakerName)+"</p><h2>“"+esc(r.question)+"”</h2><p>"+esc(r.targetName)+" "+tr("answered")+" <strong>"+esc(r.answerName)+"</strong></p><p>"+tr("chosenSide")+" "+(r.coinChoice==="warrior"?tr("warrior"):tr("tree"))+" · "+tr("coinResult")+" "+(side==="warrior"?tr("warrior"):tr("tree"))+"</p>"+coinFaceMarkup(side)+"<p>"+tr("revealedTitle")+"</p></div></div>"}
+init();
+</script></body></html>
