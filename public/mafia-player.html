@@ -42,7 +42,7 @@ function unlockVoice(){
  try{
   const AudioContextClass=window.AudioContext||window.webkitAudioContext;
   if(!AudioContextClass)return;
-  if(!audioContext){audioContext=new AudioContextClass();audioContext.addEventListener("statechange",()=>{$("soundEnableBtn").hidden=audioContext.state==="running"})}
+  if(!audioContext)audioContext=new AudioContextClass();
   const resumed=audioContext.state==="suspended"?audioContext.resume():Promise.resolve();
   const silent=audioContext.createBuffer(1,1,audioContext.sampleRate);
   const source=audioContext.createBufferSource();source.buffer=silent;source.connect(audioContext.destination);source.start(0);
