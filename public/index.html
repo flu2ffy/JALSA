@@ -296,6 +296,24 @@ html[dir="rtl"] .game-card:nth-child(5)::before{background-image:url('/mafia-bg.
   #questionScreen .question-center .award-row .primary{padding:8px}
 }
 
+
+/* Put winner/score controls at the bottom of the question card, using its free space. */
+#questionScreen .question-center{
+  justify-content:flex-start;
+}
+#questionScreen .question-center #awardRow:not([hidden]){
+  margin-top:auto!important;
+  padding-top:14px;
+}
+#questionScreen .question-center #noPoints:not([hidden]){
+  margin:8px auto 0!important;
+}
+@media(max-width:760px){
+  #questionScreen .question-center #awardRow:not([hidden]){
+    padding-top:10px;
+  }
+}
+
 /* Keep the Zanko category action row in normal document flow. */
 #categoryScreen{
   height:auto;
