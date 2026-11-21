@@ -151,6 +151,245 @@ html[dir="rtl"] .game-card:nth-child(5)::before{background-image:url('/mafia-bg.
 .game-card:nth-child(5) h3,.game-card:nth-child(5) p{color:#fff8ec!important;text-shadow:0 2px 7px rgba(0,0,0,.72)}
 .game-card:nth-child(5) .game-icon{background:rgba(255,250,242,.92)}
 
+
+/* Zanko media and category-card layout fixes (preview) */
+.category-pick{display:flex;flex-direction:column;align-items:stretch;min-height:250px;padding:0 0 14px}
+.category-pick img{display:block;width:100%;height:clamp(150px,16vw,205px);max-height:205px;object-fit:contain;object-position:center;background:#f5e5cf;padding:12px;flex:0 0 auto}
+.category-pick strong{display:block;min-height:2.4em;padding:12px 10px 0;text-align:center;line-height:1.2;overflow-wrap:anywhere}
+.category-icon-fallback{display:none;min-height:150px;place-items:center;font-size:52px}
+.question-layout{min-height:0}
+.question-center{width:min(1100px,100%);max-height:calc(100vh - 235px);min-height:380px;overflow-y:auto;overflow-x:hidden;justify-content:flex-start;gap:10px}
+.question-center .question-category{margin:0 0 2px}
+.question-center .question-points{margin:0 0 6px}
+.question-center .v17-game-media{display:flex;align-items:center;justify-content:center;width:100%;max-width:100%;min-height:0;max-height:36vh;overflow:hidden;margin:4px auto 8px;flex:0 1 auto}
+.question-center .v17-game-media img,.question-center .v17-game-media video{display:block;width:auto;height:auto;max-width:100%;max-height:34vh;object-fit:contain;object-position:center;border-radius:16px;background:#fff}
+.question-center .v17-game-media audio{display:block;width:min(560px,100%);max-width:100%;min-height:44px}
+.question-center .question-text{margin:4px 0 12px;max-width:940px;overflow-wrap:anywhere}
+.question-center .reveal-button{flex:0 0 auto}
+@media(max-width:600px){.category-pick{min-height:190px}.category-pick img{height:125px;max-height:125px;padding:8px}.category-pick strong{font-size:14px;padding:9px 7px 0}.question-center{max-height:calc(100vh - 190px);min-height:300px;padding:18px 12px;gap:8px}.question-center .v17-game-media{max-height:30vh}.question-center .v17-game-media img,.question-center .v17-game-media video{max-height:28vh}.question-center .question-text{font-size:clamp(25px,7vw,38px);margin:2px 0 8px}}
+
+
+/* Zanko question view: fit the full interaction inside the available stage area. */
+#questionScreen.stage-shell{
+  box-sizing:border-box;
+  height:100%;
+  min-height:0;
+  flex:1 1 0;
+  overflow:visible;
+  padding:6px clamp(12px,1.5vw,22px);
+}
+#questionScreen .question-layout{
+  box-sizing:border-box;
+  height:100%;
+  min-height:0;
+  flex:1 1 0;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+#questionScreen .turn-banner{
+  flex:0 0 auto;
+  margin:0 auto 3px;
+  padding:7px 20px;
+}
+#questionScreen .team-hud{
+  flex:0 0 auto;
+  margin:0 0 3px;
+}
+#questionScreen .question-center{
+  box-sizing:border-box;
+  width:min(1180px,100%);
+  min-height:0;
+  max-height:none;
+  height:auto;
+  flex:1 1 0;
+  overflow:visible;
+  justify-content:center;
+  gap:5px;
+  padding:clamp(9px,1.1vw,16px);
+  margin:0 auto;
+}
+#questionScreen .question-center .question-category,
+#questionScreen .question-center .question-points{
+  position:static;
+  display:block;
+  flex:0 0 auto;
+  margin:0 0 3px;
+}
+#questionScreen .question-center .v17-game-media{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:100%;
+  max-width:min(1000px,100%);
+  max-height:36vh;
+  min-height:0;
+  flex:0 1 auto;
+  overflow:hidden;
+  margin:2px auto;
+}
+#questionScreen .question-center .v17-game-media img,
+#questionScreen .question-center .v17-game-media video{
+  display:block;
+  width:auto;
+  height:auto;
+  max-width:100%;
+  max-height:36vh;
+  object-fit:contain;
+  object-position:center;
+  flex:0 1 auto;
+}
+#questionScreen .question-center .v17-game-media audio{
+  display:block;
+  width:min(700px,100%);
+  max-width:100%;
+  min-height:48px;
+}
+#questionScreen .question-center .question-text{
+  flex:0 0 auto;
+  font-size:clamp(25px,3vw,44px);
+  line-height:1.08;
+  margin:2px 0 4px;
+  max-width:100%;
+}
+#questionScreen .question-center .reveal-button,
+#questionScreen .question-center .answer-result,
+#questionScreen .question-center .award-row,
+#questionScreen .question-center .no-points{
+  position:static;
+  flex:0 0 auto;
+  margin:3px auto 0;
+}
+#questionScreen .question-center .answer-result{padding:9px 16px;font-size:clamp(20px,2.3vw,30px)}
+#questionScreen .question-center .award-row{
+  width:min(950px,100%);
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+}
+#questionScreen .question-center .award-row .primary{
+  min-width:0;
+  white-space:normal;
+  line-height:1.15;
+  padding:11px 10px;
+  font-size:clamp(13px,1.35vw,17px);
+}
+@media(max-width:760px){
+  #questionScreen.stage-shell{padding:5px 8px}
+  #questionScreen .question-layout{gap:4px}
+  #questionScreen .turn-banner{padding:6px 14px;font-size:17px;margin-bottom:2px}
+  #questionScreen .team-hud{gap:6px;margin-bottom:2px}
+  #questionScreen .team-hud-card{padding:7px 9px}
+  #questionScreen .question-center{padding:8px 7px;gap:4px}
+  #questionScreen .question-center .v17-game-media{max-height:32vh}
+  #questionScreen .question-center .v17-game-media img,
+  #questionScreen .question-center .v17-game-media video{max-height:32vh}
+  #questionScreen .question-center .question-text{font-size:clamp(22px,5.5vw,34px)}
+  #questionScreen .question-center .award-row{grid-template-columns:1fr 1fr;gap:6px}
+  #questionScreen .question-center .award-row .primary{font-size:12px;padding:9px 5px}
+}
+@media(max-height:760px) and (min-width:761px){
+  #questionScreen .question-center{padding:7px 12px;gap:3px}
+  #questionScreen .question-center .v17-game-media{max-height:29vh}
+  #questionScreen .question-center .v17-game-media img,
+  #questionScreen .question-center .v17-game-media video{max-height:29vh}
+  #questionScreen .question-center .question-text{font-size:clamp(22px,2.7vw,38px)}
+  #questionScreen .question-center .award-row .primary{padding:8px}
+}
+
+
+/* Put winner/score controls at the bottom of the question card, using its free space. */
+
+/* Keep the question content near the top; anchor the action to the card bottom. */
+
+/* Center the question content vertically while keeping Reveal Answer at the bottom. */
+#questionScreen .question-center{
+  justify-content:flex-start!important;
+}
+#questionScreen .question-center .question-category{
+  margin-top:auto!important;
+}
+#questionScreen .question-center .question-text{
+  margin-bottom:0!important;
+}
+#questionScreen .question-center .reveal-button:not([hidden]){
+  margin-top:auto!important;
+  margin-bottom:0!important;
+}
+
+#questionScreen .question-center .reveal-button:not([hidden]){
+  margin-top:auto!important;
+  margin-bottom:0!important;
+}
+#questionScreen .question-center .answer-result:not([hidden]){
+  margin-top:auto!important;
+  margin-bottom:4px!important;
+}
+#questionScreen .question-center #awardRow:not([hidden]){
+  margin-top:4px!important;
+}
+#questionScreen .question-center #noPoints:not([hidden]){
+  margin-top:6px!important;
+  margin-bottom:0!important;
+}
+
+#questionScreen .question-center{
+  justify-content:flex-start;
+}
+#questionScreen .question-center #awardRow:not([hidden]){
+  margin-top:auto!important;
+  padding-top:14px;
+}
+#questionScreen .question-center #noPoints:not([hidden]){
+  margin:8px auto 0!important;
+}
+@media(max-width:760px){
+  #questionScreen .question-center #awardRow:not([hidden]){
+    padding-top:10px;
+  }
+}
+
+/* Keep the Zanko category action row in normal document flow. */
+#categoryScreen{
+  height:auto;
+  min-height:calc(100vh - 74px);
+  flex:0 0 auto;
+  overflow:visible;
+}
+#categoryScreen .category-full-grid{
+  position:relative;
+  z-index:1;
+  flex:0 0 auto;
+  margin-bottom:22px;
+}
+#categoryScreen .category-footer{
+  position:relative!important;
+  inset:auto!important;
+  z-index:5;
+  display:flex!important;
+  flex:0 0 auto;
+  width:min(1000px,100%);
+  margin:0 auto 12px!important;
+  padding:12px 0 18px;
+  background:transparent;
+  clear:both;
+}
+#categoryScreen .category-footer .primary{
+  position:static!important;
+  flex:0 0 auto;
+  visibility:visible!important;
+  display:inline-flex!important;
+  align-items:center;
+  justify-content:center;
+  min-width:132px;
+}
+#categoryScreen .category-footer .primary:disabled{
+  opacity:.48;
+}
+@media(max-width:760px){
+  #categoryScreen{min-height:calc(100vh - 64px);padding-bottom:18px}
+  #categoryScreen .category-footer{width:100%;margin-top:4px!important;padding:10px 0 18px}
+}
+
 </style>
 </head>
 <body>
@@ -524,7 +763,7 @@ function renderCategoryCards(){
  CATEGORIES.forEach(c=>{
   const selected=gameState.selected.includes(c.id),button=document.createElement('button');
   button.type='button';button.className='category-pick'+(selected?' selected':'');button.dataset.id=c.id;button.setAttribute('aria-pressed',String(selected));
-  const img=document.createElement('img');img.src=c.image||'category-music.svg';img.alt='';img.onerror=()=>{img.remove()};
+  const img=document.createElement('img');img.src=c.image||'category-music.svg';img.alt='';img.onerror=()=>{img.remove();icon.style.display="grid"};
   const title=document.createElement('strong');title.textContent=isArabic?(c.ar||c.name):(c.name||c.id);
   const icon=document.createElement('span');icon.className='category-icon-fallback';icon.textContent=c.icon||'🎯';
   const check=document.createElement('span');check.className='check';check.textContent='✓';
@@ -587,7 +826,7 @@ function awardQuestion(team){finishQuestion(team)}
 function finishQuestion(winner){const tile=gameState.currentTile;if(!tile)return;const storedTile=Object.values(gameState.tiles).flat().find(x=>x.id===tile.id);if(winner!==null)gameState.scores[winner]+=tile.actualPoints;if(storedTile)storedTile.used=true;tile.used=true;gameState.turn=1-gameState.turn;gameState.currentTile=null;gameState.doubleNext=false;gameState.stealActive=false;const remaining=Object.values(gameState.tiles).flat().filter(x=>!x.used).length;if(!remaining){showGameOver();return}renderGameHudAndBoard();showStageScreen('boardScreen');publishRemoteState()}
 function showGameOver(){publishRemoteState();const winner=gameState.scores[0]===gameState.scores[1]?(isArabic?'تعادل!':'It’s a tie!'):gameState.teamNames[gameState.scores[0]>gameState.scores[1]?0:1];document.getElementById('gameoverScreen').innerHTML=`<div class="stage-heading"><h1 style="color:#fff2da;font-family:Georgia,serif">${t('finish')}</h1></div><div class="turn-banner">${t('champion')}: ${escapeHtml(winner)}</div><div class="team-hud">${gameState.teamNames.map((n,i)=>`<article class="team-hud-card ${i===1?'blue':''}"><div class="hud-team-name">${escapeHtml(n)}</div><div class="hud-score">${gameState.scores[i]}</div></article>`).join('')}</div><div class="stage-action-row"><button class="primary" onclick="showHome()">${t('returnHome')}</button></div>`;showStageScreen('gameoverScreen')}
 function usePower(team,key){if(gameState.screen!=='board'){showToast(isArabic?'يمكن استخدام القوى قبل اختيار السؤال فقط.':'Powers can only be used from the board, before opening a question.');return}if(team!==gameState.turn){showToast(isArabic?'هذه قوة الفريق الذي عليه الدور فقط.':'Only the team whose turn it is can use a power.');return}if(gameState.power[team][key])return;gameState.power[team][key]=true;if(key==='call'){let seconds=20;showToast(t('callTimer').replace('{n}',seconds));if(gameState.callTimer)clearInterval(gameState.callTimer);gameState.callTimer=setInterval(()=>{seconds--;if(seconds<=0){clearInterval(gameState.callTimer);gameState.callTimer=null;showToast(isArabic?'انتهى وقت الاتصال. اختاروا سؤالكم.':'Friend call time is over. Choose your question.')}else showToast(t('callTimer').replace('{n}',seconds))},1000)}else if(key==='double'){gameState.doubleNext=true;showToast(t('doubleDone'))}else if(key==='steal'){gameState.stealActive=true;showToast(t('stealDone'))}renderGameHudAndBoard()}
-function showToast(message){const el=document.getElementById('toast');el.textContent=message;el.hidden=false}function hideToast(){const el=document.getElementById('toast');if(el)el.hidden=true}
+function showToast(message){const el=document.getElementById('toast');if(!el)return;el.textContent=message;el.hidden=false;clearTimeout(window.__jalsaToastTimer);window.__jalsaToastTimer=setTimeout(hideToast,3000)}function hideToast(){const el=document.getElementById('toast');if(el)el.hidden=true;clearTimeout(window.__jalsaToastTimer);window.__jalsaToastTimer=null}
 function escapeHtml(value){return String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 
 /* Price Guessing */
@@ -820,7 +1059,7 @@ function v17BindFilePreviews(){
  const avatar=document.getElementById("adminUserAvatarFile");
  if(avatar)avatar.addEventListener("change",()=>{const file=avatar.files[0];if(file)v17SetAdminUserAvatar(URL.createObjectURL(file))});
 }
-function v17RenderMedia(container,type,url){if(!container)return;container.replaceChildren();container.hidden=true;if(!url||type==="none")return;let el;if(type==="image"){el=document.createElement("img");el.alt="Question image";el.loading="eager";el.decoding="async";el.referrerPolicy="same-origin";el.addEventListener("error",()=>{const note=document.createElement("p");note.className="media-load-error";note.textContent=isArabic?"تعذر تحميل الصورة. تحقق من رفعها إلى مساحة التخزين الخاصة بهذه النسخة.":"Image could not be loaded. Check that it was uploaded to this environment’s media storage.";container.replaceChildren(note)});el.src=/^https?:\/\//i.test(url)?url:new URL(url,window.location.origin).href}else if(type==="video"){el=document.createElement("video");el.src=/^https?:\/\//i.test(url)?url:new URL(url,window.location.origin).href;el.controls=true;el.playsInline=true}else if(type==="audio"){el=document.createElement("audio");el.src=/^https?:\/\//i.test(url)?url:new URL(url,window.location.origin).href;el.controls=true}else return;container.appendChild(el);container.hidden=false}
+function v17RenderMedia(container,type,url){if(!container)return;container.replaceChildren();container.hidden=true;type=String(type||"none").toLowerCase();if(!url||type==="none")return;const source=/^https?:\/\//i.test(url)?url:new URL(url,window.location.origin).href;const showError=()=>{const note=document.createElement("p");note.className="media-load-error";note.textContent=isArabic?"تعذر تشغيل الوسائط. تحقق من رفع الملف إلى مساحة التخزين الخاصة بهذه النسخة.":"This media could not be loaded. Check that the file was uploaded to this environment’s media storage.";container.replaceChildren(note)};let el;if(type==="image"){el=document.createElement("img");el.alt="Question image";el.loading="eager";el.decoding="async";el.referrerPolicy="same-origin";el.addEventListener("error",showError,{once:true})}else if(type==="video"){el=document.createElement("video");el.controls=true;el.playsInline=true;el.preload="metadata";el.addEventListener("error",showError,{once:true})}else if(type==="audio"){el=document.createElement("audio");el.controls=true;el.preload="metadata";el.setAttribute("controls","");el.setAttribute("aria-label",isArabic?"تشغيل صوت السؤال":"Play question audio");el.addEventListener("error",showError,{once:true})}else return;el.src=source;container.appendChild(el);container.hidden=false}
 function v17FormatDate(value){if(!value)return v17T("never");const d=new Date(value);if(Number.isNaN(d.getTime()))return String(value);return d.toLocaleString(isArabic?"ar-JO":"en-US",{dateStyle:"medium",timeStyle:"short"})}
 function v17SetAdminStatus(message,error){v17ShowStatus("adminPageStatus",message,error)}
 async function openAdmin(){if(!currentUser||!currentUser.isAdmin)return;document.getElementById("adminPage").hidden=false;document.getElementById("adminSignedInAs").textContent=currentUser.email||"";v17SyncLanguage();switchAdminTab("users");try{const data=await v17EnsureSeeded();v17Content.categories=data.categories||[];v17Content.questions=data.questions||[];v17Content.priceItems=v17Content.questions.filter(q=>q.game_type==="price"&&q.media_url&&q.media_type!=="none").map(q=>[q.product_name_en,"",Number(q.price_value||0),q.media_type,q.media_url,q.product_name_ar]);if(v17Content.categories.length)CATEGORIES=v17Content.categories.map(c=>({id:c.id,name:c.name_en,ar:c.name_ar,image:c.image_url||"category-music.svg",icon:c.icon||"🎯"}));v17ContentLoaded=true;await renderAdminUsers()}catch(error){v17SetAdminStatus(error.message,true)}}
