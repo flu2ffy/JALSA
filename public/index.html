@@ -142,6 +142,15 @@ html[dir="rtl"] .game-card:nth-child(4)::before{background-image:url('/insight-c
 .game-card:nth-child(-n+4) h3,.game-card:nth-child(-n+4) p{color:#fff8ec!important;text-shadow:0 2px 7px rgba(0,0,0,.72)}
 .game-card:nth-child(-n+4) .game-icon{background:rgba(255,250,242,.92)}
 
+/* Mafia card artwork: English by default, Arabic when the homepage switches to RTL. */
+.game-card:nth-child(5){position:relative;isolation:isolate;overflow:hidden;background:transparent!important}
+.game-card:nth-child(5)::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background-image:url('/mafia-english.webp');background-size:cover;background-position:center;background-repeat:no-repeat;opacity:.42}
+html[dir="rtl"] .game-card:nth-child(5)::before{background-image:url('/mafia-bg.webp')}
+.game-card:nth-child(5)::after{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(180deg,rgba(8,8,18,.02) 0%,rgba(8,8,18,.12) 42%,rgba(8,8,18,.62) 100%)}
+.game-card:nth-child(5)>*{position:relative;z-index:2}
+.game-card:nth-child(5) h3,.game-card:nth-child(5) p{color:#fff8ec!important;text-shadow:0 2px 7px rgba(0,0,0,.72)}
+.game-card:nth-child(5) .game-icon{background:rgba(255,250,242,.92)}
+
 </style>
 </head>
 <body>
