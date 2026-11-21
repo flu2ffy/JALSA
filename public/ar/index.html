@@ -25,7 +25,7 @@
 {"@context":"https://schema.org","@type":"WebPage","name":"جلسة JALSA | ألعاب جماعية أونلاين","url":"https://jalsa.me/ar/","description":"منصة ألعاب جماعية للأصدقاء والعائلة، تدعم العربية والإنجليزية.","inLanguage":"ar","isPartOf":{"@type":"WebSite","name":"JALSA","url":"https://jalsa.me/"}}
 </script>
 <link rel="icon" type="image/svg+xml" href="/jalsa-favicon.svg?v=1.5">
-<link rel="shortcut icon" href="jalsa-favicon.svg?v=1.5">
+<link rel="shortcut icon" href="/jalsa-favicon.svg?v=1.5">
 <style>
 :root{--wine:#55151c;--wine2:#7c2028;--red:#a83232;--red2:#c34b35;--orange:#ed8245;--gold:#e4b96b;--cream:#fff3df;--cream2:#f7e4c8;--ink:#38231f;--muted:#7c6558;--line:#e8cda9;--shadow:0 18px 42px #21090c25;--blue:#233d68;--green:#2c6b4b;--jalsa-games-bg:url('/insight-home-en.webp')}
 *{box-sizing:border-box}[hidden]{display:none!important}html{scroll-behavior:smooth}body{margin:0;background:var(--cream);color:var(--ink);font-family:Arial,Helvetica,sans-serif}button,input{font:inherit}button{cursor:pointer}button:disabled{cursor:not-allowed}
@@ -414,7 +414,7 @@ html[dir="rtl"] .game-card:nth-child(5)::before{background-image:url('/mafia-bg.
 </style>
 </head>
 <body>
-<header class="site-header" id="siteHeader"><a class="brand" href="#top" aria-label="JALSA home" onclick="showHome()"><img src="/jalsa-logo.png" alt="JALSA logo"><span class="version-pill">v1.9</span></a><div class="header-actions"><button class="lang-button" id="homeLang" type="button" onclick="toggleLanguage()">العربية / English</button><button class="auth-button" id="loginButton" type="button" onclick="showAuth('login')">Log in</button><button class="auth-button auth-register" id="registerButton" type="button" onclick="showAuth('register')">Register</button><button class="account-label" id="accountLabel" type="button" hidden onclick="toggleAccountDrawer()" aria-expanded="false"></button></div></header>
+<header class="site-header" id="siteHeader"><a class="brand" href="/ar/#top" aria-label="JALSA home" onclick="showHome()"><img src="/jalsa-logo.png" alt="JALSA logo"><span class="version-pill">v1.9</span></a><div class="header-actions"><button class="lang-button" id="homeLang" type="button" onclick="toggleLanguage()">العربية / English</button><button class="auth-button" id="loginButton" type="button" onclick="showAuth('login')">Log in</button><button class="auth-button auth-register" id="registerButton" type="button" onclick="showAuth('register')">Register</button><button class="account-label" id="accountLabel" type="button" hidden onclick="toggleAccountDrawer()" aria-expanded="false"></button></div></header>
 <main id="homePage">
 <section class="home-hero" id="top"><div class="hero-glow"></div><div class="hero-copy"><h1 id="heroTitle">Every game deserves a JALSA.</h1><p id="heroSubtitle">Gather your friends. Pick a game. Make memories.</p><button class="primary-light" id="exploreButton" onclick="document.getElementById('games').scrollIntoView({behavior:'smooth'})">Explore games →</button></div>
 <div class="hero-art" aria-hidden="true"><img id="heroFamily" src="hero-family.png" data-en="hero-family.png" data-ar="hero-family-ar.png" alt="" loading="eager"></div></div></section>
