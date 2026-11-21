@@ -168,6 +168,106 @@ html[dir="rtl"] .game-card:nth-child(5)::before{background-image:url('/mafia-bg.
 .question-center .reveal-button{flex:0 0 auto}
 @media(max-width:600px){.category-pick{min-height:190px}.category-pick img{height:125px;max-height:125px;padding:8px}.category-pick strong{font-size:14px;padding:9px 7px 0}.question-center{max-height:calc(100vh - 190px);min-height:300px;padding:18px 12px;gap:8px}.question-center .v17-game-media{max-height:30vh}.question-center .v17-game-media img,.question-center .v17-game-media video{max-height:28vh}.question-center .question-text{font-size:clamp(25px,7vw,38px);margin:2px 0 8px}}
 
+
+/* Zanko question view: fit the full interaction on screen and give media room. */
+#questionScreen.stage-shell{
+  height:calc(100vh - 74px);
+  min-height:0;
+  overflow:hidden;
+  padding:8px clamp(14px,2vw,28px);
+}
+#questionScreen .question-layout{
+  height:100%;
+  flex:1 1 auto;
+  min-height:0;
+  gap:8px;
+}
+#questionScreen .turn-banner{
+  flex:0 0 auto;
+  margin:0 auto 6px;
+  padding:8px 22px;
+}
+#questionScreen .team-hud{
+  flex:0 0 auto;
+  margin:0 0 6px;
+}
+#questionScreen .question-center{
+  width:min(1180px,100%);
+  max-height:none;
+  min-height:0;
+  height:auto;
+  flex:1 1 auto;
+  overflow:visible;
+  justify-content:center;
+  gap:8px;
+  padding:clamp(12px,1.6vw,22px);
+  margin:0 auto;
+}
+#questionScreen .question-center .question-category,
+#questionScreen .question-center .question-points{
+  flex:0 0 auto;
+  margin:0 0 4px;
+}
+#questionScreen .question-center .v17-game-media{
+  width:100%;
+  max-width:min(900px,100%);
+  max-height:40vh;
+  min-height:0;
+  flex:0 0 auto;
+  overflow:visible;
+  margin:4px auto;
+}
+#questionScreen .question-center .v17-game-media img,
+#questionScreen .question-center .v17-game-media video{
+  display:block;
+  width:auto;
+  height:auto;
+  max-width:100%;
+  max-height:40vh;
+  flex:0 0 auto;
+  object-fit:contain;
+}
+#questionScreen .question-center .v17-game-media audio{
+  width:min(650px,100%);
+  min-height:48px;
+}
+#questionScreen .question-center .question-text{
+  flex:0 0 auto;
+  font-size:clamp(27px,3.5vw,48px);
+  line-height:1.12;
+  margin:2px 0 6px;
+}
+#questionScreen .question-center .reveal-button,
+#questionScreen .question-center .answer-result,
+#questionScreen .question-center .award-row,
+#questionScreen .question-center .no-points{
+  flex:0 0 auto;
+  margin-top:4px;
+}
+#questionScreen .question-center .award-row{
+  width:min(900px,100%);
+}
+@media(max-width:760px){
+  #questionScreen.stage-shell{height:calc(100dvh - 64px);padding:7px 10px}
+  #questionScreen .question-layout{gap:6px}
+  #questionScreen .turn-banner{margin-bottom:4px;padding:7px 16px;font-size:18px}
+  #questionScreen .team-hud{margin-bottom:4px}
+  #questionScreen .question-center{padding:10px 9px;gap:6px}
+  #questionScreen .question-center .v17-game-media{max-height:34vh}
+  #questionScreen .question-center .v17-game-media img,
+  #questionScreen .question-center .v17-game-media video{max-height:34vh}
+  #questionScreen .question-center .question-text{font-size:clamp(24px,6vw,36px)}
+  #questionScreen .question-center .award-row{grid-template-columns:1fr 1fr;gap:7px}
+  #questionScreen .question-center .award-row .primary{font-size:13px;padding:10px 7px}
+}
+@media(max-height:760px) and (min-width:761px){
+  #questionScreen .question-center{padding:10px 18px;gap:5px}
+  #questionScreen .question-center .v17-game-media,
+  #questionScreen .question-center .v17-game-media img,
+  #questionScreen .question-center .v17-game-media video{max-height:32vh}
+  #questionScreen .question-center .question-text{font-size:clamp(24px,3vw,40px)}
+}
+
 /* Keep the Zanko category action row in normal document flow. */
 #categoryScreen{
   height:auto;
