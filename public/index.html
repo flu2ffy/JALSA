@@ -169,53 +169,64 @@ html[dir="rtl"] .game-card:nth-child(5)::before{background-image:url('/mafia-bg.
 @media(max-width:600px){.category-pick{min-height:190px}.category-pick img{height:125px;max-height:125px;padding:8px}.category-pick strong{font-size:14px;padding:9px 7px 0}.question-center{max-height:calc(100vh - 190px);min-height:300px;padding:18px 12px;gap:8px}.question-center .v17-game-media{max-height:30vh}.question-center .v17-game-media img,.question-center .v17-game-media video{max-height:28vh}.question-center .question-text{font-size:clamp(25px,7vw,38px);margin:2px 0 8px}}
 
 
-/* Zanko question view: fit the full interaction on screen and give media room. */
+/* Zanko question view: fit the full interaction inside the available stage area. */
 #questionScreen.stage-shell{
-  height:calc(100vh - 74px);
+  box-sizing:border-box;
+  height:100%;
   min-height:0;
-  overflow:hidden;
-  padding:8px clamp(14px,2vw,28px);
+  flex:1 1 0;
+  overflow:visible;
+  padding:6px clamp(12px,1.5vw,22px);
 }
 #questionScreen .question-layout{
+  box-sizing:border-box;
   height:100%;
-  flex:1 1 auto;
   min-height:0;
-  gap:8px;
+  flex:1 1 0;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
 }
 #questionScreen .turn-banner{
   flex:0 0 auto;
-  margin:0 auto 6px;
-  padding:8px 22px;
+  margin:0 auto 3px;
+  padding:7px 20px;
 }
 #questionScreen .team-hud{
   flex:0 0 auto;
-  margin:0 0 6px;
+  margin:0 0 3px;
 }
 #questionScreen .question-center{
+  box-sizing:border-box;
   width:min(1180px,100%);
-  max-height:none;
   min-height:0;
+  max-height:none;
   height:auto;
-  flex:1 1 auto;
+  flex:1 1 0;
   overflow:visible;
   justify-content:center;
-  gap:8px;
-  padding:clamp(12px,1.6vw,22px);
+  gap:5px;
+  padding:clamp(9px,1.1vw,16px);
   margin:0 auto;
 }
 #questionScreen .question-center .question-category,
 #questionScreen .question-center .question-points{
+  position:static;
+  display:block;
   flex:0 0 auto;
-  margin:0 0 4px;
+  margin:0 0 3px;
 }
 #questionScreen .question-center .v17-game-media{
+  display:flex;
+  align-items:center;
+  justify-content:center;
   width:100%;
-  max-width:min(900px,100%);
-  max-height:40vh;
+  max-width:min(1000px,100%);
+  max-height:36vh;
   min-height:0;
-  flex:0 0 auto;
-  overflow:visible;
-  margin:4px auto;
+  flex:0 1 auto;
+  overflow:hidden;
+  margin:2px auto;
 }
 #questionScreen .question-center .v17-game-media img,
 #questionScreen .question-center .v17-game-media video{
@@ -223,49 +234,66 @@ html[dir="rtl"] .game-card:nth-child(5)::before{background-image:url('/mafia-bg.
   width:auto;
   height:auto;
   max-width:100%;
-  max-height:40vh;
-  flex:0 0 auto;
+  max-height:36vh;
   object-fit:contain;
+  object-position:center;
+  flex:0 1 auto;
 }
 #questionScreen .question-center .v17-game-media audio{
-  width:min(650px,100%);
+  display:block;
+  width:min(700px,100%);
+  max-width:100%;
   min-height:48px;
 }
 #questionScreen .question-center .question-text{
   flex:0 0 auto;
-  font-size:clamp(27px,3.5vw,48px);
-  line-height:1.12;
-  margin:2px 0 6px;
+  font-size:clamp(25px,3vw,44px);
+  line-height:1.08;
+  margin:2px 0 4px;
+  max-width:100%;
 }
 #questionScreen .question-center .reveal-button,
 #questionScreen .question-center .answer-result,
 #questionScreen .question-center .award-row,
 #questionScreen .question-center .no-points{
+  position:static;
   flex:0 0 auto;
-  margin-top:4px;
+  margin:3px auto 0;
 }
+#questionScreen .question-center .answer-result{padding:9px 16px;font-size:clamp(20px,2.3vw,30px)}
 #questionScreen .question-center .award-row{
-  width:min(900px,100%);
+  width:min(950px,100%);
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+}
+#questionScreen .question-center .award-row .primary{
+  min-width:0;
+  white-space:normal;
+  line-height:1.15;
+  padding:11px 10px;
+  font-size:clamp(13px,1.35vw,17px);
 }
 @media(max-width:760px){
-  #questionScreen.stage-shell{height:calc(100dvh - 64px);padding:7px 10px}
-  #questionScreen .question-layout{gap:6px}
-  #questionScreen .turn-banner{margin-bottom:4px;padding:7px 16px;font-size:18px}
-  #questionScreen .team-hud{margin-bottom:4px}
-  #questionScreen .question-center{padding:10px 9px;gap:6px}
-  #questionScreen .question-center .v17-game-media{max-height:34vh}
-  #questionScreen .question-center .v17-game-media img,
-  #questionScreen .question-center .v17-game-media video{max-height:34vh}
-  #questionScreen .question-center .question-text{font-size:clamp(24px,6vw,36px)}
-  #questionScreen .question-center .award-row{grid-template-columns:1fr 1fr;gap:7px}
-  #questionScreen .question-center .award-row .primary{font-size:13px;padding:10px 7px}
-}
-@media(max-height:760px) and (min-width:761px){
-  #questionScreen .question-center{padding:10px 18px;gap:5px}
-  #questionScreen .question-center .v17-game-media,
+  #questionScreen.stage-shell{padding:5px 8px}
+  #questionScreen .question-layout{gap:4px}
+  #questionScreen .turn-banner{padding:6px 14px;font-size:17px;margin-bottom:2px}
+  #questionScreen .team-hud{gap:6px;margin-bottom:2px}
+  #questionScreen .team-hud-card{padding:7px 9px}
+  #questionScreen .question-center{padding:8px 7px;gap:4px}
+  #questionScreen .question-center .v17-game-media{max-height:32vh}
   #questionScreen .question-center .v17-game-media img,
   #questionScreen .question-center .v17-game-media video{max-height:32vh}
-  #questionScreen .question-center .question-text{font-size:clamp(24px,3vw,40px)}
+  #questionScreen .question-center .question-text{font-size:clamp(22px,5.5vw,34px)}
+  #questionScreen .question-center .award-row{grid-template-columns:1fr 1fr;gap:6px}
+  #questionScreen .question-center .award-row .primary{font-size:12px;padding:9px 5px}
+}
+@media(max-height:760px) and (min-width:761px){
+  #questionScreen .question-center{padding:7px 12px;gap:3px}
+  #questionScreen .question-center .v17-game-media{max-height:29vh}
+  #questionScreen .question-center .v17-game-media img,
+  #questionScreen .question-center .v17-game-media video{max-height:29vh}
+  #questionScreen .question-center .question-text{font-size:clamp(22px,2.7vw,38px)}
+  #questionScreen .question-center .award-row .primary{padding:8px}
 }
 
 /* Keep the Zanko category action row in normal document flow. */
