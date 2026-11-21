@@ -167,6 +167,49 @@ html[dir="rtl"] .game-card:nth-child(5)::before{background-image:url('/mafia-bg.
 .question-center .question-text{margin:4px 0 12px;max-width:940px;overflow-wrap:anywhere}
 .question-center .reveal-button{flex:0 0 auto}
 @media(max-width:600px){.category-pick{min-height:190px}.category-pick img{height:125px;max-height:125px;padding:8px}.category-pick strong{font-size:14px;padding:9px 7px 0}.question-center{max-height:calc(100vh - 190px);min-height:300px;padding:18px 12px;gap:8px}.question-center .v17-game-media{max-height:30vh}.question-center .v17-game-media img,.question-center .v17-game-media video{max-height:28vh}.question-center .question-text{font-size:clamp(25px,7vw,38px);margin:2px 0 8px}}
+
+/* Keep the Zanko category action row in normal document flow. */
+#categoryScreen{
+  height:auto;
+  min-height:calc(100vh - 74px);
+  flex:0 0 auto;
+  overflow:visible;
+}
+#categoryScreen .category-full-grid{
+  position:relative;
+  z-index:1;
+  flex:0 0 auto;
+  margin-bottom:22px;
+}
+#categoryScreen .category-footer{
+  position:relative!important;
+  inset:auto!important;
+  z-index:5;
+  display:flex!important;
+  flex:0 0 auto;
+  width:min(1000px,100%);
+  margin:0 auto 12px!important;
+  padding:12px 0 18px;
+  background:transparent;
+  clear:both;
+}
+#categoryScreen .category-footer .primary{
+  position:static!important;
+  flex:0 0 auto;
+  visibility:visible!important;
+  display:inline-flex!important;
+  align-items:center;
+  justify-content:center;
+  min-width:132px;
+}
+#categoryScreen .category-footer .primary:disabled{
+  opacity:.48;
+}
+@media(max-width:760px){
+  #categoryScreen{min-height:calc(100vh - 64px);padding-bottom:18px}
+  #categoryScreen .category-footer{width:100%;margin-top:4px!important;padding:10px 0 18px}
+}
+
 </style>
 </head>
 <body>
