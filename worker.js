@@ -1253,6 +1253,17 @@ function mafiaSetStage(state,stage,durationMs=0) {
   state.stageSeq=(state.stageSeq||0)+1;
   state.stageStartedAt=now;
   state.stageEndsAt=durationMs>0?now+durationMs:null;
+  const voiceStages=["nightIntro","mafiaOpen","mafiaClose","doctorOpen","doctorClose","investigatorOpen","investigatorClose","nightResult","discussion","voteResult"];
+  if(voiceStages.includes(stage)){
+    state.narrationEvents=Array.isArray(state.narrationEvents)?state.narrationEvents:[];
+    state.narrationEvents.push({
+      round:state.round||1,stageSeq:state.stageSeq,stage,
+      language:state.language==="ar"?"ar":"en",
+      nightOutcome:state.nightOutcome||null,
+      voteOutcome:state.voteOutcome||null
+    });
+    if(state.narrationEvents.length>120)state.narrationEvents=state.narrationEvents.slice(-120);
+  }
 }
 async function mafiaRoomByKey(body,env) {
   const roomId=String(body.roomId||""),key=String(body.key||"");
@@ -1364,9 +1375,11 @@ async function createMafiaRoom(request,env) {
   const user=await getSessionUser(request,env);
   if(!user)return json({error:"Please sign in to host Mafia."},401);
   await ensureMafiaSchema(env);
+  const body=await readBody(request);
+  const language=body.language==="ar"?"ar":"en";
   const roomId=toBase64Url(randomBytes(18)),key=toBase64Url(randomBytes(32));
   const now=new Date(),expires=new Date(now.getTime()+3*60*60*1000).toISOString();
-  const state={stage:"lobby",stageSeq:0,round:1,players:[],roles:{},ready:[],votes:{},night:{killId:null,savedId:null,investigation:null},nightOutcome:null,voteOutcome:null,winner:null};
+  const state={stage:"lobby",stageSeq:0,round:1,language,narrationEvents:[],players:[],roles:{},ready:[],votes:{},night:{killId:null,savedId:null,investigation:null},nightOutcome:null,voteOutcome:null,winner:null};
   await env.DB.prepare("INSERT INTO mafia_rooms (room_id,token_hash,host_user_id,state_json,created_at,expires_at) VALUES (?,?,?,?,?,?)")
     .bind(roomId,await sha256Hex(key),user.id,JSON.stringify(state),now.toISOString(),expires).run();
   return json({roomId,key,expiresAt:expires});
@@ -1388,6 +1401,7 @@ function mafiaHostPublicState(state) {
   const now=Date.now();
   return {
     stage:state.stage,stageSeq:state.stageSeq||0,stageEndsAt:state.stageEndsAt||null,round:state.round||1,
+    language:state.language==="ar"?"ar":"en",
     players:state.players.map(p=>({id:p.id,name:p.name,alive:p.alive!==false})),
     readyCount:(state.ready||[]).length,
     aliveCount:mafiaAlivePlayers(state).length,
@@ -1427,6 +1441,8 @@ async function getMafiaPlayerState(request,env,url) {
   );
   return json({state:{
     stage:state.stage,stageSeq:state.stageSeq||0,stageEndsAt:state.stageEndsAt||null,round:state.round||1,
+    language:state.language==="ar"?"ar":"en",
+    narrationEvents:Array.isArray(state.narrationEvents)?state.narrationEvents:[],
     player:{id:player.id,name:player.name,alive:player.alive!==false},
     role,
     ready:(state.ready||[]).includes(playerId),
@@ -1454,7 +1470,10 @@ async function mafiaHostAction(request,env) {
   let state={};try{state=JSON.parse(row.state_json||"{}")}catch{return json({error:"Mafia game state is unreadable."},500);}
   const room={...row,state};
   await advanceMafiaClock(env,room);
-  if(body.action==="start"){
+  if(body.action==="setLanguage"){
+    if(room.state.stage!=="lobby")return json({error:"The game language is locked after the game starts."},409);
+    room.state.language=body.language==="ar"?"ar":"en";
+  }else if(body.action==="start"){
     if(room.state.stage!=="lobby"||room.state.players.length<4)return json({error:"At least 4 players are required to start Mafia."},400);
     const shuffled=mafiaShuffle(room.state.players);
     const roles={};
