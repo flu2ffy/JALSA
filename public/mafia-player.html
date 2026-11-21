@@ -166,11 +166,13 @@ function playStageVoice(s){
  }).catch(()=>{});
 }
 function playNarrationEvents(s){
+ if(!s||s.gameStarted!==true)return;
  if(!audioContext||audioContext.state!=="running")return;
  const events=Array.isArray(s.narrationEvents)?[...s.narrationEvents].sort((a,b)=>a.stageSeq-b.stageSeq):[];
  for(const event of events){
   const seq=Number(event.stageSeq||0);
   if(!seq||seq<=lastNarrationSeq)continue;
+  if(!["nightIntro","mafiaOpen","mafiaClose","doctorOpen","doctorClose","investigatorOpen","investigatorClose","nightResult","discussion","voteResult"].includes(event.stage))continue;
   lastNarrationSeq=seq;
   try{localStorage.setItem("jalsa_mafia_narration_"+roomId,String(lastNarrationSeq))}catch{}
   playStageVoice(event);
