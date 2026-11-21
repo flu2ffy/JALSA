@@ -784,7 +784,7 @@ function renderCategoryCards(){
  CATEGORIES.forEach(c=>{
   const selected=gameState.selected.includes(c.id),button=document.createElement('button');
   button.type='button';button.className='category-pick'+(selected?' selected':'');button.dataset.id=c.id;button.setAttribute('aria-pressed',String(selected));
-  const img=document.createElement('img');img.src=c.image||'category-music.svg';img.alt='';img.onerror=()=>{img.remove();icon.style.display="grid"};
+  const img=document.createElement('img');const categoryImage=c.image||'category-music.svg';img.src=/^(https?:|data:|blob:|\/)/i.test(categoryImage)?categoryImage:'/'+categoryImage.replace(/^\.\//,'').replace(/^\/+/,'');img.alt='';img.onerror=()=>{img.remove();icon.style.display="grid"};
   const title=document.createElement('strong');title.textContent=isArabic?(c.ar||c.name):(c.name||c.id);
   const icon=document.createElement('span');icon.className='category-icon-fallback';icon.textContent=c.icon||'🎯';
   const check=document.createElement('span');check.className='check';check.textContent='✓';
