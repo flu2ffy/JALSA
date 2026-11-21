@@ -21,11 +21,12 @@ const params=new URLSearchParams(location.search),roomId=params.get("room")||"",
 let lang=params.get("lang")||localStorage.getItem("jalsa_language")||"en";
 let playerId=roomId?localStorage.getItem("jalsa_mafia_"+roomId)||"":null;
 let pollTimer=null,lastState=null,lastRenderKey="",lastNarrationKey="";
-let narrationQueue=Promise.resolve();
+let narrationAudio=null,audioUnlocked=false,audioUnlocking=false,narrationRunning=false,narrationEpoch=0;
+const pendingNarrationEvents=[];
 const queuedNarrationKeys=new Set();
-let audioContext=null,activeNarrationSource=null,narrationEpoch=0;
-const narrationBufferCache=new Map();
+const narrationPreloadPromises=new Map();
 let lastNarrationSeq=Number(localStorage.getItem("jalsa_mafia_narration_"+roomId)||0)||0;
+const SILENT_UNLOCK_WAV="data:audio/wav;base64,UklGRjQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YRAAAAAAAAAAAAAAAAAAAAAAAAAA";
 const T={
 en:{
  joinTitle:"Join Mafia",joinDescription:"Enter the name you want everyone to see.",yourName:"Your name",join:"Join game",voiceHint:"Narration follows the host’s language. Keep your phone volume on.",waitingHost:"You're in! Keep your phone hidden and wait for the host.",hide:"Hide your phone from the other players.",roleReady:"Memorize your role. Tap Ready when you're done.",ready:"I'm ready",waitingReady:"Waiting for everyone to press Ready…",everyoneClose:"Everyone, close your eyes.",mafiaOpen:"Mafia, open your eyes and choose someone to kill.",mafiaClose:"Mafia, close your eyes.",doctorOpen:"Doctor, open your eyes and choose someone to save.",doctorClose:"Doctor, close your eyes.",investigatorOpen:"Investigator, open your eyes and choose someone to investigate.",investigatorClose:"Investigator, close your eyes.",nightResult:"Everyone, open your eyes.",discussion:"Discuss together. You have 10 minutes to decide who you suspect.",voteResult:"The vote is complete.",citizenEyes:"Keep your eyes closed. Wait for the narrator.",mafiaPrompt:"Choose one living player to eliminate.",doctorPrompt:"Choose one living player to save. You can save yourself.",investigatorPrompt:"Choose one living player to investigate. Your result is private.",kill:"Choose to eliminate",save:"Save this player",investigate:"Investigate",waitingAction:"Waiting for the role player to make a choice…",saved:"The Doctor saved someone. Nobody was eliminated last night.",eliminated:" was eliminated last night.",noElimination:"Nobody was eliminated last night.",timeLeft:"Time left to discuss and vote",votePrompt:"Choose who you suspect, or skip the vote.",skip:"Skip vote",submitVote:"Confirm vote",voteWaiting:"Your vote is locked. Waiting for the other living players…",voteOut:" was eliminated by the vote.",noVoteOut:"No one was eliminated by the vote.",timeout:"Time ran out before everyone voted. No one was eliminated.",youEliminated:"You have been eliminated. You can keep watching, but you cannot take actions.",mafiaWins:"The Mafia wins!",townWins:"The Citizens win!",roleMafia:"Mafia",roleDoctor:"Doctor",roleInvestigator:"Investigator",roleCitizen:"Citizen",mafiaDesc:"Your goal is to eliminate the other players without being discovered.",doctorDesc:"Choose one living player to protect each night. You may protect yourself.",investigatorDesc:"Investigate one player each night. You only learn Mafia or Citizen.",citizenDesc:"Listen, discuss, and find the Mafia. You have no night action.",mafiaResult:"MAFIA",citizenResult:"CITIZEN",yourInvestigation:"Your investigation result",newRound:"A new night is beginning…",roles:"Player roles",end:"The host ended this game.",error:"Connection problem. Reconnecting…",dead:"Eliminated",alive:"Alive",allReady:"Everyone is ready."},
@@ -37,17 +38,45 @@ function esc(v){return String(v||"").replace(/[&<>\"']/g,c=>({"&":"&amp;","<":"&
 function applyLang(){document.documentElement.lang=lang;document.documentElement.dir=lang==="ar"?"rtl":"ltr";$("languageLabel").textContent=lang==="ar"?"العربية":"English";$("joinTitle").textContent=t("joinTitle");$("joinDescription").textContent=t("joinDescription");$("playerName").placeholder=t("yourName");$("joinBtn").textContent=t("join");$("voiceHint").textContent=t("voiceHint");$("footerNote").textContent=lang==="ar"?"حافظ على سرية دورك ولا تعرض الشاشة لأي لاعب.":"Keep your role secret. Do not show your screen to anyone."}
 function api(path,body){return fetch("/api/mafia/"+path,{method:body?"POST":"GET",headers:{"Content-Type":"application/json","Accept":"application/json"},...(body?{body:JSON.stringify(body)}:{})}).then(async r=>{let d={};try{d=await r.json()}catch{}if(!r.ok)throw Error(d.error||"Request failed");return d})}
 function showGame(){ $("joinPanel").classList.add("hidden");$("gamePanel").classList.remove("hidden") }
+function getNarrationAudio(){
+ if(!narrationAudio){
+  narrationAudio=new Audio();
+  narrationAudio.preload="auto";
+  narrationAudio.volume=1;
+  narrationAudio.playsInline=true;
+  narrationAudio.setAttribute("playsinline","true");
+ }
+ return narrationAudio;
+}
 function unlockVoice(){
- try{if(window.speechSynthesis)speechSynthesis.getVoices()}catch{}
+ if(audioUnlocked){drainNarrationQueue();return}
+ if(audioUnlocking)return;
+ const audio=getNarrationAudio();
+ audioUnlocking=true;
  try{
-  const AudioContextClass=window.AudioContext||window.webkitAudioContext;
-  if(!AudioContextClass)return;
-  if(!audioContext)audioContext=new AudioContextClass();
-  const resumed=audioContext.state==="suspended"?audioContext.resume():Promise.resolve();
-  const silent=audioContext.createBuffer(1,1,audioContext.sampleRate);
-  const source=audioContext.createBufferSource();source.buffer=silent;source.connect(audioContext.destination);source.start(0);
-  Promise.resolve(resumed).catch(()=>{});
- }catch{}
+  audio.pause();
+  audio.src=SILENT_UNLOCK_WAV;
+  audio.load();
+  const result=audio.play();
+  if(!result||typeof result.then!=="function"){
+   audioUnlocked=true;audioUnlocking=false;
+   audio.pause();audio.removeAttribute("src");audio.load();
+   drainNarrationQueue();return;
+  }
+  result.then(()=>{
+   audio.pause();
+   audio.removeAttribute("src");
+   audio.load();
+   audioUnlocked=true;audioUnlocking=false;
+   drainNarrationQueue();
+  }).catch(error=>{
+   audioUnlocking=false;
+   console.warn("JALSA Mafia audio unlock was blocked:",error);
+  });
+ }catch(error){
+  audioUnlocking=false;
+  console.warn("JALSA Mafia audio unlock failed:",error);
+ }
 }
 $("joinBtn").onclick=join;
 async function join(){unlockVoice();$("joinError").textContent="";const name=$("playerName").value.trim();if(!name){$("joinError").textContent=lang==="ar"?"اكتب اسمك أولاً.":"Enter your name first.";return}try{const d=await api("join",{roomId,key,name});playerId=d.playerId;localStorage.setItem("jalsa_mafia_"+roomId,playerId);showGame();startPolling()}catch(e){$("joinError").textContent=e.message}}
@@ -109,76 +138,124 @@ function voiceLine(s){
  const aa={nightIntro:"الجميع يغمض عينيه.",mafiaOpen:"يا مافيا، افتح عينيك واختر لاعباً لإقصائه.",mafiaClose:"يا مافيا، أغمض عينيك.",doctorOpen:"يا طبيب، افتح عينيك واختر لاعباً لإنقاذه، ويمكنك إنقاذ نفسك.",doctorClose:"يا طبيب، أغمض عينيك.",investigatorOpen:"يا محقق، افتح عينيك واختر لاعباً للتحقيق معه.",investigatorClose:"يا محقق، أغمض عينيك.",nightResult:s.nightOutcome?.eliminatedName?s.nightOutcome.eliminatedName+" تم إقصاؤه.":s.nightOutcome?.saved?"أنقذ الطبيب أحد اللاعبين. لم يتم إقصاء أحد.":"لم يتم إقصاء أي لاعب الليلة.",discussion:"الجميع يفتح عينيه. لديكم عشر دقائق للنقاش.",voteResult:s.voteOutcome?.eliminatedName?s.voteOutcome.eliminatedName+" تم إقصاؤه بالتصويت.":"انتهى التصويت. لم يتم إقصاء أحد."};
  return (ar?aa:en)[k]||"";
 }
-async function loadNarrationBuffer(url){
- if(!audioContext)throw new Error("Audio is not unlocked yet");
- if(!narrationBufferCache.has(url)){
-  const pending=fetch(url,{cache:"force-cache"}).then(async response=>{
-   if(!response.ok)throw new Error("Audio file not found: "+url);
-   return audioContext.decodeAudioData(await response.arrayBuffer());
+const NARRATION_FILE_KEYS=[
+ "nightIntro","mafiaOpen","mafiaClose","doctorOpen","doctorClose",
+ "investigatorOpen","investigatorClose","nightEliminated","doctorSaved",
+ "nightNoElimination","discussion","voteEliminated","voteNoElimination"
+];
+let preloadedVoiceLanguage="";
+function preloadNarrationAssets(voiceLang){
+ if(preloadedVoiceLanguage===voiceLang)return;
+ preloadedVoiceLanguage=voiceLang;
+ for(const fileKey of NARRATION_FILE_KEYS){
+  const url="/audio/mafia/"+voiceLang+"/"+fileKey+".mp3";
+  if(narrationPreloadPromises.has(url))continue;
+  const request=fetch(url,{cache:"force-cache"}).then(response=>{
+   if(!response.ok)throw new Error("HTTP "+response.status+" for "+url);
+   return response.arrayBuffer();
   });
-  narrationBufferCache.set(url,pending);
-  pending.catch(()=>narrationBufferCache.delete(url));
+  narrationPreloadPromises.set(url,request);
+  request.catch(error=>{
+   narrationPreloadPromises.delete(url);
+   console.warn("JALSA Mafia voice preload failed:",url,error);
+  });
  }
- return narrationBufferCache.get(url);
 }
-async function playNarrationClip(url,text,voiceLang,epoch){
- try{
-  if(!audioContext)throw new Error("Tap Enable sound first");
-  if(audioContext.state==="suspended")await audioContext.resume();
-  const buffer=await loadNarrationBuffer(url);
-  if(epoch!==narrationEpoch)return;
-  const source=audioContext.createBufferSource();
-  source.buffer=buffer;source.connect(audioContext.destination);activeNarrationSource=source;
-  await new Promise(resolve=>{
-   source.onended=()=>{if(activeNarrationSource===source)activeNarrationSource=null;resolve()};
-   source.start(0);
-  });
- }catch(error){
-  if(epoch===narrationEpoch){
-   $("playerStatus").textContent="Narration audio could not be loaded. Check your connection and refresh.";
-   console.error("JALSA Mafia narration error:",error);
-  }
- }
+function narrationUrlForEvent(event){
+ const voiceLang=event.language==="ar"?"ar":"en";
+ let fileKey=event.stage;
+ if(event.stage==="nightResult")fileKey=event.nightOutcome?.eliminatedName?"nightEliminated":event.nightOutcome?.saved?"doctorSaved":"nightNoElimination";
+ if(event.stage==="voteResult")fileKey=event.voteOutcome?.eliminatedName?"voteEliminated":"voteNoElimination";
+ return "/audio/mafia/"+voiceLang+"/"+fileKey+".mp3";
+}
+function playNarrationClip(url,epoch){
+ return new Promise((resolve,reject)=>{
+  const audio=getNarrationAudio();
+  let finished=false,watchdog=null;
+  const cleanup=()=>{
+   if(watchdog)clearTimeout(watchdog);
+   audio.removeEventListener("ended",onEnded);
+   audio.removeEventListener("error",onError);
+   audio.removeEventListener("stalled",onStalled);
+  };
+  const finish=()=>{
+   if(finished)return;finished=true;cleanup();resolve();
+  };
+  const fail=error=>{
+   if(finished)return;finished=true;cleanup();reject(error);
+  };
+  const onEnded=()=>finish();
+  const onError=()=>fail(new Error("Audio element error "+(audio.error?.code||"unknown")+" while loading "+url));
+  const onStalled=()=>{watchdog=setTimeout(()=>fail(new Error("Audio stalled while loading "+url)),15000)};
+  if(epoch!==narrationEpoch){resolve();return}
+  audio.pause();
+  try{audio.currentTime=0}catch{}
+  audio.addEventListener("ended",onEnded,{once:true});
+  audio.addEventListener("error",onError,{once:true});
+  audio.addEventListener("stalled",onStalled,{once:true});
+  audio.src=url;
+  audio.load();
+  watchdog=setTimeout(()=>fail(new Error("Timed out playing "+url)),45000);
+  let playResult;
+  try{playResult=audio.play()}catch(error){fail(error);return}
+  if(playResult&&typeof playResult.catch==="function")playResult.catch(fail);
+ });
 }
 function resetNarrationForLanguageChange(){
  narrationEpoch++;
- try{if(activeNarrationSource)activeNarrationSource.stop()}catch{}
- activeNarrationSource=null;narrationQueue=Promise.resolve();queuedNarrationKeys.clear();
- try{if(window.speechSynthesis)speechSynthesis.cancel()}catch{}
+ const audio=narrationAudio;
+ if(audio){try{audio.pause();audio.removeAttribute("src");audio.load()}catch{}}
+ pendingNarrationEvents.length=0;
+ queuedNarrationKeys.clear();
+ narrationRunning=false;
+ preloadedVoiceLanguage="";
 }
-function playStageVoice(s){
- if(!s||!["nightIntro","mafiaOpen","mafiaClose","doctorOpen","doctorClose","investigatorOpen","investigatorClose","nightResult","discussion","voteResult"].includes(s.stage))return;
- const voiceLang=s.language==="ar"?"ar":"en";
- const seq=s.round+":"+s.stageSeq+":"+voiceLang;
- if(queuedNarrationKeys.has(seq))return;
- const text=voiceLine(s);if(!text)return;
- queuedNarrationKeys.add(seq);lastNarrationKey=seq;
- let fileKey=s.stage;
- if(s.stage==="nightResult")fileKey=s.nightOutcome?.eliminatedName?"nightEliminated":s.nightOutcome?.saved?"doctorSaved":"nightNoElimination";
- if(s.stage==="voteResult")fileKey=s.voteOutcome?.eliminatedName?"voteEliminated":"voteNoElimination";
- const url="/audio/mafia/"+voiceLang+"/"+fileKey+".mp3";
- const epoch=narrationEpoch;
- narrationQueue=narrationQueue.then(async()=>{
-  if(epoch!==narrationEpoch)return;
-  await playNarrationClip(url,text,voiceLang,epoch);
-  if(epoch!==narrationEpoch)return;
-  await new Promise(resolve=>setTimeout(resolve,5000));
- }).catch(()=>{});
-}
-function playNarrationEvents(s){
- if(!s||s.gameStarted!==true)return;
- if(!audioContext||audioContext.state!=="running")return;
- const events=Array.isArray(s.narrationEvents)?[...s.narrationEvents].sort((a,b)=>a.stageSeq-b.stageSeq):[];
- for(const event of events){
-  const seq=Number(event.stageSeq||0);
-  if(!seq||seq<=lastNarrationSeq)continue;
-  if(!["nightIntro","mafiaOpen","mafiaClose","doctorOpen","doctorClose","investigatorOpen","investigatorClose","nightResult","discussion","voteResult"].includes(event.stage))continue;
-  lastNarrationSeq=seq;
-  try{localStorage.setItem("jalsa_mafia_narration_"+roomId,String(lastNarrationSeq))}catch{}
-  playStageVoice(event);
+async function drainNarrationQueue(){
+ if(narrationRunning||!audioUnlocked)return;
+ narrationRunning=true;
+ try{
+  while(pendingNarrationEvents.length&&audioUnlocked){
+   const event=pendingNarrationEvents[0];
+   const seq=Number(event.stageSeq||0);
+   const epoch=narrationEpoch;
+   const url=narrationUrlForEvent(event);
+   try{
+    await playNarrationClip(url,epoch);
+    if(epoch!==narrationEpoch)return;
+    pendingNarrationEvents.shift();
+    queuedNarrationKeys.delete(seq);
+    lastNarrationSeq=seq;
+    try{localStorage.setItem("jalsa_mafia_narration_"+roomId,String(lastNarrationSeq))}catch{}
+    $("playerStatus").textContent="";
+    await new Promise(resolve=>setTimeout(resolve,5000));
+   }catch(error){
+    console.error("JALSA Mafia narration playback failed:",url,error);
+    $("playerStatus").textContent=error?.name==="NotAllowedError"
+     ?"Tap the screen once to allow narration."
+     :"Narration could not play. Check your connection and tap the screen to retry.";
+    audioUnlocked=false;
+    break;
+   }
+  }
+ }finally{
+  narrationRunning=false;
  }
 }
-async function poll(){if(!playerId)return;try{const d=await api("player-state?roomId="+encodeURIComponent(roomId)+"&key="+encodeURIComponent(key)+"&playerId="+encodeURIComponent(playerId));currentState=d.state;renderState(currentState);playStageVoice(currentState)}catch(e){$("playerStatus").textContent=e.message||t("error")}}
+function playNarrationEvents(state){
+ if(!state||state.gameStarted!==true)return;
+ const voiceLang=state.language==="ar"?"ar":"en";
+ preloadNarrationAssets(voiceLang);
+ const events=Array.isArray(state.narrationEvents)?[...state.narrationEvents].sort((a,b)=>a.stageSeq-b.stageSeq):[];
+ for(const event of events){
+  const seq=Number(event.stageSeq||0);
+  if(!seq||seq<=lastNarrationSeq||queuedNarrationKeys.has(seq))continue;
+  if(!["nightIntro","mafiaOpen","mafiaClose","doctorOpen","doctorClose","investigatorOpen","investigatorClose","nightResult","discussion","voteResult"].includes(event.stage))continue;
+  queuedNarrationKeys.add(seq);
+  pendingNarrationEvents.push(event);
+ }
+ drainNarrationQueue();
+}
+async function poll(){if(!playerId)return;try{const d=await api("player-state?roomId="+encodeURIComponent(roomId)+"&key="+encodeURIComponent(key)+"&playerId="+encodeURIComponent(playerId));const nextLang=d.state.language==="ar"?"ar":"en";if(nextLang!==lang){lang=nextLang;localStorage.setItem("jalsa_language",lang);lastRenderKey="";resetNarrationForLanguageChange();applyLang()}currentState=d.state;renderState(currentState);playNarrationEvents(currentState)}catch(e){$("playerStatus").textContent=e.message||t("error")}}
 function beginPolling(){if(!pollTimer)pollTimer=setInterval(poll,900);poll()}
 document.addEventListener("pointerdown",unlockVoice,{capture:true,passive:true});
 document.addEventListener("keydown",unlockVoice,{capture:true});
