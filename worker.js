@@ -1254,7 +1254,7 @@ function mafiaSetStage(state,stage,durationMs=0) {
   state.stageStartedAt=now;
   state.stageEndsAt=durationMs>0?now+durationMs:null;
   const voiceStages=["nightIntro","mafiaOpen","mafiaClose","doctorOpen","doctorClose","investigatorOpen","investigatorClose","nightResult","discussion","voteResult"];
-  if(voiceStages.includes(stage)){
+  if(state.gameStarted===true&&voiceStages.includes(stage)){
     state.narrationEvents=Array.isArray(state.narrationEvents)?state.narrationEvents:[];
     state.narrationEvents.push({
       round:state.round||1,stageSeq:state.stageSeq,stage,
@@ -1301,7 +1301,7 @@ function mafiaStartNextRound(state) {
   state.votes={};
   state.winner=null;
   state.round=(state.round||1)+1;
-  mafiaSetStage(state,"nightIntro",2600);
+  mafiaSetStage(state,"nightIntro",9000);
 }
 function mafiaEnterNightResult(state) {
   const killedId=state.night?.killId||null;
@@ -1351,9 +1351,9 @@ async function advanceMafiaClock(env,room) {
   if(state.stage==="hide"&&due){mafiaSetStage(state,"roles",0);state.ready=[];changed=true;}
   else if(state.stage==="nightIntro"&&due){mafiaSetStage(state,"mafiaOpen",mafiaAliveRole(state,"mafia")?0:1600);changed=true;}
   else if(state.stage==="mafiaClose"&&due){mafiaSetStage(state,"doctorOpen",mafiaAliveRole(state,"doctor")?0:1600);changed=true;}
-  else if(state.stage==="doctorOpen"&&!mafiaAliveRole(state,"doctor")&&due){mafiaSetStage(state,"doctorClose",1400);changed=true;}
+  else if(state.stage==="doctorOpen"&&!mafiaAliveRole(state,"doctor")&&due){mafiaSetStage(state,"doctorClose",9000);changed=true;}
   else if(state.stage==="doctorClose"&&due){mafiaSetStage(state,"investigatorOpen",mafiaAliveRole(state,"investigator")?0:1600);changed=true;}
-  else if(state.stage==="investigatorOpen"&&!mafiaAliveRole(state,"investigator")&&due){mafiaSetStage(state,"investigatorClose",1400);changed=true;}
+  else if(state.stage==="investigatorOpen"&&!mafiaAliveRole(state,"investigator")&&due){mafiaSetStage(state,"investigatorClose",9000);changed=true;}
   else if(state.stage==="investigatorClose"&&due){mafiaEnterNightResult(state);changed=true;}
   else if(state.stage==="nightResult"&&due){
     if(state.winner){mafiaSetStage(state,"finished",0);}
@@ -1379,7 +1379,7 @@ async function createMafiaRoom(request,env) {
   const language=body.language==="ar"?"ar":"en";
   const roomId=toBase64Url(randomBytes(18)),key=toBase64Url(randomBytes(32));
   const now=new Date(),expires=new Date(now.getTime()+3*60*60*1000).toISOString();
-  const state={stage:"lobby",stageSeq:0,round:1,language,narrationEvents:[],players:[],roles:{},ready:[],votes:{},night:{killId:null,savedId:null,investigation:null},nightOutcome:null,voteOutcome:null,winner:null};
+  const state={stage:"lobby",stageSeq:0,round:1,language,gameStarted:false,narrationEvents:[],players:[],roles:{},ready:[],votes:{},night:{killId:null,savedId:null,investigation:null},nightOutcome:null,voteOutcome:null,winner:null};
   await env.DB.prepare("INSERT INTO mafia_rooms (room_id,token_hash,host_user_id,state_json,created_at,expires_at) VALUES (?,?,?,?,?,?)")
     .bind(roomId,await sha256Hex(key),user.id,JSON.stringify(state),now.toISOString(),expires).run();
   return json({roomId,key,expiresAt:expires});
@@ -1442,12 +1442,14 @@ async function getMafiaPlayerState(request,env,url) {
   return json({state:{
     stage:state.stage,stageSeq:state.stageSeq||0,stageEndsAt:state.stageEndsAt||null,round:state.round||1,
     language:state.language==="ar"?"ar":"en",
+    gameStarted:state.gameStarted===true,
     narrationEvents:Array.isArray(state.narrationEvents)?state.narrationEvents:[],
     player:{id:player.id,name:player.name,alive:player.alive!==false},
     role,
     ready:(state.ready||[]).includes(playerId),
     readyCount:(state.ready||[]).length,
     players:state.players.map(p=>({id:p.id,name:p.name,alive:p.alive!==false})),
+    gameStarted:state.gameStarted===true,
     targets:alive.filter(p=>(state.stage==="doctorOpen"&&role==="doctor")||p.id!==playerId).map(p=>({id:p.id,name:p.name})),
     canAct,
     investigationResult:isInvestigator&&investigation&&investigation.playerId===playerId?{targetName:investigation.targetName,result:investigation.result}:null,
@@ -1482,6 +1484,7 @@ async function mafiaHostAction(request,env) {
     roles[shuffled[2].id]="investigator";
     shuffled.slice(3).forEach(p=>roles[p.id]="citizen");
     room.state.roles=roles;room.state.ready=[];room.state.round=1;
+    room.state.gameStarted=true;room.state.narrationEvents=[];
     room.state.night={killId:null,savedId:null,investigation:null};
     mafiaSetStage(room.state,"hide",4000);
   }else if(body.action==="end"){
@@ -1512,13 +1515,13 @@ async function mafiaPlayerAction(request,env) {
     const targetId=String(body.targetId||"");
     if(targetId===playerId||!mafiaAlivePlayers(state).some(p=>p.id===targetId))return json({error:"Choose a different living player."},400);
     state.night=state.night||{};state.night.killId=targetId;
-    mafiaSetStage(state,"mafiaClose",2200);
+    mafiaSetStage(state,"mafiaClose",9000);
   }else if(action==="save"){
     if(state.stage!=="doctorOpen"||state.roles[playerId]!=="doctor")return json({error:"Only the living Doctor can choose whom to save."},403);
     const targetId=String(body.targetId||"");
     if(!mafiaAlivePlayers(state).some(p=>p.id===targetId))return json({error:"Choose a living player. You can save yourself."},400);
     state.night=state.night||{};state.night.savedId=targetId;
-    mafiaSetStage(state,"doctorClose",2200);
+    mafiaSetStage(state,"doctorClose",9000);
   }else if(action==="investigate"){
     if(state.stage!=="investigatorOpen"||state.roles[playerId]!=="investigator")return json({error:"Only the living Investigator can investigate."},403);
     const targetId=String(body.targetId||"");
@@ -1526,7 +1529,7 @@ async function mafiaPlayerAction(request,env) {
     if(!target)return json({error:"Choose another living player."},400);
     state.night=state.night||{};
     state.night.investigation={playerId,targetName:target.name,result:state.roles[targetId]==="mafia"?"mafia":"citizen"};
-    mafiaSetStage(state,"investigatorClose",2200);
+    mafiaSetStage(state,"investigatorClose",9000);
   }else if(action==="vote"){
     if(state.stage!=="discussion")return json({error:"Voting is not open."},409);
     if(!mafiaAlivePlayers(state).some(p=>p.id===playerId))return json({error:"Only living players can vote."},403);
