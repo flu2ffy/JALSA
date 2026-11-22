@@ -51,7 +51,7 @@ export default {
       if (url.pathname === "/api/insight/action" && request.method === "POST") return await insightAction(request, env);
       if (url.pathname === "/api/me" && request.method === "GET") {
         const user = await getSessionUser(request, env);
-        return json({ user: publicUser(user, env) });
+        return json({ user: publicUser(user, env) }, 200, { "Cache-Control": "private, no-store, max-age=0", "Vary": "Cookie" });
       }
       if (url.pathname === "/api/register" && request.method === "POST") return await register(request, env);
       if (url.pathname === "/api/login" && request.method === "POST") return await login(request, env);
@@ -609,7 +609,8 @@ function cookieValue(request, name) {
 }
 
 function sessionCookie(token, maxAge = SESSION_DAYS * 24 * 60 * 60) {
-  return COOKIE_NAME + "=" + token + "; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=" + maxAge;
+  const expires = new Date(Date.now() + Math.max(0, maxAge) * 1000).toUTCString();
+  return COOKIE_NAME + "=" + token + "; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=" + maxAge + "; Expires=" + expires;
 }
 
 async function createSession(userId, env) {
