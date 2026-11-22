@@ -1265,7 +1265,10 @@ async function v17CheckSubscriptionAccess(){
  try{
   const status=await v17Request("/subscription-status","GET");
   if(status.allowed)return true;
-  showToast(v17T("subscriptionRequiredToast"));return false;
+  showToast(v17T("subscriptionRequiredToast"));
+  const drawer=document.getElementById("accountDrawer");
+  if(drawer&&!drawer.classList.contains("open"))toggleAccountDrawer();
+  return false;
  }catch(error){
   if(error.code==="LOGIN_REQUIRED"){showAuth("login");return false}
   showToast(error.message||v17T("failed"));return false;
