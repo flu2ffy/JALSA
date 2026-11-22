@@ -30,6 +30,10 @@ export default {
 
     try {
 
+      if (url.pathname === "/api/stripe/webhook" && request.method === "POST") return await handleStripeWebhook(request, env);
+      if (url.pathname === "/api/billing/checkout" && request.method === "POST") return await createBillingCheckout(request, env, url);
+      if (url.pathname === "/api/billing/portal" && request.method === "POST") return await createBillingPortal(request, env, url);
+      if (url.pathname === "/api/billing/cancel" && request.method === "POST") return await cancelBillingSubscription(request, env);
       if (url.pathname === "/api/subscription-status" && request.method === "GET") return await getSubscriptionStatus(request, env);
       if (url.pathname === "/api/admin/subscription-settings" && request.method === "GET") return await getAdminSubscriptionSettings(request, env);
       if (url.pathname === "/api/admin/subscription-settings" && request.method === "PATCH") return await updateAdminSubscriptionSettings(request, env);
@@ -156,6 +160,20 @@ async function ensureSubscriptionSchema(env) {
     updated_at TEXT NOT NULL
   )`).run();
   await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_user_subscriptions_status_expiry ON user_subscriptions(status, expires_at)").run();
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS billing_subscriptions (
+    user_id TEXT PRIMARY KEY NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    stripe_customer_id TEXT,
+    stripe_subscription_id TEXT UNIQUE,
+    stripe_price_id TEXT,
+    status TEXT NOT NULL,
+    current_period_start TEXT,
+    current_period_end TEXT,
+    cancel_at_period_end INTEGER NOT NULL DEFAULT 0,
+    last_event_created INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL
+  )`).run();
+  await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_billing_subscriptions_status_end ON billing_subscriptions(status, current_period_end)").run();
+  await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_billing_subscriptions_customer ON billing_subscriptions(stripe_customer_id)").run();
 }
 function addSubscriptionMonths(source, months) {
   const date = new Date(source);
@@ -175,16 +193,27 @@ async function subscriptionAccessForUser(user, env) {
   const settings = await readSubscriptionSettings(env);
   if (!user) return { enabled: settings.enabled, active: false, allowed: false, plan: null, expiresAt: null, isAdmin: false };
   const isAdmin = !!env.ADMIN_EMAIL && normalizeEmail(user.email) === normalizeEmail(env.ADMIN_EMAIL);
-  const record = await env.DB.prepare("SELECT plan_code, status, starts_at, expires_at FROM user_subscriptions WHERE user_id=? LIMIT 1").bind(user.id).first();
+  const [grant, billing] = await Promise.all([
+    env.DB.prepare("SELECT plan_code, status, starts_at, expires_at FROM user_subscriptions WHERE user_id=? LIMIT 1").bind(user.id).first(),
+    env.DB.prepare("SELECT stripe_customer_id, stripe_subscription_id, status, current_period_start, current_period_end, cancel_at_period_end FROM billing_subscriptions WHERE user_id=? LIMIT 1").bind(user.id).first()
+  ]);
   const now = new Date().toISOString();
-  const active = !!record && record.status === "active" && (!record.expires_at || record.expires_at > now);
+  const grantActive = !!grant && grant.status === "active" && (!grant.expires_at || grant.expires_at > now);
+  const billingActive = !!billing && ["active", "trialing"].includes(billing.status) &&
+    (!billing.current_period_end || billing.current_period_end > now);
+  const active = grantActive || billingActive;
+  const source = grantActive ? "admin-grant" : billingActive ? "stripe" : null;
   return {
     enabled: settings.enabled,
     active,
     allowed: !settings.enabled || active || isAdmin,
-    plan: active ? record.plan_code : null,
-    startsAt: active ? record.starts_at : null,
-    expiresAt: active ? record.expires_at : null,
+    source,
+    plan: grantActive ? grant.plan_code : billingActive ? "monthly_auto_renew" : null,
+    startsAt: grantActive ? grant.starts_at : billingActive ? billing.current_period_start : null,
+    expiresAt: grantActive ? grant.expires_at : billingActive ? billing.current_period_end : null,
+    billingStatus: billing?.status || null,
+    cancelAtPeriodEnd: !!Number(billing?.cancel_at_period_end || 0),
+    hasStripeCustomer: !!billing?.stripe_customer_id,
     isAdmin
   };
 }
@@ -199,15 +228,24 @@ async function requireSubscriptionAccess(request, env) {
   if (!user) return json({ error: "Please sign in to play.", code: "LOGIN_REQUIRED" }, 401);
   const access = await subscriptionAccessForUser(user, env);
   if (access.allowed) return null;
-  return json({ error: "JALSA games currently require an active subscription. Contact the JALSA team for access.", code: "SUBSCRIPTION_REQUIRED" }, 402);
+  return json({ error: "JALSA games currently require an active subscription. Subscribe monthly or contact the JALSA team for access.", code: "SUBSCRIPTION_REQUIRED" }, 402);
 }
 async function getAdminSubscriptionSettings(request, env) {
   if (!await requireAdmin(request, env)) return json({ error: "Administrator access required." }, 403);
   const settings = await readSubscriptionSettings(env);
-  const counts = await env.DB.prepare(
-    "SELECT COUNT(*) AS total, SUM(CASE WHEN status='active' AND (expires_at IS NULL OR expires_at > ?) THEN 1 ELSE 0 END) AS active FROM user_subscriptions"
-  ).bind(new Date().toISOString()).first();
-  return json({ enabled: settings.enabled, totalGranted: Number(counts?.total || 0), activeGranted: Number(counts?.active || 0) });
+  const now = new Date().toISOString();
+  const [grants, paid] = await Promise.all([
+    env.DB.prepare("SELECT COUNT(*) AS total, SUM(CASE WHEN status='active' AND (expires_at IS NULL OR expires_at > ?) THEN 1 ELSE 0 END) AS active FROM user_subscriptions").bind(now).first(),
+    env.DB.prepare("SELECT COUNT(*) AS total, SUM(CASE WHEN status IN ('active','trialing') AND (current_period_end IS NULL OR current_period_end > ?) THEN 1 ELSE 0 END) AS active FROM billing_subscriptions").bind(now).first()
+  ]);
+  return json({
+    enabled: settings.enabled,
+    totalGranted: Number(grants?.total || 0),
+    activeGranted: Number(grants?.active || 0),
+    totalPaid: Number(paid?.total || 0),
+    activePaid: Number(paid?.active || 0),
+    paymentConfigured: !!(env.STRIPE_SECRET_KEY && env.STRIPE_PRICE_ID && env.STRIPE_WEBHOOK_SECRET)
+  });
 }
 async function updateAdminSubscriptionSettings(request, env) {
   const admin = await requireAdmin(request, env);
@@ -219,6 +257,184 @@ async function updateAdminSubscriptionSettings(request, env) {
   await env.DB.prepare("UPDATE jalsa_settings SET setting_value=?, updated_at=?, updated_by=? WHERE setting_key='subscriptions_enabled'")
     .bind(body.enabled ? "1" : "0", now, admin.id).run();
   return json({ ok: true, enabled: body.enabled });
+}
+
+function stripeForm(params) {
+  const form = new URLSearchParams();
+  for (const [key, value] of Object.entries(params || {})) {
+    if (value !== undefined && value !== null && value !== "") form.set(key, String(value));
+  }
+  return form;
+}
+async function stripeApiRequest(env, endpoint, params, method = "POST") {
+  if (!env.STRIPE_SECRET_KEY) throw new Error("Stripe is not configured for this environment yet.");
+  const response = await fetch("https://api.stripe.com/v1" + endpoint, {
+    method,
+    headers: {
+      "Authorization": "Bearer " + env.STRIPE_SECRET_KEY,
+      "Content-Type": "application/x-www-form-urlencoded"
+    },
+    ...(method === "GET" ? {} : { body: stripeForm(params).toString() })
+  });
+  let data = {};
+  try { data = await response.json(); } catch {}
+  if (!response.ok) throw new Error(data?.error?.message || "Stripe could not complete the billing request.");
+  return data;
+}
+async function createBillingCheckout(request, env, url) {
+  const user = await getSessionUser(request, env);
+  if (!user) return json({ error: "Please sign in before subscribing.", code: "LOGIN_REQUIRED" }, 401);
+  const settings = await readSubscriptionSettings(env);
+  if (!settings.enabled) return json({ error: "Subscriptions are not currently enabled. JALSA is free for everyone right now.", code: "SUBSCRIPTIONS_DISABLED" }, 409);
+  if (!env.STRIPE_SECRET_KEY || !env.STRIPE_PRICE_ID) return json({ error: "Paid subscriptions are not configured in this test environment yet.", code: "BILLING_NOT_CONFIGURED" }, 503);
+  const access = await subscriptionAccessForUser(user, env);
+  if (access.active) return json({ error: "Your account already has active access.", code: "ALREADY_HAS_ACCESS" }, 409);
+  const existing = await env.DB.prepare("SELECT stripe_customer_id, stripe_subscription_id, status, current_period_end FROM billing_subscriptions WHERE user_id=? LIMIT 1").bind(user.id).first();
+  if (existing?.stripe_subscription_id && existing.current_period_end && existing.current_period_end > new Date().toISOString() &&
+      ["active", "trialing", "past_due", "unpaid", "incomplete"].includes(existing.status)) {
+    return json({ error: "A subscription already exists for this account. Open Manage billing to update payment details or cancel it.", code: "EXISTING_BILLING_SUBSCRIPTION" }, 409);
+  }
+  const origin = url.origin;
+  const params = {
+    mode: "subscription",
+    "line_items[0][price]": env.STRIPE_PRICE_ID,
+    "line_items[0][quantity]": "1",
+    client_reference_id: user.id,
+    customer: existing?.stripe_customer_id || undefined,
+    customer_email: existing?.stripe_customer_id ? undefined : user.email,
+    "metadata[jalsa_user_id]": user.id,
+    "subscription_data[metadata][jalsa_user_id]": user.id,
+    "subscription_data[description]": "JALSA monthly auto-renewing access",
+    "allow_promotion_codes": "true",
+    "billing_address_collection": "auto",
+    success_url: origin + "/?subscription=success",
+    cancel_url: origin + "/?subscription=cancelled"
+  };
+  if (url.pathname.includes("/ar/")) {
+    params["locale"] = "ar";
+  }
+  const session = await stripeApiRequest(env, "/checkout/sessions", params);
+  if (!session.url) return json({ error: "Stripe did not return a Checkout URL." }, 502);
+  return json({ ok: true, url: session.url });
+}
+async function createBillingPortal(request, env, url) {
+  const user = await getSessionUser(request, env);
+  if (!user) return json({ error: "Please sign in to manage billing.", code: "LOGIN_REQUIRED" }, 401);
+  await ensureSubscriptionSchema(env);
+  const billing = await env.DB.prepare("SELECT stripe_customer_id FROM billing_subscriptions WHERE user_id=? LIMIT 1").bind(user.id).first();
+  if (!billing?.stripe_customer_id) return json({ error: "No paid subscription is linked to this account yet.", code: "NO_BILLING_CUSTOMER" }, 404);
+  const params = {
+    customer: billing.stripe_customer_id,
+    return_url: url.origin + (url.pathname.startsWith("/ar/") ? "/ar/" : "/") + "?billing=returned"
+  };
+  if (env.STRIPE_PORTAL_CONFIGURATION_ID) params.configuration = env.STRIPE_PORTAL_CONFIGURATION_ID;
+  const session = await stripeApiRequest(env, "/billing_portal/sessions", params);
+  if (!session.url) return json({ error: "Stripe did not return a billing portal URL." }, 502);
+  return json({ ok: true, url: session.url });
+}
+async function cancelBillingSubscription(request, env) {
+  const user = await getSessionUser(request, env);
+  if (!user) return json({ error: "Please sign in to manage billing.", code: "LOGIN_REQUIRED" }, 401);
+  const billing = await env.DB.prepare("SELECT stripe_subscription_id, current_period_end, status FROM billing_subscriptions WHERE user_id=? LIMIT 1").bind(user.id).first();
+  if (!billing?.stripe_subscription_id || !["active", "trialing", "past_due"].includes(billing.status)) {
+    return json({ error: "There is no active paid subscription to cancel.", code: "NO_ACTIVE_SUBSCRIPTION" }, 409);
+  }
+  const updated = await stripeApiRequest(env, "/subscriptions/" + encodeURIComponent(billing.stripe_subscription_id), { cancel_at_period_end: "true" });
+  await env.DB.prepare("UPDATE billing_subscriptions SET cancel_at_period_end=1, updated_at=? WHERE user_id=?").bind(new Date().toISOString(), user.id).run();
+  return json({ ok: true, cancelAtPeriodEnd: !!updated.cancel_at_period_end, currentPeriodEnd: billing.current_period_end });
+}
+function hexFromBuffer(buffer) {
+  return Array.from(new Uint8Array(buffer), byte => byte.toString(16).padStart(2, "0")).join("");
+}
+async function verifyStripeWebhookSignature(payload, signatureHeader, secret) {
+  if (!secret || !signatureHeader) return false;
+  const parts = signatureHeader.split(",").map(part => part.trim());
+  const timestampPart = parts.find(part => part.startsWith("t="));
+  const timestamp = timestampPart ? Number(timestampPart.slice(2)) : 0;
+  if (!Number.isFinite(timestamp) || Math.abs(Date.now() / 1000 - timestamp) > 300) return false;
+  const signatures = parts.filter(part => part.startsWith("v1=")).map(part => part.slice(3));
+  if (!signatures.length) return false;
+  const key = await crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const signed = await crypto.subtle.sign("HMAC", key, encoder.encode(timestamp + "." + payload));
+  const expected = hexFromBuffer(signed);
+  return signatures.some(signature => constantTimeEqual(signature, expected));
+}
+function stripePeriodIso(timestamp) {
+  const value = Number(timestamp || 0);
+  return value > 0 ? new Date(value * 1000).toISOString() : null;
+}
+async function saveStripeSubscriptionEvent(env, event, subscription, forcedStatus) {
+  await ensureSubscriptionSchema(env);
+  const eventCreated = Number(event.created || 0);
+  const subscriptionId = subscription.id;
+  const customerId = typeof subscription.customer === "string" ? subscription.customer : subscription.customer?.id;
+  const metadata = subscription.metadata || {};
+  let userId = metadata.jalsa_user_id || metadata.user_id || "";
+  if (!userId && subscriptionId) {
+    const old = await env.DB.prepare("SELECT user_id FROM billing_subscriptions WHERE stripe_subscription_id=? LIMIT 1").bind(subscriptionId).first();
+    userId = old?.user_id || "";
+  }
+  if (!userId && customerId) {
+    const old = await env.DB.prepare("SELECT user_id FROM billing_subscriptions WHERE stripe_customer_id=? LIMIT 1").bind(customerId).first();
+    userId = old?.user_id || "";
+  }
+  if (!userId) {
+    console.warn("Stripe subscription event did not include a linked JALSA user.");
+    return;
+  }
+  const firstItem = subscription.items?.data?.[0] || {};
+  const priceId = firstItem.price?.id || firstItem.plan?.id || null;
+  const start = subscription.current_period_start || firstItem.current_period_start;
+  const end = subscription.current_period_end || firstItem.current_period_end;
+  const now = new Date().toISOString();
+  const status = forcedStatus || subscription.status || "incomplete";
+  await env.DB.prepare(
+    `INSERT INTO billing_subscriptions
+      (user_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, status, current_period_start, current_period_end, cancel_at_period_end, last_event_created, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(user_id) DO UPDATE SET
+       stripe_customer_id=excluded.stripe_customer_id,
+       stripe_subscription_id=excluded.stripe_subscription_id,
+       stripe_price_id=excluded.stripe_price_id,
+       status=excluded.status,
+       current_period_start=excluded.current_period_start,
+       current_period_end=excluded.current_period_end,
+       cancel_at_period_end=excluded.cancel_at_period_end,
+       last_event_created=excluded.last_event_created,
+       updated_at=excluded.updated_at
+     WHERE excluded.last_event_created >= billing_subscriptions.last_event_created`,
+  ).bind(
+    userId, customerId || null, subscriptionId, priceId, status,
+    stripePeriodIso(start), stripePeriodIso(end), subscription.cancel_at_period_end ? 1 : 0,
+    eventCreated, now
+  ).run();
+}
+async function handleStripeWebhook(request, env) {
+  if (!env.STRIPE_WEBHOOK_SECRET) return json({ error: "Stripe webhook is not configured." }, 503);
+  const payload = await request.text();
+  const signature = request.headers.get("Stripe-Signature") || "";
+  if (!await verifyStripeWebhookSignature(payload, signature, env.STRIPE_WEBHOOK_SECRET)) {
+    return json({ error: "Invalid Stripe webhook signature." }, 400);
+  }
+  let event;
+  try { event = JSON.parse(payload); } catch { return json({ error: "Invalid Stripe event payload." }, 400); }
+  const object = event.data?.object || {};
+  if (["customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted"].includes(event.type)) {
+    const forced = event.type === "customer.subscription.deleted" ? "canceled" : null;
+    await saveStripeSubscriptionEvent(env, event, object, forced);
+  } else if (event.type === "invoice.payment_failed" || event.type === "invoice.paid") {
+    const subscriptionId = typeof object.subscription === "string"
+      ? object.subscription
+      : object.parent?.subscription_details?.subscription || "";
+    if (subscriptionId) {
+      const status = event.type === "invoice.paid" ? "active" : "past_due";
+      await ensureSubscriptionSchema(env);
+      await env.DB.prepare(
+        "UPDATE billing_subscriptions SET status=?, last_event_created=?, updated_at=? WHERE stripe_subscription_id=? AND ? >= last_event_created"
+      ).bind(status, Number(event.created || 0), new Date().toISOString(), subscriptionId, Number(event.created || 0)).run();
+    }
+  }
+  return json({ received: true });
 }
 
 async function ensureGameAvailabilitySchema(env) {
@@ -1014,9 +1230,12 @@ async function listUsers(request, env) {
     `SELECT u.id, u.display_name AS name, u.email, u.email_verified, u.created_at, u.verified_at, u.last_login_at,
             u.birth_date, u.updated_at, u.banned_at, u.banned_reason,
             CASE WHEN u.password_hash IS NOT NULL AND u.password_hash != '' THEN 1 ELSE 0 END AS has_password,
-            s.plan_code AS subscription_plan, s.status AS subscription_status,
-            s.starts_at AS subscription_starts_at, s.expires_at AS subscription_expires_at
-     FROM users u LEFT JOIN user_subscriptions s ON s.user_id = u.id
+            g.plan_code AS subscription_plan, g.status AS subscription_status,
+            g.starts_at AS subscription_starts_at, g.expires_at AS subscription_expires_at,
+            b.status AS billing_status, b.current_period_start AS billing_period_start,
+            b.current_period_end AS billing_period_end, b.cancel_at_period_end AS billing_cancel_at_period_end
+     FROM users u LEFT JOIN user_subscriptions g ON g.user_id=u.id
+     LEFT JOIN billing_subscriptions b ON b.user_id=u.id
      ORDER BY u.created_at DESC LIMIT 1000`,
   ).all();
   return json({ users: result.results || [] });
@@ -1029,9 +1248,12 @@ async function getAdminUser(request, env, id) {
     `SELECT u.id, u.display_name AS name, u.email, u.email_verified, u.created_at, u.verified_at, u.last_login_at,
             u.birth_date, u.avatar_data_url, u.updated_at, u.banned_at, u.banned_reason,
             CASE WHEN u.password_hash IS NOT NULL AND u.password_hash != '' THEN 1 ELSE 0 END AS has_password,
-            s.plan_code AS subscription_plan, s.status AS subscription_status,
-            s.starts_at AS subscription_starts_at, s.expires_at AS subscription_expires_at
-     FROM users u LEFT JOIN user_subscriptions s ON s.user_id = u.id
+            g.plan_code AS subscription_plan, g.status AS subscription_status,
+            g.starts_at AS subscription_starts_at, g.expires_at AS subscription_expires_at,
+            b.status AS billing_status, b.current_period_start AS billing_period_start,
+            b.current_period_end AS billing_period_end, b.cancel_at_period_end AS billing_cancel_at_period_end
+     FROM users u LEFT JOIN user_subscriptions g ON g.user_id=u.id
+     LEFT JOIN billing_subscriptions b ON b.user_id=u.id
      WHERE u.id = ? LIMIT 1`,
   ).bind(id).first();
   if (!user) return json({ error: "User not found." }, 404);
