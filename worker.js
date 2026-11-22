@@ -294,7 +294,10 @@ async function createBillingCheckout(request, env, url) {
       ["active", "trialing", "past_due", "unpaid", "incomplete"].includes(existing.status)) {
     return json({ error: "A subscription already exists for this account. Open Manage billing to update payment details or cancel it.", code: "EXISTING_BILLING_SUBSCRIPTION" }, 409);
   }
+  const body = await readBody(request);
+  const language = body.language === "ar" ? "ar" : "en";
   const origin = url.origin;
+  const pagePath = language === "ar" ? "/ar/" : "/";
   const params = {
     mode: "subscription",
     "line_items[0][price]": env.STRIPE_PRICE_ID,
@@ -307,12 +310,10 @@ async function createBillingCheckout(request, env, url) {
     "subscription_data[description]": "JALSA monthly auto-renewing access",
     "allow_promotion_codes": "true",
     "billing_address_collection": "auto",
-    success_url: origin + "/?subscription=success",
-    cancel_url: origin + "/?subscription=cancelled"
+    success_url: origin + pagePath + "?subscription=success",
+    cancel_url: origin + pagePath + "?subscription=cancelled",
+    locale: language
   };
-  if (url.pathname.includes("/ar/")) {
-    params["locale"] = "ar";
-  }
   const session = await stripeApiRequest(env, "/checkout/sessions", params);
   if (!session.url) return json({ error: "Stripe did not return a Checkout URL." }, 502);
   return json({ ok: true, url: session.url });
@@ -323,9 +324,11 @@ async function createBillingPortal(request, env, url) {
   await ensureSubscriptionSchema(env);
   const billing = await env.DB.prepare("SELECT stripe_customer_id FROM billing_subscriptions WHERE user_id=? LIMIT 1").bind(user.id).first();
   if (!billing?.stripe_customer_id) return json({ error: "No paid subscription is linked to this account yet.", code: "NO_BILLING_CUSTOMER" }, 404);
+  const body = await readBody(request);
+  const pagePath = body.language === "ar" ? "/ar/" : "/";
   const params = {
     customer: billing.stripe_customer_id,
-    return_url: url.origin + (url.pathname.startsWith("/ar/") ? "/ar/" : "/") + "?billing=returned"
+    return_url: url.origin + pagePath + "?billing=returned"
   };
   if (env.STRIPE_PORTAL_CONFIGURATION_ID) params.configuration = env.STRIPE_PORTAL_CONFIGURATION_ID;
   const session = await stripeApiRequest(env, "/billing_portal/sessions", params);
