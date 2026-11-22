@@ -1160,7 +1160,7 @@ Object.assign(v17I18n.en,{
  subscriptionStats:"Active grants",subscriptionAccess:"Subscription access",grantDuration:"Grant access for",oneMonth:"1 month",threeMonths:"3 months",sixMonths:"6 months",twelveMonths:"12 months",unlimited:"Unlimited",
  grantSubscription:"Grant access",revokeSubscription:"Revoke access",noActiveSubscription:"No active grant",subscriptionColumn:"Subscription",plan:"Plan",until:"Until",monthsOne:"1 month",monthsThree:"3 months",monthsSix:"6 months",monthsTwelve:"12 months",
  confirmEnableSubscriptions:"Enable subscriptions? Users without an active grant will no longer be able to play.",confirmDisableSubscriptions:"Make all JALSA games free for everyone?",subscriptionRequiredToast:"JALSA games currently require an active subscription. Contact the JALSA team for access.",
- grantConfirm:"Grant this user the selected subscription access?",revokeConfirm:"Revoke this user's subscription access?",subscriptionGranted:"Subscription access granted.",subscriptionRevoked:"Subscription access revoked.",
+ grantConfirm:"Grant this user the selected subscription access?",revokeConfirm:"Revoke this user's subscription access?",subscriptionGranted:"Subscription access granted.",subscriptionRevoked:"Subscription access revoked.",adminSubscriptionAccess:"Your administrator account always has access.",
  mySubscription:"My subscription",freeSubscriptionMode:"JALSA is free for everyone right now.",subscribeMonthly:"Subscribe monthly",manageBilling:"Manage billing",cancelAtRenewal:"Cancel at renewal",
  recurringDisclosure:"The paid plan renews automatically every month until you cancel. You can cancel before the next renewal; access continues until the current paid period ends.",
  subscriptionNeedsSetup:"Paid subscriptions are not configured in this test environment yet.",subscriptionAlreadyActive:"Your account already has active access.",
@@ -1182,7 +1182,7 @@ Object.assign(v17I18n.ar,{
  grantSubscription:"منح الصلاحية",revokeSubscription:"إلغاء الصلاحية",noActiveSubscription:"لا يوجد اشتراك فعال",subscriptionColumn:"الاشتراك",plan:"الخطة",until:"حتى",monthsOne:"شهر واحد",monthsThree:"3 أشهر",monthsSix:"6 أشهر",monthsTwelve:"12 شهراً",
  confirmEnableSubscriptions:"هل تريد تفعيل الاشتراكات؟ لن يتمكن من اللعب من لا يملك اشتراكاً فعالاً.",confirmDisableSubscriptions:"هل تريد جعل جميع ألعاب جلسة مجانية للجميع؟",
  subscriptionRequiredToast:"تتطلب ألعاب جلسة حالياً اشتراكاً فعالاً. تواصل مع فريق جلسة للحصول على الصلاحية.",
- grantConfirm:"هل تريد منح هذا المستخدم صلاحية الاشتراك المحددة؟",revokeConfirm:"هل تريد إلغاء اشتراك هذا المستخدم؟",subscriptionGranted:"تم منح صلاحية الاشتراك.",subscriptionRevoked:"تم إلغاء صلاحية الاشتراك.",
+ grantConfirm:"هل تريد منح هذا المستخدم صلاحية الاشتراك المحددة؟",revokeConfirm:"هل تريد إلغاء اشتراك هذا المستخدم؟",subscriptionGranted:"تم منح صلاحية الاشتراك.",subscriptionRevoked:"تم إلغاء صلاحية الاشتراك.",adminSubscriptionAccess:"يملك حساب المسؤول صلاحية الوصول دائماً.",
  mySubscription:"اشتراكي",freeSubscriptionMode:"جلسة مجانية للجميع حالياً.",subscribeMonthly:"اشترك شهرياً",manageBilling:"إدارة الفواتير",cancelAtRenewal:"إلغاء التجديد",
  recurringDisclosure:"يتم تجديد الاشتراك المدفوع تلقائياً كل شهر حتى تقوم بإلغائه. يمكنك الإلغاء قبل موعد التجديد، ويستمر وصولك حتى نهاية الفترة المدفوعة الحالية.",
  subscriptionNeedsSetup:"لم يتم إعداد الاشتراكات المدفوعة في بيئة الاختبار هذه بعد.",subscriptionAlreadyActive:"لديك صلاحية وصول فعالة بالفعل.",
@@ -1216,6 +1216,10 @@ async function v17LoadMySubscription(){
   const status=await v17Request("/subscription-status","GET");
   if(!status.enabled){
    document.getElementById("drawerSubscriptionStatus").textContent=v17T("freeSubscriptionMode");
+   return;
+  }
+  if(status.isAdmin){
+   document.getElementById("drawerSubscriptionStatus").textContent=v17T("adminSubscriptionAccess");
    return;
   }
   if(status.source==="admin-grant"){
