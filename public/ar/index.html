@@ -3,6 +3,15 @@
 <head>
 <meta charset="utf-8">
 <base href="/"><meta name="viewport" content="width=device-width,initial-scale=1">
+<script>
+/* Prevent the homepage from flashing while an active Zanko game is restored. */
+try {
+ const saved=JSON.parse(localStorage.getItem("jalsa_zanko_active_v1")||"null");
+ if(saved&&saved.version===1&&saved.state&&["team","category","board","question","gameover"].includes(saved.state.screen)){
+  document.documentElement.classList.add("zanko-restore-pending");
+ }
+} catch {}
+</script>
 <meta name="theme-color" content="#55151c">
 <title>جلسة JALSA | ألعاب جماعية أونلاين للأصدقاء والعائلة</title>
 <meta name="description" content="اكتشف جلسة JALSA، منصة ألعاب جماعية أونلاين بالعربية والإنجليزية. العبوا زانكو، تخمين السعر، المحتال، مافيا وINSIGHT مع الأصدقاء والعائلة.">
@@ -27,6 +36,17 @@
 <link rel="icon" type="image/svg+xml" href="/jalsa-favicon.svg?v=1.5">
 <link rel="shortcut icon" href="/jalsa-favicon.svg?v=1.5">
 <style>
+/* Keep the first paint on a quiet branded restore screen, never the homepage. */
+html.zanko-restore-pending body::before{
+ content:"";position:fixed;inset:0;z-index:9998;
+ background:linear-gradient(135deg,#4b121a,#7d2028 58%,#a54c32);
+}
+html.zanko-restore-pending body::after{
+ content:"Restoring your Zanko game…";position:fixed;inset:0;z-index:9999;
+ display:grid;place-items:center;padding:24px;text-align:center;
+ color:#fff2da;font:700 clamp(20px,3vw,30px) Georgia,serif;
+}
+html[lang="ar"].zanko-restore-pending body::after{content:"جارٍ استعادة لعبة زانكو…"}
 :root{--wine:#55151c;--wine2:#7c2028;--red:#a83232;--red2:#c34b35;--orange:#ed8245;--gold:#e4b96b;--cream:#fff3df;--cream2:#f7e4c8;--ink:#38231f;--muted:#7c6558;--line:#e8cda9;--shadow:0 18px 42px #21090c25;--blue:#233d68;--green:#2c6b4b;--jalsa-games-bg:url('/insight-home-en.webp')}
 *{box-sizing:border-box}[hidden]{display:none!important}html{scroll-behavior:smooth}body{margin:0;background:var(--cream);color:var(--ink);font-family:Arial,Helvetica,sans-serif}button,input{font:inherit}button{cursor:pointer}button:disabled{cursor:not-allowed}
 .site-header{height:88px;padding:10px clamp(18px,5vw,72px);display:flex;align-items:center;justify-content:space-between;direction:ltr;position:relative;z-index:10;background:#fff5e5;border-bottom:1px solid #e8d5ba}.brand{display:flex;align-items:center;gap:13px;text-decoration:none;color:var(--wine)}.brand img{width:220px;height:74px;object-fit:contain;display:block}.version-pill{font-size:12px;font-weight:800;color:var(--wine);border:1px solid var(--wine);padding:5px 9px;border-radius:20px}.lang-button{position:absolute;right:clamp(18px,5vw,72px);top:50%;transform:translateY(-50%);background:#fff;border:1px solid var(--line);border-radius:26px;padding:12px 19px;color:var(--wine);font-weight:800;box-shadow:0 5px 16px #3e180e12;white-space:nowrap}.site-header .brand{margin-right:180px}
@@ -878,9 +898,13 @@ function saveZankoSession(){
  }catch(error){console.warn('Could not save Zanko progress locally:',error)}
 }
 async function restoreZankoSession(){
- let saved;try{saved=JSON.parse(localStorage.getItem('jalsa_zanko_active_v1')||'null')}catch{return}
- if(!saved||saved.version!==1||!saved.state||!currentUser)return;
- const s=saved.state;if(!['team','category','board','question','gameover'].includes(s.screen))return;
+ const finishRestore=()=>document.documentElement.classList.remove('zanko-restore-pending');
+ let saved;
+ try{saved=JSON.parse(localStorage.getItem('jalsa_zanko_active_v1')||'null')}
+ catch(error){console.warn('Could not read saved Zanko progress:',error);finishRestore();return}
+ if(!saved||saved.version!==1||!saved.state||!currentUser){finishRestore();return}
+ const s=saved.state;
+ if(!['team','category','board','question','gameover'].includes(s.screen)){finishRestore();return}
  try{
   await v17LoadGameContent();
   gameState.screen=s.screen;gameState.teamNames=Array.isArray(s.teamNames)?s.teamNames:['Team 1','Team 2'];gameState.scores=Array.isArray(s.scores)?s.scores:[0,0];gameState.selected=Array.isArray(s.selected)?s.selected:[];gameState.tiles=s.tiles&&typeof s.tiles==='object'?s.tiles:{};gameState.turn=Number(s.turn)===1?1:0;gameState.power=s.power||{0:{call:false,double:false,steal:false},1:{call:false,double:false,steal:false}};gameState.doubleNext=!!s.doubleNext;gameState.stealActive=!!s.stealActive;gameState.remotePaused=!!s.remotePaused;gameState.answerRevealed=!!s.answerRevealed;gameState.callTimer=null;
@@ -893,7 +917,11 @@ async function restoreZankoSession(){
   else if(s.screen==='board'||s.screen==='question'){renderGameHudAndBoard();if(s.screen==='question')renderQuestionScreen();showStageScreen(s.screen==='question'?'questionScreen':'boardScreen')}
   else if(s.screen==='gameover'){showGameOver()}
   showToast(isArabic?'تمت استعادة تقدم لعبة زانكو.':'Your Zanko game has been restored.');
- }catch(error){console.warn('Could not restore Zanko progress:',error)}
+ }catch(error){
+  console.warn('Could not restore Zanko progress:',error);
+ }finally{
+  finishRestore();
+ }
 }
 function usePower(team,key){if(gameState.screen!=='board'){showToast(isArabic?'يمكن استخدام القوى قبل اختيار السؤال فقط.':'Powers can only be used from the board, before opening a question.');return}if(team!==gameState.turn){showToast(isArabic?'هذه قوة الفريق الذي عليه الدور فقط.':'Only the team whose turn it is can use a power.');return}if(gameState.power[team][key])return;gameState.power[team][key]=true;if(key==='call'){let seconds=20;showToast(t('callTimer').replace('{n}',seconds));if(gameState.callTimer)clearInterval(gameState.callTimer);gameState.callTimer=setInterval(()=>{seconds--;if(seconds<=0){clearInterval(gameState.callTimer);gameState.callTimer=null;showToast(isArabic?'انتهى وقت الاتصال. اختاروا سؤالكم.':'Friend call time is over. Choose your question.')}else showToast(t('callTimer').replace('{n}',seconds))},1000)}else if(key==='double'){gameState.doubleNext=true;showToast(t('doubleDone'))}else if(key==='steal'){gameState.stealActive=true;showToast(t('stealDone'))}renderGameHudAndBoard();saveZankoSession()}
 function showToast(message){const el=document.getElementById('toast');if(!el)return;el.textContent=message;el.hidden=false;clearTimeout(window.__jalsaToastTimer);window.__jalsaToastTimer=setTimeout(hideToast,3000)}function hideToast(){const el=document.getElementById('toast');if(el)el.hidden=true;clearTimeout(window.__jalsaToastTimer);window.__jalsaToastTimer=null}
