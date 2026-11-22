@@ -628,7 +628,14 @@ async function getSessionUser(request, env) {
   const token = cookieValue(request, COOKIE_NAME);
   if (!token) return null;
   const tokenHash = await sha256Hex(token);
-  return await env.DB.prepare(
+
+  // Always validate a freshly-created login session against the latest D1 state.
+  // "first-primary" is also safe when read replication is disabled.
+  const sessionDb = typeof env.DB.withSession === "function"
+    ? env.DB.withSession("first-primary")
+    : env.DB;
+
+  return await sessionDb.prepare(
     `SELECT u.id, u.display_name, u.email, u.email_verified, u.created_at, u.verified_at,
             u.birth_date, u.avatar_data_url, u.last_login_at
      FROM sessions s JOIN users u ON u.id = s.user_id
