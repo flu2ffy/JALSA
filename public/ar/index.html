@@ -883,11 +883,11 @@ function finishPriceGame(){const ranking=pricePlayers.map((name,i)=>({name,score
 let currentUser=null, authReady=false, pendingVerificationEmail='', pendingRegistrationName='', pendingRegistrationPassword='', pendingResetEmail='';
 const AUTH_API='/api';
 async function apiRequest(path, body){
-  const options={method:body?'POST':'GET',credentials:'same-origin',headers:{'Accept':'application/json'}};
+  const options={method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',headers:{'Accept':'application/json','Cache-Control':'no-cache','Pragma':'no-cache'}};
   if(body){options.headers['Content-Type']='application/json';options.body=JSON.stringify(body)}
   const response=await fetch(AUTH_API+path,options);
   let data={};try{data=await response.json()}catch{}
-  if(!response.ok)throw new Error(data.error||'Request failed. Please try again.');
+  if(!response.ok){const error=new Error(data.error||'Request failed. Please try again.');error.status=response.status;throw error;}
   return data;
 }
 function authMessage(message,good=false){const el=document.getElementById('authMessage');el.textContent=message;el.hidden=false;el.classList.toggle('success',good)}
@@ -928,7 +928,24 @@ function showAuth(view='login'){
 }
 function closeAuth(){document.getElementById('authOverlay').classList.remove('open')}
 function showAdminButton(){const logged=!!currentUser;document.getElementById('loginButton').hidden=logged;document.getElementById('registerButton').hidden=logged;document.getElementById('accountLabel').hidden=!logged;document.getElementById('accountLabel').textContent=logged?currentUser.name:'';const dashboard=document.getElementById('drawerDashboardButton');if(dashboard)dashboard.hidden=!(logged&&currentUser.isAdmin);if(logged&&typeof v17RenderAvatar==='function'){v17RenderAvatar(currentUser.avatarDataUrl);document.getElementById('drawerName').textContent=currentUser.name||'';document.getElementById('drawerEmail').textContent=currentUser.email||''}}
-async function refreshSession(){try{const data=await apiRequest('/me');currentUser=data.user||null}catch{currentUser=null}authReady=true;showAdminButton()}
+async function refreshSession(){
+  let lastError=null;
+  for(let attempt=0;attempt<2;attempt++){
+   try{
+    const data=await apiRequest('/me');
+    currentUser=data.user||null;
+    lastError=null;
+    break;
+   }catch(error){
+    lastError=error;
+    if(error.status===401||error.status===403){currentUser=null;break;}
+    if(attempt===0)await new Promise(resolve=>setTimeout(resolve,350));
+   }
+  }
+  if(lastError)console.warn('JALSA session check failed; retry sign-in only if this continues:',lastError);
+  authReady=true;
+  showAdminButton();
+ }
 function requireLogin(){if(currentUser)return true;showAuth('login');authMessage(t('playLoginRequired'));return false}
 async function handleLogin(event){
   event.preventDefault();clearAuthMessage();
@@ -1370,7 +1387,19 @@ window.renderQuestionScreen=renderQuestionScreen;
 window.openAdmin=openAdmin;
 window.closeAdmin=closeAdmin;
 window.logout=async function(){closeAccountDrawer();try{await apiRequest("/logout",{})}catch{}currentUser=null;showAdminButton();document.getElementById("adminPage").hidden=true;document.getElementById("feedbackOverlay").classList.remove("open");closeV17Page();if(gameState.screen!=="home")showHome()};
-window.refreshSession=async function(){try{const data=await apiRequest("/me");currentUser=data.user||null}catch{currentUser=null}authReady=true;showAdminButton();if(currentUser){if(currentUser.isAdmin){try{await v17EnsureSeeded()}catch(error){console.warn("JALSA content seed:",error.message)}}try{await v17LoadGameContent()}catch(error){console.warn("JALSA game content:",error.message)}}};
+window.refreshSession=async function(){
+  let lastError=null;
+  for(let attempt=0;attempt<2;attempt++){
+   try{const data=await apiRequest("/me");currentUser=data.user||null;lastError=null;break}
+   catch(error){lastError=error;if(error.status===401||error.status===403){currentUser=null;break}if(attempt===0)await new Promise(resolve=>setTimeout(resolve,350))}
+  }
+  if(lastError)console.warn("JALSA session check failed; retry sign-in only if this continues:",lastError);
+  authReady=true;showAdminButton();
+  if(currentUser){
+   if(currentUser.isAdmin){try{await v17EnsureSeeded()}catch(error){console.warn("JALSA content seed:",error.message)}}
+   try{await v17LoadGameContent()}catch(error){console.warn("JALSA game content:",error.message)}
+  }
+ };
 window.startPriceGame=async function(){
  if(!requireLogin())return;
  const players=document.getElementById("priceNames").value.split(",").map(x=>x.trim()).filter(Boolean);
