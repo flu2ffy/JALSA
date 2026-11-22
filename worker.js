@@ -631,6 +631,7 @@ async function createSession(userId, env) {
   return token;
 }
 
+// JALSA session lookup uses the D1 primary for immediate post-login consistency.
 async function getSessionUser(request, env) {
   const token = cookieValue(request, COOKIE_NAME);
   if (!token) return null;
