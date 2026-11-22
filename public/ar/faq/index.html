@@ -126,6 +126,11 @@ body{margin:0;background:var(--cream);color:var(--ink);font-family:Arial,Helveti
 <footer class="site-footer"><span class="powered">JALSA</span><a class="support" href="mailto:support@jalsa.me">support@jalsa.me</a><span class="version">v1.9</span></footer>
 <script>
 (function(){
+ const faqItems=Array.from(document.querySelectorAll(".faq-card"));
+ faqItems.forEach(item=>item.addEventListener("toggle",function(){
+  if(!item.open)return;
+  faqItems.forEach(other=>{if(other!==item&&other.open)other.open=false});
+ }));
  const form=document.getElementById("faqQuestionForm");
  const button=document.getElementById("faqSubmitButton");
  const status=document.getElementById("faqQuestionStatus");
