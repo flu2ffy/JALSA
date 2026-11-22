@@ -551,12 +551,12 @@ html[dir="rtl"] .game-card:nth-child(5)::before{background-image:url('/mafia-bg.
       <button data-admin-tab="faqQuestions" onclick="switchAdminTab('faqQuestions')" data-v17="faqQuestions">FAQ Questions</button>
       <button type="button" id="gameEditorToggle" class="v17-game-editor-toggle" aria-expanded="false" aria-controls="gameEditorTabs" onclick="toggleGameEditorGroup()" data-v17="gameEditors">Game editor</button>
     </nav>
-    <div class="v17-admin-game-tabs" id="gameEditorTabs" hidden aria-label="Game editor sections">
+    <nav class="v17-admin-game-tabs" id="gameEditorTabs" hidden aria-label="Game editor sections">
       <button type="button" data-admin-tab="zanko" onclick="switchAdminTab('zanko')" data-v17="zankoEditor">Zanko editor</button>
       <button type="button" data-admin-tab="price" onclick="switchAdminTab('price')" data-v17="priceEditor">Price Guessing editor</button>
       <button type="button" data-admin-tab="imposter" onclick="switchAdminTab('imposter')" data-v17="imposterEditor">Imposter editor</button>
       <button type="button" data-admin-tab="games" onclick="switchAdminTab('games')" data-v17="gamesAvailability">Game availability</button>
-    </div>
+    </nav>
     <p class="v17-form-message" id="adminPageStatus" hidden></p>
     <section class="v17-admin-tab" id="adminTabUsers">
       <div class="v17-section-heading"><div><p class="v17-eyebrow">ACCOUNTS</p><h1 data-v17="registeredUsers">Registered users</h1><p data-v17="usersIntro">Manage JALSA members, verification, and account access.</p></div><span class="v17-count" id="usersCount">0</span></div>
@@ -570,7 +570,8 @@ html[dir="rtl"] .game-card:nth-child(5)::before{background-image:url('/mafia-bg.
       <div class="v17-section-heading"><div><p class="v17-eyebrow">COMMUNITY</p><h1 data-v17="faqQuestions">FAQ Questions</h1><p data-v17="faqQuestionsIntro">Questions sent by visitors from the FAQ page.</p></div><span class="v17-count" id="faqQuestionsCount">0</span></div>
       <div class="v17-card-list" id="adminFaqQuestionsList"><p class="v17-muted" data-v17="loading">Loading…</p></div>
     </section>
-    <section class="v17-admin-tab" id="adminTabZanko" hidden>
+    <div id="gameEditorContent" hidden>
+<section class="v17-admin-tab" id="adminTabZanko" hidden>
       <div class="v17-section-heading"><div><p class="v17-eyebrow">GAME CONTENT</p><h1 data-v17="zankoEditor">Zanko editor</h1><p data-v17="zankoAdminIntro">Create categories and manage every Zanko question.</p></div></div>
       <div class="v17-admin-grid">
         <section class="v17-card"><h2 data-v17="addCategory">Add category</h2>
@@ -636,7 +637,8 @@ html[dir="rtl"] .game-card:nth-child(5)::before{background-image:url('/mafia-bg.
         </section>
         <section class="v17-card"><h2 data-v17="allImposterWords">All game words</h2><input id="imposterWordSearch" class="v17-search" data-v17-placeholder="searchWordsCategories" placeholder="Search words or categories..." oninput="renderImposterWords()"><div id="imposterWordList" class="v17-mini-list"></div></section>
       </div>
-    </section>
+    </div>
+  </section>
   </div>
 </main>
 <div class="v17-modal-backdrop v17-user-edit-layer" id="adminUserModal" onclick="if(event.target===this)closeAdminUserModal()">
@@ -1123,7 +1125,7 @@ function v17FormatDate(value){if(!value)return v17T("never");const d=new Date(va
 function v17SetAdminStatus(message,error){v17ShowStatus("adminPageStatus",message,error)}
 async function openAdmin(){if(!currentUser||!currentUser.isAdmin)return;document.getElementById("adminPage").hidden=false;document.getElementById("adminSignedInAs").textContent=currentUser.email||"";v17SyncLanguage();switchAdminTab("users");try{const data=await v17EnsureSeeded();v17Content.categories=data.categories||[];v17Content.questions=data.questions||[];v17Content.priceItems=v17Content.questions.filter(q=>q.game_type==="price"&&q.media_url&&q.media_type!=="none").map(q=>[q.product_name_en,"",Number(q.price_value||0),q.media_type,q.media_url,q.product_name_ar]);if(v17Content.categories.length)CATEGORIES=v17Content.categories.map(c=>({id:c.id,name:c.name_en,ar:c.name_ar,image:c.image_url||"category-music.svg",icon:c.icon||"🎯"}));v17ContentLoaded=true;await renderAdminUsers()}catch(error){v17SetAdminStatus(error.message,true)}}
 function closeAdmin(){document.getElementById("adminPage").hidden=true;const old=document.getElementById("adminOverlay");if(old)old.classList.remove("open")}
-function toggleGameEditorGroup(forceOpen){const panel=document.getElementById("gameEditorTabs"),button=document.getElementById("gameEditorToggle");if(!panel||!button)return;const open=typeof forceOpen==="boolean"?forceOpen:panel.hidden;panel.hidden=!open;button.setAttribute("aria-expanded",String(open));button.classList.toggle("expanded",open)}
+function toggleGameEditorGroup(forceOpen){const panel=document.getElementById("gameEditorTabs"),content=document.getElementById("gameEditorContent"),button=document.getElementById("gameEditorToggle");if(!panel||!content||!button)return;const open=typeof forceOpen==="boolean"?forceOpen:panel.hidden;panel.hidden=!open;content.hidden=!open;button.setAttribute("aria-expanded",String(open));button.classList.toggle("expanded",open)}
 function switchAdminTab(name){document.querySelectorAll(".v17-admin-tab").forEach(el=>el.hidden=el.id!=="adminTab"+name.charAt(0).toUpperCase()+name.slice(1));const gameEditorTab=["zanko","price","imposter","games"].includes(name);toggleGameEditorGroup(gameEditorTab);document.querySelectorAll(".v17-admin-tabs button[data-admin-tab],.v17-admin-game-tabs button[data-admin-tab]").forEach(el=>el.classList.toggle("active",el.getAttribute("data-admin-tab")===name));document.getElementById("gameEditorToggle")?.classList.toggle("active",gameEditorTab);if(name==="users")renderAdminUsers();if(name==="feedback")renderAdminFeedback();if(name==="faqQuestions")renderAdminFaqQuestions();if(name==="zanko"){v17LoadAdminContent().then(renderZankoAdmin).catch(e=>v17SetAdminStatus(e.message,true))}if(name==="price"){v17LoadAdminContent().then(renderPriceAdmin).catch(e=>v17SetAdminStatus(e.message,true))}if(name==="imposter")loadImposterWords().catch(e=>v17SetAdminStatus(e.message,true));if(name==="games")loadAdminGameAvailability().catch(e=>v17SetAdminStatus(e.message,true))}
 async function v17LoadAdminContent(){const data=await v17Request("/admin/content","GET");v17Content.categories=data.categories||[];v17Content.questions=data.questions||[];v17Content.priceItems=v17Content.questions.filter(q=>q.game_type==="price"&&q.media_url&&q.media_type!=="none").map(q=>[q.product_name_en,"",Number(q.price_value||0),q.media_type,q.media_url,q.product_name_ar]);v17ContentLoaded=true;if(v17Content.categories.length)CATEGORIES=v17Content.categories.map(c=>({id:c.id,name:c.name_en,ar:c.name_ar,image:c.image_url||"category-music.svg",icon:c.icon||"🎯"}));return data}
 let v17UsersCache=[],v17EditingUser=null;
@@ -1440,7 +1442,7 @@ window.renderPriceRound=function(){
  document.getElementById("priceSubmit").hidden=false;document.getElementById("priceNext").hidden=true;
 };
 
-window.toggleLanguage=(function(old){return function(){old();v17SyncLanguage();if(!document.getElementById("adminPage").hidden){const active=document.querySelector(".v17-admin-tabs button.active");if(active)switchAdminTab(active.getAttribute("data-admin-tab"))}}})(toggleLanguage);
+window.toggleLanguage=(function(old){return function(){old();v17SyncLanguage();if(!document.getElementById("adminPage").hidden){const active=document.querySelector(".v17-admin-tabs button[data-admin-tab].active,.v17-admin-game-tabs button[data-admin-tab].active");if(active)switchAdminTab(active.getAttribute("data-admin-tab"))}}})(toggleLanguage);
 window.addEventListener("keydown",function(e){if(e.key==="Escape"){closeAccountDrawer();closeFeedback();if(!document.getElementById("adminPage").hidden)closeAdmin();if(!document.getElementById("profilePage").hidden)closeV17Page()}});
 v17SyncLanguage();
 v17BindFilePreviews();
