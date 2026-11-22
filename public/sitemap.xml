@@ -1,34 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
-  <url>
-    <loc>https://jalsa.me/</loc>
-    <xhtml:link rel="alternate" hreflang="en" href="https://jalsa.me/"/>
-    <xhtml:link rel="alternate" hreflang="ar" href="https://jalsa.me/ar/"/>
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://jalsa.me/"/>
-    <changefreq>weekly</changefreq>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>https://jalsa.me/ar/</loc>
-    <xhtml:link rel="alternate" hreflang="en" href="https://jalsa.me/"/>
-    <xhtml:link rel="alternate" hreflang="ar" href="https://jalsa.me/ar/"/>
-    <xhtml:link rel="alternate" hreflang="x-default" href="https://jalsa.me/"/>
-    <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
-  </url>
-  <url>
-    <loc>https://jalsa.me/mafia.html</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://jalsa.me/imposter.html</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://jalsa.me/insight.html</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>
+ <url><loc>https://jalsa.me/</loc><xhtml:link rel="alternate" hreflang="en" href="https://jalsa.me/"/><xhtml:link rel="alternate" hreflang="ar" href="https://jalsa.me/ar/"/><xhtml:link rel="alternate" hreflang="x-default" href="https://jalsa.me/"/><changefreq>weekly</changefreq><priority>1.0</priority></url>
+ <url><loc>https://jalsa.me/ar/</loc><xhtml:link rel="alternate" hreflang="en" href="https://jalsa.me/"/><xhtml:link rel="alternate" hreflang="ar" href="https://jalsa.me/ar/"/><xhtml:link rel="alternate" hreflang="x-default" href="https://jalsa.me/"/><changefreq>weekly</changefreq><priority>0.9</priority></url>
+ <url><loc>https://jalsa.me/about/</loc><xhtml:link rel="alternate" hreflang="en" href="https://jalsa.me/about/"/><xhtml:link rel="alternate" hreflang="ar" href="https://jalsa.me/ar/about/"/><xhtml:link rel="alternate" hreflang="x-default" href="https://jalsa.me/about/"/><changefreq>monthly</changefreq><priority>0.7</priority></url>
+ <url><loc>https://jalsa.me/ar/about/</loc><xhtml:link rel="alternate" hreflang="en" href="https://jalsa.me/about/"/><xhtml:link rel="alternate" hreflang="ar" href="https://jalsa.me/ar/about/"/><xhtml:link rel="alternate" hreflang="x-default" href="https://jalsa.me/about/"/><changefreq>monthly</changefreq><priority>0.7</priority></url>
+ <url><loc>https://jalsa.me/faq/</loc><xhtml:link rel="alternate" hreflang="en" href="https://jalsa.me/faq/"/><xhtml:link rel="alternate" hreflang="ar" href="https://jalsa.me/ar/faq/"/><xhtml:link rel="alternate" hreflang="x-default" href="https://jalsa.me/faq/"/><changefreq>monthly</changefreq><priority>0.6</priority></url>
+ <url><loc>https://jalsa.me/ar/faq/</loc><xhtml:link rel="alternate" hreflang="en" href="https://jalsa.me/faq/"/><xhtml:link rel="alternate" hreflang="ar" href="https://jalsa.me/ar/faq/"/><xhtml:link rel="alternate" hreflang="x-default" href="https://jalsa.me/faq/"/><changefreq>monthly</changefreq><priority>0.6</priority></url>
+ <url><loc>https://jalsa.me/mafia.html</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+ <url><loc>https://jalsa.me/imposter.html</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+ <url><loc>https://jalsa.me/insight.html</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
 </urlset>
