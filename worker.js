@@ -39,9 +39,9 @@ export default {
       if (url.pathname === "/api/admin/subscription-settings" && request.method === "PATCH") return await updateAdminSubscriptionSettings(request, env);
       const requiresSubscription = url.pathname === "/api/game-content" ||
         url.pathname === "/api/remote/create" ||
-        url.pathname.startsWith("/api/insight/") ||
-        url.pathname.startsWith("/api/imposter/") ||
-        url.pathname.startsWith("/api/mafia/");
+        url.pathname === "/api/insight/create" ||
+        url.pathname === "/api/imposter/create" ||
+        url.pathname === "/api/mafia/create";
       if (requiresSubscription) {
         const denied = await requireSubscriptionAccess(request, env);
         if (denied) return denied;
