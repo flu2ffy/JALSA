@@ -64,6 +64,8 @@ export default {
       if (url.pathname.startsWith("/api/media/") && (request.method === "GET" || request.method === "HEAD")) return await servePublicMedia(request, env, url);
       if (url.pathname === "/api/profile" && request.method === "POST") return await updateProfile(request, env);
       if (url.pathname === "/api/feedback" && request.method === "POST") return await submitFeedback(request, env);
+      if (url.pathname === "/api/faq-questions" && request.method === "POST") return await submitFaqQuestion(request, env);
+      if (url.pathname === "/api/admin/faq-questions" && request.method === "GET") return await listFaqQuestions(request, env);
       if (url.pathname === "/api/game-content" && request.method === "GET") return await getGameContent(request, env);
       if (url.pathname === "/api/admin/content" && request.method === "GET") return await getAdminContent(request, env);
       if (url.pathname === "/api/admin/content/seed" && request.method === "POST") return await seedGameContent(request, env);
@@ -96,6 +98,8 @@ export default {
         if (adminParts[3] === "questions" && request.method === "DELETE") return await deleteQuestion(request, env, itemId);
         if (adminParts[3] === "feedback" && request.method === "PATCH") return await updateFeedbackStatus(request, env, itemId);
         if (adminParts[3] === "feedback" && request.method === "DELETE") return await deleteFeedback(request, env, itemId);
+        if (adminParts[3] === "faq-questions" && request.method === "PATCH") return await updateFaqQuestionStatus(request, env, itemId);
+        if (adminParts[3] === "faq-questions" && request.method === "DELETE") return await deleteFaqQuestion(request, env, itemId);
         if (adminParts[3] === "imposter-words" && request.method === "PATCH") return await updateImposterWord(request, env, itemId);
         if (adminParts[3] === "imposter-words" && request.method === "DELETE") return await deleteImposterWord(request, env, itemId);
       }
@@ -1019,6 +1023,60 @@ async function updateProfile(request, env) {
   await env.DB.prepare("UPDATE users SET display_name = ?, birth_date = ?, avatar_data_url = ?, updated_at = ? WHERE id = ?")
     .bind(name, birthDate || null, avatar || null, new Date().toISOString(), user.id).run();
   return json({ ok: true, user: publicUser({ ...user, display_name: name, birth_date: birthDate, avatar_data_url: avatar }, env) });
+}
+async function ensureFaqQuestionsSchema(env) {
+  await env.DB.prepare("CREATE TABLE IF NOT EXISTS faq_questions (id TEXT PRIMARY KEY NOT NULL, user_id TEXT REFERENCES users(id) ON DELETE SET NULL, name TEXT NOT NULL DEFAULT '', email TEXT NOT NULL DEFAULT '', question TEXT NOT NULL, language TEXT NOT NULL DEFAULT 'en', status TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new','reviewed','resolved')), ip_hash TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)").run();
+  await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_faq_questions_created ON faq_questions(created_at DESC)").run();
+  await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_faq_questions_status ON faq_questions(status,created_at DESC)").run();
+}
+async function submitFaqQuestion(request, env) {
+  await ensureFaqQuestionsSchema(env);
+  const body = await readBody(request);
+  // Quiet honeypot: bots receive the normal success response, but nothing is stored.
+  if (cleanText(body.website, 160)) return json({ ok: true });
+  const question = cleanText(body.question, 1500);
+  if (question.length < 8) return json({ error: "Please write a little more detail (at least 8 characters)." }, 400);
+  const user = await getSessionUser(request, env);
+  const name = cleanText(body.name, 80) || cleanText(user?.display_name, 80);
+  const email = cleanText(body.email, 160).toLowerCase() || cleanText(user?.email, 160).toLowerCase();
+  if (email && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$/.test(email)) return json({ error: "Please enter a valid email address, or leave it blank." }, 400);
+  const language = body.language === "ar" ? "ar" : "en";
+  const ip = cleanText(request.headers.get("CF-Connecting-IP"), 80);
+  const ipHash = ip ? await sha256Hex(ip) : null;
+  const now = new Date(), createdAt = now.toISOString();
+  if (ipHash) {
+    const windowStart = new Date(now.getTime() - 60 * 60 * 1000).toISOString();
+    const recent = await env.DB.prepare("SELECT COUNT(*) AS count FROM faq_questions WHERE ip_hash = ? AND created_at >= ?").bind(ipHash, windowStart).first();
+    if (Number(recent?.count || 0) >= 3) return json({ error: language === "ar" ? "تم إرسال عدة أسئلة مؤخراً. يرجى المحاولة بعد ساعة." : "You've sent several questions recently. Please try again in an hour." }, 429);
+  }
+  const id = crypto.randomUUID();
+  await env.DB.prepare("INSERT INTO faq_questions (id,user_id,name,email,question,language,status,ip_hash,created_at,updated_at) VALUES (?,?,?,?,?,?,'new',?,?,?)")
+    .bind(id, user?.id || null, name, email, question, language, ipHash, createdAt, createdAt).run();
+  return json({ ok: true, message: language === "ar" ? "وصل سؤالك إلى فريق جلسة. شكراً لك!" : "Your question has been sent to the JALSA team. Thank you!" });
+}
+async function listFaqQuestions(request, env) {
+  if (!await requireAdmin(request, env)) return json({ error: "Administrator access required." }, 403);
+  await ensureFaqQuestionsSchema(env);
+  const result = await env.DB.prepare("SELECT id,user_id,name,email,question,language,status,created_at FROM faq_questions ORDER BY created_at DESC LIMIT 500").all();
+  return json({ questions: result.results || [] });
+}
+async function updateFaqQuestionStatus(request, env, id) {
+  if (!await requireAdmin(request, env)) return json({ error: "Administrator access required." }, 403);
+  await ensureFaqQuestionsSchema(env);
+  const body = await readBody(request), status = cleanText(body.status, 16);
+  if (!["new", "reviewed", "resolved"].includes(status)) return json({ error: "Invalid question status." }, 400);
+  const existing = await env.DB.prepare("SELECT id FROM faq_questions WHERE id = ? LIMIT 1").bind(id).first();
+  if (!existing) return json({ error: "Question not found." }, 404);
+  await env.DB.prepare("UPDATE faq_questions SET status = ?, updated_at = ? WHERE id = ?").bind(status, new Date().toISOString(), id).run();
+  return json({ ok: true });
+}
+async function deleteFaqQuestion(request, env, id) {
+  if (!await requireAdmin(request, env)) return json({ error: "Administrator access required." }, 403);
+  await ensureFaqQuestionsSchema(env);
+  const existing = await env.DB.prepare("SELECT id FROM faq_questions WHERE id = ? LIMIT 1").bind(id).first();
+  if (!existing) return json({ error: "Question not found." }, 404);
+  await env.DB.prepare("DELETE FROM faq_questions WHERE id = ?").bind(id).run();
+  return json({ ok: true });
 }
 async function submitFeedback(request, env) {
   const user = await getSessionUser(request, env);
