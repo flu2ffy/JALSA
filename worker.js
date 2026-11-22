@@ -30,6 +30,17 @@ export default {
 
     try {
 
+      if (url.pathname === "/api/subscription-status" && request.method === "GET") return await getSubscriptionStatus(request, env);
+      if (url.pathname === "/api/admin/subscription-settings" && request.method === "GET") return await getAdminSubscriptionSettings(request, env);
+      if (url.pathname === "/api/admin/subscription-settings" && request.method === "PATCH") return await updateAdminSubscriptionSettings(request, env);
+      const requiresSubscription = url.pathname === "/api/game-content" ||
+        url.pathname.startsWith("/api/insight/") ||
+        url.pathname.startsWith("/api/imposter/") ||
+        url.pathname.startsWith("/api/mafia/");
+      if (requiresSubscription) {
+        const denied = await requireSubscriptionAccess(request, env);
+        if (denied) return denied;
+      }
       if (url.pathname === "/api/game-availability" && request.method === "GET") return await getGameAvailability(env);
       if (url.pathname === "/api/admin/game-availability" && request.method === "GET") return await getAdminGameAvailability(request, env);
       if (url.pathname.startsWith("/api/admin/game-availability/") && request.method === "PATCH") return await updateGameAvailability(request, env, decodeURIComponent(url.pathname.split("/").pop()));
@@ -130,6 +141,85 @@ const GAME_AVAILABILITY = [
   { id: "insight", name: "INSIGHT" },
   { id: "mafia", name: "Mafia" }
 ];
+async function ensureSubscriptionSchema(env) {
+  await env.DB.prepare("CREATE TABLE IF NOT EXISTS jalsa_settings (setting_key TEXT PRIMARY KEY NOT NULL, setting_value TEXT NOT NULL, updated_at TEXT NOT NULL, updated_by TEXT)").run();
+  await env.DB.prepare("INSERT OR IGNORE INTO jalsa_settings (setting_key, setting_value, updated_at) VALUES ('subscriptions_enabled', '0', ?)").bind(new Date().toISOString()).run();
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_subscriptions (
+    user_id TEXT PRIMARY KEY NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    plan_code TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'revoked')),
+    starts_at TEXT NOT NULL,
+    expires_at TEXT,
+    granted_by TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`).run();
+  await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_user_subscriptions_status_expiry ON user_subscriptions(status, expires_at)").run();
+}
+function addSubscriptionMonths(source, months) {
+  const date = new Date(source);
+  const day = date.getUTCDate();
+  date.setUTCDate(1);
+  date.setUTCMonth(date.getUTCMonth() + months);
+  const lastDay = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate();
+  date.setUTCDate(Math.min(day, lastDay));
+  return date;
+}
+async function readSubscriptionSettings(env) {
+  await ensureSubscriptionSchema(env);
+  const row = await env.DB.prepare("SELECT setting_value FROM jalsa_settings WHERE setting_key='subscriptions_enabled' LIMIT 1").first();
+  return { enabled: row?.setting_value === "1" };
+}
+async function subscriptionAccessForUser(user, env) {
+  const settings = await readSubscriptionSettings(env);
+  if (!user) return { enabled: settings.enabled, active: false, allowed: false, plan: null, expiresAt: null, isAdmin: false };
+  const isAdmin = !!env.ADMIN_EMAIL && normalizeEmail(user.email) === normalizeEmail(env.ADMIN_EMAIL);
+  const record = await env.DB.prepare("SELECT plan_code, status, starts_at, expires_at FROM user_subscriptions WHERE user_id=? LIMIT 1").bind(user.id).first();
+  const now = new Date().toISOString();
+  const active = !!record && record.status === "active" && (!record.expires_at || record.expires_at > now);
+  return {
+    enabled: settings.enabled,
+    active,
+    allowed: !settings.enabled || active || isAdmin,
+    plan: active ? record.plan_code : null,
+    startsAt: active ? record.starts_at : null,
+    expiresAt: active ? record.expires_at : null,
+    isAdmin
+  };
+}
+async function getSubscriptionStatus(request, env) {
+  const user = await getSessionUser(request, env);
+  if (!user) return json({ error: "Please sign in to check subscription access.", code: "LOGIN_REQUIRED" }, 401);
+  const access = await subscriptionAccessForUser(user, env);
+  return json(access, 200, { "Cache-Control": "private, no-store, max-age=0", "Vary": "Cookie" });
+}
+async function requireSubscriptionAccess(request, env) {
+  const user = await getSessionUser(request, env);
+  if (!user) return json({ error: "Please sign in to play.", code: "LOGIN_REQUIRED" }, 401);
+  const access = await subscriptionAccessForUser(user, env);
+  if (access.allowed) return null;
+  return json({ error: "JALSA games currently require an active subscription. Contact the JALSA team for access.", code: "SUBSCRIPTION_REQUIRED" }, 402);
+}
+async function getAdminSubscriptionSettings(request, env) {
+  if (!await requireAdmin(request, env)) return json({ error: "Administrator access required." }, 403);
+  const settings = await readSubscriptionSettings(env);
+  const counts = await env.DB.prepare(
+    "SELECT COUNT(*) AS total, SUM(CASE WHEN status='active' AND (expires_at IS NULL OR expires_at > ?) THEN 1 ELSE 0 END) AS active FROM user_subscriptions"
+  ).bind(new Date().toISOString()).first();
+  return json({ enabled: settings.enabled, totalGranted: Number(counts?.total || 0), activeGranted: Number(counts?.active || 0) });
+}
+async function updateAdminSubscriptionSettings(request, env) {
+  const admin = await requireAdmin(request, env);
+  if (!admin) return json({ error: "Administrator access required." }, 403);
+  const body = await readBody(request);
+  if (typeof body.enabled !== "boolean") return json({ error: "Choose whether subscriptions are enabled." }, 400);
+  await ensureSubscriptionSchema(env);
+  const now = new Date().toISOString();
+  await env.DB.prepare("UPDATE jalsa_settings SET setting_value=?, updated_at=?, updated_by=? WHERE setting_key='subscriptions_enabled'")
+    .bind(body.enabled ? "1" : "0", now, admin.id).run();
+  return json({ ok: true, enabled: body.enabled });
+}
+
 async function ensureGameAvailabilitySchema(env) {
   await env.DB.prepare("CREATE TABLE IF NOT EXISTS game_availability (game_id TEXT PRIMARY KEY, enabled INTEGER NOT NULL DEFAULT 1, updated_at TEXT NOT NULL, updated_by TEXT)").run();
   const now = new Date().toISOString();
@@ -918,22 +1008,30 @@ async function logout(request, env) {
 
 async function listUsers(request, env) {
   if (!await requireAdmin(request, env)) return json({ error: "Administrator access required." }, 403);
+  await ensureSubscriptionSchema(env);
   const result = await env.DB.prepare(
-    `SELECT id, display_name AS name, email, email_verified, created_at, verified_at, last_login_at,
-            birth_date, updated_at, banned_at, banned_reason,
-            CASE WHEN password_hash IS NOT NULL AND password_hash != '' THEN 1 ELSE 0 END AS has_password
-     FROM users ORDER BY created_at DESC LIMIT 1000`,
+    `SELECT u.id, u.display_name AS name, u.email, u.email_verified, u.created_at, u.verified_at, u.last_login_at,
+            u.birth_date, u.updated_at, u.banned_at, u.banned_reason,
+            CASE WHEN u.password_hash IS NOT NULL AND u.password_hash != '' THEN 1 ELSE 0 END AS has_password,
+            s.plan_code AS subscription_plan, s.status AS subscription_status,
+            s.starts_at AS subscription_starts_at, s.expires_at AS subscription_expires_at
+     FROM users u LEFT JOIN user_subscriptions s ON s.user_id = u.id
+     ORDER BY u.created_at DESC LIMIT 1000`,
   ).all();
   return json({ users: result.results || [] });
 }
 
 async function getAdminUser(request, env, id) {
   if (!await requireAdmin(request, env)) return json({ error: "Administrator access required." }, 403);
+  await ensureSubscriptionSchema(env);
   const user = await env.DB.prepare(
-    `SELECT id, display_name AS name, email, email_verified, created_at, verified_at, last_login_at,
-            birth_date, avatar_data_url, updated_at, banned_at, banned_reason,
-            CASE WHEN password_hash IS NOT NULL AND password_hash != '' THEN 1 ELSE 0 END AS has_password
-     FROM users WHERE id = ? LIMIT 1`,
+    `SELECT u.id, u.display_name AS name, u.email, u.email_verified, u.created_at, u.verified_at, u.last_login_at,
+            u.birth_date, u.avatar_data_url, u.updated_at, u.banned_at, u.banned_reason,
+            CASE WHEN u.password_hash IS NOT NULL AND u.password_hash != '' THEN 1 ELSE 0 END AS has_password,
+            s.plan_code AS subscription_plan, s.status AS subscription_status,
+            s.starts_at AS subscription_starts_at, s.expires_at AS subscription_expires_at
+     FROM users u LEFT JOIN user_subscriptions s ON s.user_id = u.id
+     WHERE u.id = ? LIMIT 1`,
   ).bind(id).first();
   if (!user) return json({ error: "User not found." }, 404);
   return json({ user });
@@ -1135,6 +1233,30 @@ async function updateAdminUser(request, env, id) {
   const target = await env.DB.prepare("SELECT id, email, email_verified FROM users WHERE id = ? LIMIT 1").bind(id).first();
   if (!target) return json({ error: "User not found." }, 404);
   const body = await readBody(request), action = cleanText(body.action, 24), now = new Date().toISOString();
+  if (action === "grant-subscription") {
+    const duration = cleanText(body.duration, 16);
+    if (!["1", "3", "6", "12", "unlimited"].includes(duration)) return json({ error: "Choose 1, 3, 6, 12 months, or unlimited access." }, 400);
+    await ensureSubscriptionSchema(env);
+    const existing = await env.DB.prepare("SELECT plan_code, status, starts_at, expires_at, created_at FROM user_subscriptions WHERE user_id=? LIMIT 1").bind(id).first();
+    const existingActive = existing && existing.status === "active" && (!existing.expires_at || existing.expires_at > now);
+    const startsAt = existingActive && existing.expires_at ? existing.expires_at : (existingActive ? existing.starts_at : now);
+    const months = duration === "unlimited" ? null : Number(duration);
+    const expiresAt = months === null ? null : addSubscriptionMonths(new Date(startsAt || now), months).toISOString();
+    const planCode = duration === "unlimited" ? "unlimited" : "month_" + duration;
+    await env.DB.prepare(
+      `INSERT INTO user_subscriptions (user_id, plan_code, status, starts_at, expires_at, granted_by, created_at, updated_at)
+       VALUES (?, ?, 'active', ?, ?, ?, ?, ?)
+       ON CONFLICT(user_id) DO UPDATE SET plan_code=excluded.plan_code, status='active',
+       starts_at=excluded.starts_at, expires_at=excluded.expires_at, granted_by=excluded.granted_by, updated_at=excluded.updated_at`,
+    ).bind(id, planCode, existingActive ? (existing.starts_at || now) : startsAt, expiresAt, actor.id, existing?.created_at || now, now).run();
+    return json({ ok: true, subscription: { plan_code: planCode, status: "active", starts_at: existingActive ? (existing.starts_at || now) : startsAt, expires_at: expiresAt } });
+  }
+  if (action === "revoke-subscription") {
+    await ensureSubscriptionSchema(env);
+    const result = await env.DB.prepare("UPDATE user_subscriptions SET status='revoked', updated_at=? WHERE user_id=?").bind(now, id).run();
+    if (!Number(result.meta?.changes || 0)) return json({ error: "This user has no subscription to revoke." }, 404);
+    return json({ ok: true });
+  }
   if (action === "ban") {
     if (target.id === actor.id) return json({ error: "You cannot ban your own administrator account." }, 403);
     const reason = cleanText(body.reason, 240);
