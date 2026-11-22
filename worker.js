@@ -956,6 +956,12 @@ function validMedia(type, url) {
 }
 async function deleteStoredMedia(env, value) {
   if (!env.MEDIA || !isStoredMediaUrl(value)) return;
+  // A media file may be reused by more than one question or category.
+  // Only remove the R2 object after every database reference has been removed.
+  const references = await env.DB.prepare(
+    "SELECT (SELECT COUNT(*) FROM game_questions WHERE media_url = ?) + (SELECT COUNT(*) FROM game_categories WHERE image_url = ?) AS total"
+  ).bind(String(value), String(value)).first();
+  if (!references || Number(references.total || 0) > 0) return;
   const key = String(value).slice("/api/media/".length);
   await env.MEDIA.delete(key);
 }
