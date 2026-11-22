@@ -312,7 +312,7 @@ async function createBillingCheckout(request, env, url) {
     "billing_address_collection": "auto",
     success_url: origin + pagePath + "?subscription=success",
     cancel_url: origin + pagePath + "?subscription=cancelled",
-    locale: language
+    locale: language === "ar" ? "auto" : "en"
   };
   const session = await stripeApiRequest(env, "/checkout/sessions", params);
   if (!session.url) return json({ error: "Stripe did not return a Checkout URL." }, 502);
@@ -338,6 +338,7 @@ async function createBillingPortal(request, env, url) {
 async function cancelBillingSubscription(request, env) {
   const user = await getSessionUser(request, env);
   if (!user) return json({ error: "Please sign in to manage billing.", code: "LOGIN_REQUIRED" }, 401);
+  await ensureSubscriptionSchema(env);
   const billing = await env.DB.prepare("SELECT stripe_subscription_id, current_period_end, status FROM billing_subscriptions WHERE user_id=? LIMIT 1").bind(user.id).first();
   if (!billing?.stripe_subscription_id || !["active", "trialing", "past_due"].includes(billing.status)) {
     return json({ error: "There is no active paid subscription to cancel.", code: "NO_ACTIVE_SUBSCRIPTION" }, 409);
