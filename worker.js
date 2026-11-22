@@ -1039,7 +1039,7 @@ async function submitFaqQuestion(request, env) {
   const user = await getSessionUser(request, env);
   const name = cleanText(body.name, 80) || cleanText(user?.display_name, 80);
   const email = cleanText(body.email, 160).toLowerCase() || cleanText(user?.email, 160).toLowerCase();
-  if (email && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$/.test(email)) return json({ error: "Please enter a valid email address, or leave it blank." }, 400);
+  if (email && (email.includes(" ") || email.indexOf("@") < 1 || email.lastIndexOf(".") < email.indexOf("@") + 2 || email.endsWith("."))) return json({ error: "Please enter a valid email address, or leave it blank." }, 400);
   const language = body.language === "ar" ? "ar" : "en";
   const ip = cleanText(request.headers.get("CF-Connecting-IP"), 80);
   const ipHash = ip ? await sha256Hex(ip) : null;
