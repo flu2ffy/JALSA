@@ -417,7 +417,7 @@ html[dir="rtl"] .game-card:nth-child(5)::before{background-image:url('/mafia-bg.
 .v17-game-editor-toggle{border:1px solid #dfc6a5;border-radius:22px;padding:11px 17px;background:#fff8ed;color:var(--wine);font-weight:900;white-space:nowrap;cursor:pointer}
 .v17-game-editor-toggle:after{content:"⌄";display:inline-block;margin-inline-start:10px;transition:transform .18s ease}
 .v17-game-editor-toggle.expanded:after{transform:rotate(180deg)}
-.v17-game-editor-toggle.active{background:var(--wine);border-color:var(--wine);color:#fff4e4}
+.v17-game-editor-toggle.active,.v17-game-editor-toggle.expanded{background:var(--wine);border-color:var(--wine);color:#fff4e4}
 .v17-admin-game-tabs{display:flex;flex-wrap:wrap;gap:8px;padding:0 0 16px;margin-top:-3px}
 .v17-admin-game-tabs button{border:1px solid #dfc6a5;border-radius:22px;padding:10px 16px;background:#fff8ed;color:var(--wine);font-weight:900;white-space:nowrap;cursor:pointer}
 .v17-admin-game-tabs button.active{background:var(--wine);border-color:var(--wine);color:#fff4e4}
@@ -638,8 +638,8 @@ html[dir="rtl"] .game-card:nth-child(5)::before{background-image:url('/mafia-bg.
         </section>
         <section class="v17-card"><h2 data-v17="allImposterWords">All game words</h2><input id="imposterWordSearch" class="v17-search" data-v17-placeholder="searchWordsCategories" placeholder="Search words or categories..." oninput="renderImposterWords()"><div id="imposterWordList" class="v17-mini-list"></div></section>
       </div>
-    </div>
   </section>
+    </div>
   </div>
 </main>
 <div class="v17-modal-backdrop v17-user-edit-layer" id="adminUserModal" onclick="if(event.target===this)closeAdminUserModal()">
