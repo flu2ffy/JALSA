@@ -1237,7 +1237,7 @@ async function v17LoadMySubscription(){
 async function v17StartMonthlyCheckout(){
  const button=document.getElementById("subscribeMonthlyButton");if(button)button.disabled=true;
  try{
-  const result=await v17Request("/billing/checkout","POST",{});
+  const result=await v17Request("/billing/checkout","POST",{language:isArabic?"ar":"en"});
   if(!result.url)throw new Error(v17T("subscriptionBillingError"));
   window.location.assign(result.url);
  }catch(error){
@@ -1247,7 +1247,7 @@ async function v17StartMonthlyCheckout(){
 }
 async function v17OpenBillingPortal(){
  try{
-  const result=await v17Request("/billing/portal","POST",{});
+  const result=await v17Request("/billing/portal","POST",{language:isArabic?"ar":"en"});
   if(!result.url)throw new Error(v17T("subscriptionBillingError"));
   window.location.assign(result.url);
  }catch(error){v17ShowStatus("drawerSubscriptionMessage",error.message||v17T("subscriptionBillingError"),true)}
