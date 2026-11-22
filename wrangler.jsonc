@@ -30,7 +30,8 @@
     "vars": {
       "MAIL_FROM": "JALSA <Accountservice@jalsa.me>",
       "REPLY_TO": "support@jalsa.me",
-      "ADMIN_EMAIL": "1mr.cute3@gmail.com"
+      "ADMIN_EMAIL": "1mr.cute3@gmail.com",
+      "STRIPE_PRICE_ID": "price_1Uefk5HUmKKASX4ki1gof5gw"
     },
     "d1_databases": [
       {
