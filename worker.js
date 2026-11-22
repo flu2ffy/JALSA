@@ -1239,6 +1239,9 @@ async function updateAdminUser(request, env, id) {
     await ensureSubscriptionSchema(env);
     const existing = await env.DB.prepare("SELECT plan_code, status, starts_at, expires_at, created_at FROM user_subscriptions WHERE user_id=? LIMIT 1").bind(id).first();
     const existingActive = existing && existing.status === "active" && (!existing.expires_at || existing.expires_at > now);
+    if (existingActive && !existing.expires_at && duration !== "unlimited") {
+      return json({ ok: true, subscription: { plan_code: "unlimited", status: "active", starts_at: existing.starts_at, expires_at: null } });
+    }
     const startsAt = existingActive && existing.expires_at ? existing.expires_at : (existingActive ? existing.starts_at : now);
     const months = duration === "unlimited" ? null : Number(duration);
     const expiresAt = months === null ? null : addSubscriptionMonths(new Date(startsAt || now), months).toISOString();
