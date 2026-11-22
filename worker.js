@@ -34,6 +34,7 @@ export default {
       if (url.pathname === "/api/admin/subscription-settings" && request.method === "GET") return await getAdminSubscriptionSettings(request, env);
       if (url.pathname === "/api/admin/subscription-settings" && request.method === "PATCH") return await updateAdminSubscriptionSettings(request, env);
       const requiresSubscription = url.pathname === "/api/game-content" ||
+        url.pathname === "/api/remote/create" ||
         url.pathname.startsWith("/api/insight/") ||
         url.pathname.startsWith("/api/imposter/") ||
         url.pathname.startsWith("/api/mafia/");
@@ -1242,7 +1243,7 @@ async function updateAdminUser(request, env, id) {
     if (existingActive && !existing.expires_at && duration !== "unlimited") {
       return json({ ok: true, subscription: { plan_code: "unlimited", status: "active", starts_at: existing.starts_at, expires_at: null } });
     }
-    const startsAt = existingActive && existing.expires_at ? existing.expires_at : (existingActive ? existing.starts_at : now);
+    const startsAt = duration === "unlimited" ? now : (existingActive && existing.expires_at ? existing.expires_at : (existingActive ? existing.starts_at : now));
     const months = duration === "unlimited" ? null : Number(duration);
     const expiresAt = months === null ? null : addSubscriptionMonths(new Date(startsAt || now), months).toISOString();
     const planCode = duration === "unlimited" ? "unlimited" : "month_" + duration;
@@ -1251,8 +1252,8 @@ async function updateAdminUser(request, env, id) {
        VALUES (?, ?, 'active', ?, ?, ?, ?, ?)
        ON CONFLICT(user_id) DO UPDATE SET plan_code=excluded.plan_code, status='active',
        starts_at=excluded.starts_at, expires_at=excluded.expires_at, granted_by=excluded.granted_by, updated_at=excluded.updated_at`,
-    ).bind(id, planCode, existingActive ? (existing.starts_at || now) : startsAt, expiresAt, actor.id, existing?.created_at || now, now).run();
-    return json({ ok: true, subscription: { plan_code: planCode, status: "active", starts_at: existingActive ? (existing.starts_at || now) : startsAt, expires_at: expiresAt } });
+    ).bind(id, planCode, duration === "unlimited" ? now : (existingActive ? (existing.starts_at || now) : startsAt), expiresAt, actor.id, existing?.created_at || now, now).run();
+    return json({ ok: true, subscription: { plan_code: planCode, status: "active", starts_at: duration === "unlimited" ? now : (existingActive ? (existing.starts_at || now) : startsAt), expires_at: expiresAt } });
   }
   if (action === "revoke-subscription") {
     await ensureSubscriptionSchema(env);
