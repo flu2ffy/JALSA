@@ -100,6 +100,40 @@ html[dir="rtl"] .game-card:nth-child(5)::before{background-image:url('/mafia-bg.
 .about-page.ar .site-footer .powered{text-align:right}.about-page.ar .site-footer .version{text-align:left}
 @media(max-width:900px){.home-hero{min-height:0;grid-template-columns:1fr;padding:50px 24px 30px}.hero-art{max-width:620px;justify-self:center;margin:20px auto 0}.about-page.ar .hero-art{justify-self:center}.feature-row{grid-template-columns:1fr}.game-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.site-header{height:76px;padding:7px 13px}.brand img{width:145px;height:58px}.version-pill{font-size:10px}.header-actions{gap:5px}.header-link{font-size:11px;min-height:38px;padding:8px 9px}.home-hero{padding:38px 17px 25px}.hero-copy h1{font-size:41px}.hero-copy p{font-size:17px}.intro-section{padding:42px 16px 28px}.feature-row{gap:12px}.games-section{padding:34px 16px 48px}.game-cards{grid-template-columns:1fr}.game-card{min-height:190px}.closing-section{padding:43px 18px 49px}.site-footer{grid-template-columns:1fr;gap:8px;text-align:center;padding:16px}.site-footer .powered,.site-footer .support,.site-footer .version{text-align:center}.about-page.ar .site-footer .powered,.about-page.ar .site-footer .support,.about-page.ar .site-footer .version{text-align:center}}
+
+.story-section{padding:64px clamp(20px,6vw,90px) 72px;background:var(--cream)}
+.story-inner{max-width:1240px;margin:0 auto}
+.story-heading{text-align:center;max-width:900px;margin:0 auto 42px}
+.story-heading .eyebrow{margin:0 0 10px;color:var(--orange);font-size:12px;font-weight:900;letter-spacing:2px}
+.story-heading h2{font-family:Georgia,'Times New Roman',serif;font-size:clamp(32px,4.1vw,48px);line-height:1.15;color:var(--red);margin:0 0 17px}
+.story-heading p{font-size:clamp(17px,1.9vw,21px);line-height:1.85;color:#4d3a31;margin:0}
+.story-layout{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(270px,.75fr);gap:24px;align-items:start}
+.story-chapters{display:grid;gap:17px}
+.story-chapter{position:relative;background:#fffaf2;border:1px solid #f0dfc6;border-radius:22px;padding:27px 30px;box-shadow:0 12px 28px #381a1110;overflow:hidden}
+.story-chapter:before{content:"";position:absolute;top:0;left:0;width:5px;height:100%;background:linear-gradient(180deg,var(--orange),var(--red))}
+.story-chapter .chapter-tag{display:flex;align-items:center;gap:10px;color:var(--orange);font-size:11px;font-weight:900;letter-spacing:1.6px;margin:0 0 12px}
+.story-chapter .chapter-number{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:50%;background:#fbe8d9;color:var(--wine);font-size:12px;letter-spacing:0}
+.story-chapter h3{font-family:Georgia,'Times New Roman',serif;color:var(--wine);font-size:clamp(22px,2.7vw,29px);line-height:1.2;margin:0 0 13px}
+.story-chapter p{font-size:16px;line-height:1.85;color:#5d473d;margin:0 0 12px}
+.story-chapter p:last-child{margin-bottom:0}
+.story-founder{position:sticky;top:20px;border-radius:25px;padding:30px 27px 28px;color:#fff4e4;background:radial-gradient(ellipse at 86% 12%,#a84930 0%,transparent 43%),linear-gradient(145deg,#47131a,#78242a 62%,#9c432f);box-shadow:0 18px 40px #3e111d30;overflow:hidden}
+.story-founder:before{content:"";position:absolute;inset:0;opacity:.17;pointer-events:none;background-image:radial-gradient(circle at 20px 20px,transparent 8px,#f0c17c 9px,transparent 10px);background-size:42px 42px}
+.story-founder>*{position:relative;z-index:1}
+.founder-logo{width:172px;height:74px;object-fit:contain;object-position:left center;filter:brightness(0) invert(1);opacity:.95;margin:0 0 25px}
+.founder-label{margin:0 0 9px;color:#ffd7a5;font-size:11px;font-weight:900;letter-spacing:2px}
+.story-founder h3{font-family:Georgia,'Times New Roman',serif;font-size:34px;line-height:1.1;margin:0 0 7px;color:#fff8eb}
+.founder-role{margin:0 0 20px;color:#ffd7a5;font-size:14px;font-weight:800}
+.founder-copy{font-size:15px;line-height:1.85;color:#ffebd6;margin:0 0 24px}
+.founder-signoff{border-top:1px solid #ffffff42;padding-top:18px;color:#fff8eb;font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:1.55}
+.story-endnote{display:flex;align-items:center;justify-content:center;gap:12px;margin:34px auto 0;color:var(--wine);font-size:14px;font-weight:900;text-align:center}
+.story-endnote:before,.story-endnote:after{content:"";width:45px;height:1px;background:#d6a36e}
+html[dir="rtl"] .story-chapter:before{left:auto;right:0}
+html[dir="rtl"] .story-founder{text-align:right}
+html[dir="rtl"] .founder-logo{object-position:right center}
+html[dir="rtl"] .story-chapter .chapter-tag{letter-spacing:0}
+@media(max-width:900px){.story-layout{grid-template-columns:1fr}.story-founder{position:relative;top:auto;max-width:none}.founder-logo{object-position:center}.story-chapters{order:1}.story-founder{order:0}}
+@media(max-width:600px){.story-section{padding:42px 15px 50px}.story-heading{margin-bottom:25px}.story-chapter{padding:23px 21px}.story-chapter p{font-size:15px}.story-founder{padding:26px 23px}.story-endnote{font-size:12px}}
+
 </style>
 </head>
 <body class="about-page ar">
@@ -127,11 +161,27 @@ html[dir="rtl"] .game-card:nth-child(5)::before{background-image:url('/mafia-bg.
   <div class="feature-row"><article class="feature-card"><div class="feature-icon">🌍</div><div><h3>العربية والإنجليزية</h3><p>بدّلوا اللغة وخلو الجلسة على مزاجكم.</p></div></article><article class="feature-card"><div class="feature-icon">👥</div><div><h3>مصممة للمجموعات</h3><p>العبوا مع بعض، ناقشوا، خمّنوا، اضحكوا وتنافسوا.</p></div></article><article class="feature-card"><div class="feature-icon">🎲</div><div><h3>طرق لعب متنوعة</h3><p>اختاروا اللعبة المناسبة لجَوّ جمعتكم.</p></div></article></div>
  </div>
 </section>
-<section class="games-section" id="games">
- <header class="section-intro"><p class="eyebrow">اختاروا لعبتكم</p><h2>شو رح نلعب اليوم؟</h2><p>اختاروا اللعبة، اجمعوا مجموعتكم، وخلّوا جلسة تبدأ.</p></header>
- <div class="game-cards"><article class="game-card"><div class="game-icon">🧠</div><h3>زانكو</h3><p>سرعة بديهة وأسئلة ذكية ومنافسة حماسية.</p></article><article class="game-card"><div class="game-icon">🛍️</div><h3>تخمين السعر</h3><p>خمّنوا السعر وشوفوا مين الأقرب.</p></article><article class="game-card"><div class="game-icon">🕵️</div><h3>المحتال</h3><p>اكتشفوا اللاعب الذي لا يعرف الكلمة السرية.</p></article><article class="game-card"><div class="game-icon">💔</div><h3>INSIGHT</h3><p>أسئلة سرية وتشويق ورمية عملة قد تكشف كل شيء.</p></article><article class="game-card"><div class="game-icon">🎭</div><h3>مافيا</h3><p>أدوار مخفية وغموض. لا تثقوا بأحد!</p></article></div>
+<section class="story-section" id="our-story">
+ <div class="story-inner">
+  <header class="story-heading"><p class="eyebrow">حكاية جلسة JALSA</p><h2>لعبة صغيرة ممكن تجمعنا وتقرّبنا أكثر.</h2><p>انطلقت فكرة JALSA من مبدأ بسيط: أجمل الجلسات هي التي يشارك فيها الجميع. نريد أن نجعل تحويل أمسية عادية مع العائلة أو الأصدقاء إلى وقت مليء بالضحك والمنافسة اللطيفة والذكريات أمراً سهلاً.</p></header>
+  <div class="story-layout">
+   <div class="story-chapters"><article class="story-chapter"><p class="chapter-tag"><span class="chapter-number">01</span>كيف بدأت الفكرة</p><h3>من البداية، كان الهدف أن نجمع الناس.</h3><p>تخيّلوا جمعة عائلية أو سهرة مع الأصدقاء. شخص يطرح سؤالاً، وآخر يقدّم تخميناً بعيداً، وشخص ثالث يبدأ بالضحك، وفجأة يصبح الجميع جزءاً من اللحظة نفسها. هذه التفاصيل البسيطة هي التي تجعل وقتنا معاً مميزاً.</p><p>من هنا جاءت رغبة JALSA في صناعة المزيد من هذه اللحظات. بدلاً من أن يجلس الجميع ويتساءلوا ماذا يفعلون، أردنا أن نوفر طريقة سهلة لبدء اللعب والنقاش والتخمين والمرح معاً. اللعبة مجرد بداية؛ أما الأشخاص الذين يجتمعون حولها فهم الحكاية الأهم.</p></article>
+<article class="story-chapter"><p class="chapter-tag"><span class="chapter-number">02</span>للعائلة والأصدقاء</p><h3>مكان يناسب كل شخص وكل طريقة لعب.</h3><p>ليس الجميع يحب النوع نفسه من الألعاب، وهذا جزء من المتعة. هناك من يحب اختبار معلوماته، ومن يفضّل التخمين الذكي، وهناك من يستمتع باكتشاف المحتال أو حلّ لغز أو الإجابة عن سؤال يفتح باب الحديث والضحك بين الجميع.</p><p>لهذا تجمع JALSA أساليب لعب مختلفة في مكان واحد. سواء اخترتم زانكو أو تخمين السعر أو المحتال أو مافيا أو INSIGHT، تمنح كل لعبة مجموعتكم طريقة مختلفة للتواصل والمشاركة. يمكن أن تكونوا متحمسين للمنافسة، أو تحبون المزاح، أو التفكير، أو مجرد قضاء وقت لطيف؛ في جلسة مكان لكل ذلك.</p></article>
+<article class="story-chapter"><p class="chapter-tag"><span class="chapter-number">03</span>أفكار جديدة باستمرار</p><h3>JALSA مشروع يكبر ويتطور دائماً.</h3><p>لا ننظر إلى JALSA على أنها مجموعة ألعاب اكتملت وانتهى الأمر. نحن نفكر باستمرار في الأشياء التي قد تجعل الجلسة القادمة أجمل: أفكار ألعاب جديدة، وفئات متنوعة، وأسئلة متجددة، وطرق لعب مختلفة، وتفاصيل صغيرة تجعل التجربة أسهل وأمتع للجميع.</p><p>هدفنا أن نضيف دائماً أسباباً جديدة تجعل العائلة والأصدقاء يعودون للعب. قد تكون المرة القادمة جولة سريعة تضحك الجميع، أو لعبة أطول تصبح أجمل جزء في السهرة. نريد أن تظل JALSA مليئة بأشياء جديدة تكتشفونها وتجربونها معاً.</p></article>
+<article class="story-chapter"><p class="chapter-tag"><span class="chapter-number">04</span>لماذا نستمر في التطوير؟</p><h3>وقت أقل أمام الشاشات، ولحظات أكثر مع بعض.</h3><p>الحياة أصبحت سريعة ومليئة بالانشغالات، ومن السهل أن ينشغل كل شخص بشيء مختلف، حتى عندما نكون جميعاً في المكان نفسه. JALSA هي طريقتنا البسيطة لتشجيع الناس على ترك هواتفهم جانباً لبعض الوقت، والنظر إلى بعضهم، والاستمتاع بشيء مشترك.</p><p>لا تحتاجون إلى مناسبة خاصة أو تخطيط كبير أو مجموعة محترفة في اللعب. اجمعوا العائلة، وتواصلوا مع الأصدقاء، واختاروا لعبة، واتركوا الأمسية تأخذكم معها. إذا ساعدت JALSA في صنع ضحكة إضافية أو حكاية جديدة أو ذكرى جميلة، فهذا يعني أنها تحقق الغاية التي أُنشئت من أجلها.</p></article></div>
+   <aside class="story-founder">
+    <img class="founder-logo" src="/jalsa-logo.png" alt="JALSA">
+    <p class="founder-label">ابتكار وتأسيس</p>
+    <h3>Noah Jason</h3>
+    <p class="founder-role">مبتكر ومؤسس JALSA</p>
+    <p class="founder-copy">JALSA مشروع إبداعي مستقل بُني لهدف واحد: أن يساعد العائلة والأصدقاء على قضاء أوقات جميلة معاً. وما زالت الفكرة تكبر من خلال ألعاب جديدة وأسئلة متجددة ومحاولة مستمرة لجعل كل زيارة أكثر متعة.</p>
+    <p class="founder-signoff">شكراً لأنكم تجعلون JALSA جزءاً من جمعتكم.</p>
+   </aside>
+  </div>
+  <p class="story-endnote">جلسة تجمعنا</p>
+ </div>
 </section>
-<section class="closing-section"><h2>جلستكم القادمة تبدأ من هون.</h2><p>اختاروا لعبتكم وادعوا أصحابكم وعائلتكم للمشاركة.</p><a class="primary-light" href="/ar/">العودة إلى جلسة →</a></section>
+<section class="closing-section"><h2>يمكن أن تكون جلستكم القادمة أجمل حكاية.</h2><p>اجمعوا أحبابكم، اختاروا لعبة، واصنعوا ذكريات جديدة.</p><a class="primary-light" href="undefined">اكتشفوا ألعاب JALSA →</a></section>
 </main>
 <footer class="site-footer"><span class="powered">© JALSA · ألعاب جماعية بالعربية والإنجليزية</span><a class="support" href="mailto:support@jalsa.me">support@jalsa.me</a><span class="version">v1.9</span></footer>
 </body>
