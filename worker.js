@@ -50,8 +50,15 @@ export default {
       if (url.pathname === "/api/insight/state" && request.method === "GET") return await getInsightState(request, env, url);
       if (url.pathname === "/api/insight/action" && request.method === "POST") return await insightAction(request, env);
       if (url.pathname === "/api/me" && request.method === "GET") {
+        const cookiePresent = !!cookieValue(request, COOKIE_NAME);
         const user = await getSessionUser(request, env);
-        return json({ user: publicUser(user, env) }, 200, { "Cache-Control": "private, no-store, max-age=0", "Vary": "Cookie" });
+        return json({ user: publicUser(user, env) }, 200, {
+          "Cache-Control": "private, no-store, max-age=0",
+          "Vary": "Cookie",
+          // Safe diagnostics for the preview: booleans only, never expose the token.
+          "X-JALSA-Session-Cookie": cookiePresent ? "present" : "missing",
+          "X-JALSA-Session-Valid": user ? "yes" : "no",
+        });
       }
       if (url.pathname === "/api/register" && request.method === "POST") return await register(request, env);
       if (url.pathname === "/api/login" && request.method === "POST") return await login(request, env);
