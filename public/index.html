@@ -1147,7 +1147,7 @@ function v17BindFilePreviews(){
 }
 function v17RenderMedia(container,type,url){
  if(!container)return;container.replaceChildren();container.hidden=true;type=String(type||"none").toLowerCase();if(!url||type==="none")return;
- let source;try{source=/^https?:\\/\\//i.test(url)?url:new URL(url,window.location.origin).href}catch{source="";}if(!source)return;
+ let source;try{source=(url.startsWith("http://")||url.startsWith("https://"))?url:new URL(url,window.location.origin).href}catch{source="";}if(!source)return;
  const showError=()=>{const note=document.createElement("p");note.className="media-load-error";note.textContent=isArabic?"تعذر تحميل الوسائط. قد يكون الملف محذوفاً أو غير متاح؛ أعد رفعه من محرر اللعبة.":"This media file is unavailable. It may have been removed; please re-upload it in the game editor.";container.replaceChildren(note)};
  let el,attempt=0;
  if(type==="image"){el=document.createElement("img");el.alt="Question image";el.loading="eager";el.decoding="async";el.referrerPolicy="same-origin"}
