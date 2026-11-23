@@ -1,7 +1,8 @@
 <!doctype html>
 <html lang="en" dir="ltr">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8">
+<script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script><meta name="viewport" content="width=device-width,initial-scale=1">
 <script>
 /* Prevent the homepage from flashing while an active Zanko game is restored. */
 try {
@@ -538,7 +539,7 @@ html[dir="rtl"] .game-card:nth-child(5)::before{background-image:url('/mafia-bg.
   </div>
   <div class="v17-card" style="text-align:center;padding:20px;margin:18px 0">
    <div class="v17-eyebrow">JALSA PREMIUM</div>
-   <div style="font:700 38px Georgia,serif;color:var(--wine);margin:8px 0">AED 19.99<span style="font:600 15px Arial,sans-serif;color:var(--muted)"> / <span data-v17="perMonth">month</span></span></div>
+   <div style="font:700 38px Georgia,serif;color:var(--wine);margin:8px 0">$7.99<span style="font:600 15px Arial,sans-serif;color:var(--muted)"> / <span data-v17="perMonth">month</span></span></div>
    <p class="v17-muted" data-v17="recurringDisclosure">The paid plan renews automatically every month until you cancel. You can cancel before the next renewal; access continues until the current paid period ends.</p>
   </div>
   <p class="v17-muted" id="subscriptionModalSummary"></p>
@@ -1175,18 +1176,20 @@ Object.assign(v17I18n.en,{
  confirmEnableSubscriptions:"Enable subscriptions? Users without an active grant will no longer be able to play.",confirmDisableSubscriptions:"Make all JALSA games free for everyone?",subscriptionRequiredToast:"JALSA games currently require an active subscription. Contact the JALSA team for access.",
  grantConfirm:"Grant this user the selected subscription access?",revokeConfirm:"Revoke this user's subscription access?",subscriptionGranted:"Subscription access granted.",subscriptionRevoked:"Subscription access revoked.",adminSubscriptionAccess:"Your administrator account always has access.",
  mySubscription:"My subscription",freeSubscriptionMode:"JALSA is free for everyone right now.",subscribeMonthly:"Subscribe monthly",manageBilling:"Manage billing",cancelAtRenewal:"Cancel at renewal",
- subscriptionModalTitle:"Unlock all JALSA games",subscriptionModalIntro:"Enjoy every JALSA game with one monthly membership.",perMonth:"month",subscribeForMonthly:"Subscribe for AED 19.99/month",
+ subscriptionModalTitle:"Unlock all JALSA games",subscriptionModalIntro:"Enjoy every JALSA game with one monthly membership.",perMonth:"month",subscribeForMonthly:"Subscribe for $7.99/month",
  profileSubscription:"Subscription",profileSubscriptionIntro:"View your access and manage recurring billing.",manageSubscription:"Manage subscription",subscriptionModalNoAccess:"An active subscription is needed to play all JALSA games.",
  recurringDisclosure:"The paid plan renews automatically every month until you cancel. You can cancel before the next renewal; access continues until the current paid period ends.",
  subscriptionNeedsSetup:"Paid subscriptions are not configured in this test environment yet.",subscriptionAlreadyActive:"Your account already has active access.",
  subscriptionPaidActive:"Monthly subscription active",subscriptionCancelScheduled:"Your subscription is set to cancel at the end of this paid period.",
  subscriptionUntil:"Access until",subscriptionAdminGrant:"JALSA has granted access to your account.",subscriptionBillingError:"Could not open billing. Please try again.",
+ paddleLibraryLoading:"Paddle Checkout is still loading. Please try again in a moment.",
+ paddleCheckoutSubmitted:"Payment submitted. JALSA will unlock your games when Paddle confirms the subscription.",
  cancelRenewalConfirm:"Cancel automatic renewal? Your access will remain active until the end of the current paid period.",
  cancellationScheduled:"Automatic renewal is cancelled. Your access remains available until the end of the current paid period.",
- billingCheckoutSuccess:"Checkout completed. Your subscription will appear after Stripe confirms the payment.",
+ billingCheckoutSuccess:"Checkout completed. Your subscription will appear after Paddle confirms the payment.",
  billingCheckoutCancelled:"Checkout was cancelled. No subscription was started.",
- paymentsConfiguration:"Stripe test payments",paymentsConfigured:"Stripe is configured for this preview.",paymentsNotConfigured:"Add Stripe test secrets and a recurring monthly Price ID to Cloudflare Preview variables before accepting test payments.",
- activePaidSubscribers:"Paid subscribers",activeAdminGrants:"Active admin grants",monthlyAutoRenew:"Monthly auto-renewing",cancelScheduled:"Cancels at period end"
+ paymentsConfiguration:"Paddle Sandbox payments",paymentsConfigured:"Paddle Sandbox is configured for this preview.",paymentsNotConfigured:"Add the Paddle API key, client token, recurring price ID and webhook secret to Cloudflare Preview settings before accepting test payments.",
+ activePaidSubscribers:"Paid subscribers",activeAdminGrants:"Active admin grants",monthlyAutoRenew:"Paddle monthly auto-renewing",cancelScheduled:"Cancels at period end"
 });
 Object.assign(v17I18n.ar,{
  subscriptionSettings:"الاشتراكات",subscriptionSettingsIntro:"اختر ما إذا كانت ألعاب جلسة مجانية للجميع أو تتطلب اشتراكاً فعالاً.",
@@ -1199,18 +1202,20 @@ Object.assign(v17I18n.ar,{
  subscriptionRequiredToast:"تتطلب ألعاب جلسة حالياً اشتراكاً فعالاً. تواصل مع فريق جلسة للحصول على الصلاحية.",
  grantConfirm:"هل تريد منح هذا المستخدم صلاحية الاشتراك المحددة؟",revokeConfirm:"هل تريد إلغاء اشتراك هذا المستخدم؟",subscriptionGranted:"تم منح صلاحية الاشتراك.",subscriptionRevoked:"تم إلغاء صلاحية الاشتراك.",adminSubscriptionAccess:"يملك حساب المسؤول صلاحية الوصول دائماً.",
  mySubscription:"اشتراكي",freeSubscriptionMode:"جلسة مجانية للجميع حالياً.",subscribeMonthly:"اشترك شهرياً",manageBilling:"إدارة الفواتير",cancelAtRenewal:"إلغاء التجديد",
- subscriptionModalTitle:"افتح جميع ألعاب جلسة",subscriptionModalIntro:"استمتع بجميع ألعاب جلسة مع اشتراك شهري واحد.",perMonth:"شهرياً",subscribeForMonthly:"اشترك مقابل 19.99 درهماً شهرياً",
+ subscriptionModalTitle:"افتح جميع ألعاب جلسة",subscriptionModalIntro:"استمتع بجميع ألعاب جلسة مع اشتراك شهري واحد.",perMonth:"شهرياً",subscribeForMonthly:"اشترك مقابل 7.99 دولار أمريكي شهرياً",
  profileSubscription:"الاشتراك",profileSubscriptionIntro:"راجع صلاحية وصولك وأدر الفوترة المتكررة.",manageSubscription:"إدارة الاشتراك",subscriptionModalNoAccess:"يلزم اشتراك فعال للعب جميع ألعاب جلسة.",
  recurringDisclosure:"يتم تجديد الاشتراك المدفوع تلقائياً كل شهر حتى تقوم بإلغائه. يمكنك الإلغاء قبل موعد التجديد، ويستمر وصولك حتى نهاية الفترة المدفوعة الحالية.",
  subscriptionNeedsSetup:"لم يتم إعداد الاشتراكات المدفوعة في بيئة الاختبار هذه بعد.",subscriptionAlreadyActive:"لديك صلاحية وصول فعالة بالفعل.",
  subscriptionPaidActive:"الاشتراك الشهري فعال",subscriptionCancelScheduled:"تم تحديد إلغاء الاشتراك عند نهاية الفترة المدفوعة الحالية.",
  subscriptionUntil:"الصلاحية حتى",subscriptionAdminGrant:"منحتك جلسة صلاحية الوصول إلى حسابك.",subscriptionBillingError:"تعذّر فتح صفحة الفواتير. حاول مرة أخرى.",
+ paddleLibraryLoading:"لا تزال صفحة دفع Paddle قيد التحميل. حاول مرة أخرى بعد لحظة.",
+ paddleCheckoutSubmitted:"تم إرسال الدفع. ستفتح ألعاب جلسة بعد تأكيد Paddle للاشتراك.",
  cancelRenewalConfirm:"هل تريد إلغاء التجديد التلقائي؟ ستبقى صلاحية الوصول فعالة حتى نهاية الفترة المدفوعة الحالية.",
  cancellationScheduled:"تم إلغاء التجديد التلقائي. ستبقى صلاحية الوصول حتى نهاية الفترة المدفوعة الحالية.",
  billingCheckoutSuccess:"اكتملت عملية الدفع. سيظهر اشتراكك بعد تأكيد Stripe للدفع.",
  billingCheckoutCancelled:"تم إلغاء عملية الدفع. لم يتم إنشاء اشتراك.",
- paymentsConfiguration:"مدفوعات Stripe التجريبية",paymentsConfigured:"تم إعداد Stripe لبيئة الاختبار هذه.",paymentsNotConfigured:"أضف مفاتيح Stripe التجريبية ومعرّف السعر الشهري المتكرر إلى متغيرات Preview في Cloudflare قبل اختبار الدفع.",
- activePaidSubscribers:"المشتركون المدفوعون",activeAdminGrants:"الصلاحيات المجانية من المسؤول",monthlyAutoRenew:"تجديد شهري تلقائي",cancelScheduled:"ملغي عند نهاية الفترة"
+ paymentsConfiguration:"مدفوعات Paddle التجريبية",paymentsConfigured:"تم إعداد Paddle Sandbox لبيئة الاختبار هذه.",paymentsNotConfigured:"أضف مفتاح Paddle التجريبي ورمز العميل ومعرّف السعر الشهري وسر الويب هوك إلى إعدادات Preview في Cloudflare قبل اختبار الدفع.",
+ activePaidSubscribers:"المشتركون المدفوعون",activeAdminGrants:"الصلاحيات المجانية من المسؤول",monthlyAutoRenew:"تجديد شهري تلقائي عبر Paddle",cancelScheduled:"ملغي عند نهاية الفترة"
 });
 let v17Content={categories:[],questions:[],priceItems:[]},v17ContentLoaded=false,v17ProfileAvatar="";
 function v17T(key){return (v17I18n[isArabic?"ar":"en"][key]||v17I18n.en[key]||key)}
@@ -1244,11 +1249,12 @@ async function openSubscriptionModal(prefetchedStatus){
    summary.textContent=v17T("adminSubscriptionAccess");
   }else if(status.source==="admin-grant"){
    summary.textContent=v17T("subscriptionAdminGrant")+(status.expiresAt?" "+v17T("subscriptionUntil")+" "+v17FormatDate(status.expiresAt):" · "+v17T("unlimited"));
-  }else if(status.active&&status.source==="stripe"){
+  }else if(status.active&&(status.source==="paddle"||status.source==="stripe")){
    summary.textContent=status.cancelAtPeriodEnd
     ?v17T("subscriptionCancelScheduled")+" "+v17T("subscriptionUntil")+" "+v17FormatDate(status.expiresAt)
     :v17T("subscriptionPaidActive")+" · "+v17T("subscriptionUntil")+" "+v17FormatDate(status.expiresAt);
-   manage.hidden=false;cancel.hidden=!!status.cancelAtPeriodEnd;
+   manage.hidden=false;
+   cancel.hidden=status.source==="paddle"||!!status.cancelAtPeriodEnd;
   }else{
    summary.textContent=v17T("subscriptionModalNoAccess");
    checkout.hidden=false;
@@ -1262,25 +1268,51 @@ async function v17StartMonthlyCheckout(){
  const button=document.getElementById("subscriptionModalCheckoutButton");if(button)button.disabled=true;
  document.getElementById("subscriptionModalMessage").hidden=true;
  try{
-  const result=await v17Request("/billing/checkout","POST",{language:isArabic?"ar":"en"});
-  if(!result.url)throw new Error(v17T("subscriptionBillingError"));
-  window.location.assign(result.url);
+  if(!currentUser)throw new Error(v17T("loginRequired"));
+  if(!window.Paddle)throw new Error(v17T("paddleLibraryLoading"));
+  const config=await v17Request("/paddle/config","GET");
+  if(!window.__jalsaPaddleInitialized){
+   if(config.environment==="sandbox")window.Paddle.Environment.set("sandbox");
+   window.Paddle.Initialize({
+    token:config.clientToken,
+    eventCallback:function(data){
+     if(data&&data.name==="checkout.completed"){
+      showToast(v17T("paddleCheckoutSubmitted"));
+      closeSubscriptionModal();
+     }
+    }
+   });
+   window.__jalsaPaddleInitialized=true;
+  }
+  closeSubscriptionModal();
+  window.Paddle.Checkout.open({
+   items:[{priceId:config.priceId,quantity:1}],
+   customer:{email:currentUser.email},
+   customData:{jalsa_user_id:currentUser.id},
+   settings:{displayMode:"overlay",theme:"light"}
+  });
  }catch(error){
   let message=error.message||v17T("subscriptionBillingError");
-  if(error.code==="BILLING_NOT_CONFIGURED")message=v17T("subscriptionNeedsSetup");
+  if(error.code==="PADDLE_NOT_CONFIGURED")message=v17T("subscriptionNeedsSetup");
   v17ShowStatus("subscriptionModalMessage",message,true);
  }finally{if(button)button.disabled=false}
 }
 async function v17OpenBillingPortal(){
  try{
-  const result=await v17Request("/billing/portal","POST",{language:isArabic?"ar":"en"});
+  const status=await v17Request("/subscription-status","GET");
+  const result=await v17Request(status.source==="paddle"?"/paddle/portal":"/billing/portal","POST",{language:isArabic?"ar":"en"});
   if(!result.url)throw new Error(v17T("subscriptionBillingError"));
   window.location.assign(result.url);
  }catch(error){v17ShowStatus("subscriptionModalMessage",error.message||v17T("subscriptionBillingError"),true)}
 }
 async function v17CancelMySubscription(){
- if(!confirm(v17T("cancelRenewalConfirm")))return;
  try{
+  const status=await v17Request("/subscription-status","GET");
+  if(status.source==="paddle"){
+   await v17OpenBillingPortal();
+   return;
+  }
+  if(!confirm(v17T("cancelRenewalConfirm")))return;
   await v17Request("/billing/cancel","POST",{});
   await openSubscriptionModal();
   v17ShowStatus("subscriptionModalMessage",v17T("cancellationScheduled"),false);
