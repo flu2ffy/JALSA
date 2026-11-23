@@ -1,1 +1,24 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="g" x2="0" y2="1"><stop stop-color="#c64b31"/><stop offset="1" stop-color="#71202a"/></linearGradient></defs><rect x="2" y="2" width="60" height="60" rx="15" fill="url(#g)" stroke="#e8bd77" stroke-width="3"/><path d="M32 8v8m-10 1h20l-3 28H25z" fill="none" stroke="#ffdb9b" stroke-width="3" stroke-linejoin="round"/><path d="M25 25h14M26 36h12M32 25l-4 10m4-10 4 10" fill="none" stroke="#ffdb9b" stroke-width="2" stroke-linecap="round"/><text x="32" y="57" text-anchor="middle" font-family="Georgia,serif" font-size="16" font-weight="bold" fill="#fff3dc">J</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="JALSA">
+  <rect x="3" y="3" width="122" height="122" rx="25" fill="#fff3df" stroke="#55151c" stroke-width="6"/>
+  <rect x="9" y="9" width="110" height="110" rx="20" fill="none" stroke="#e4a34b" stroke-width="2.5"/>
+  <g stroke-linecap="round" stroke-linejoin="round">
+    <path d="M15 38 Q17 24 30 24 L55 24 Q64 24 68 34 L72 57 Q72 63 65 64 L19 64 Q12 63 13 55 Z" fill="#a83232" stroke="#55151c" stroke-width="3"/>
+    <path d="M20 35 Q23 29 31 29 L54 29 Q60 29 63 36 L65 54 Q65 58 59 59 L22 59 Q18 58 18 54 Z" fill="#7b2028" stroke="#e6b86e" stroke-width="2"/>
+    <path d="M28 30 L36 58 M47 29 L55 58" stroke="#e6b86e" stroke-width="3"/>
+    <path d="M26 41 L42 33 L55 45 L42 55 Z" fill="none" stroke="#f4d39b" stroke-width="2"/>
+    <path d="M15 45 Q8 43 9 53 L13 61 Q15 64 20 61 L22 58" fill="#8d2028" stroke="#55151c" stroke-width="2.5"/>
+    <path d="M63 44 Q73 40 76 49 L78 59 Q79 64 72 64 L65 61" fill="#8d2028" stroke="#55151c" stroke-width="2.5"/>
+    <path d="M18 63 L16 70 M69 63 L72 70" stroke="#e87532" stroke-width="3"/>
+    <path d="M81 40 Q84 34 91 36 L110 40 Q118 42 117 51 L114 63 Q112 70 106 67 L98 61 L91 61 L84 67 Q78 69 76 61 L74 50 Q74 43 81 40 Z" fill="#ed8245" stroke="#71202a" stroke-width="3"/>
+    <path d="M84 48 V57 M80 52.5 H89" stroke="#71202a" stroke-width="3.5"/>
+    <circle cx="103" cy="49" r="2.8" fill="#71202a" stroke="none"/>
+    <circle cx="109" cy="55" r="2.8" fill="#71202a" stroke="none"/>
+    <circle cx="99" cy="57" r="2.8" fill="#71202a" stroke="none"/>
+    <path d="M69 14 L72 21 L79 24 L72 27 L69 34 L66 27 L59 24 L66 21 Z" fill="#ed8245" stroke="none"/>
+    <path d="M17 18 L19 23 L24 25 L19 27 L17 32 L15 27 L10 25 L15 23 Z" fill="#ed8245" stroke="none"/>
+  </g>
+  <text x="64" y="93" text-anchor="middle" font-family="Georgia,serif" font-size="27" font-weight="bold" letter-spacing="-1.3" fill="#7b171b">JALSA</text>
+  <path d="M21 105 H48 M80 105 H107" stroke="#ed8245" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M64 100 L69 105 L64 110 L59 105 Z" fill="#a83232" stroke="#ed8245" stroke-width="1"/>
+  <path d="M53 105 L56 102 L59 105 L56 108 Z M69 105 L72 102 L75 105 L72 108 Z" fill="#ed8245"/>
+</svg>
