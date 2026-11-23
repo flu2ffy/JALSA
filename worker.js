@@ -30,6 +30,9 @@ export default {
 
     try {
 
+      if (url.pathname === "/api/paddle/webhook" && request.method === "POST") return await handlePaddleWebhook(request, env);
+      if (url.pathname === "/api/paddle/config" && request.method === "GET") return await getPaddleCheckoutConfig(request, env);
+      if (url.pathname === "/api/paddle/portal" && request.method === "POST") return await createPaddlePortalSession(request, env);
       if (url.pathname === "/api/stripe/webhook" && request.method === "POST") return await handleStripeWebhook(request, env);
       if (url.pathname === "/api/billing/checkout" && request.method === "POST") return await createBillingCheckout(request, env, url);
       if (url.pathname === "/api/billing/portal" && request.method === "POST") return await createBillingPortal(request, env, url);
@@ -174,6 +177,21 @@ async function ensureSubscriptionSchema(env) {
   )`).run();
   await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_billing_subscriptions_status_end ON billing_subscriptions(status, current_period_end)").run();
   await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_billing_subscriptions_customer ON billing_subscriptions(stripe_customer_id)").run();
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS paddle_subscriptions (
+    user_id TEXT PRIMARY KEY NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    paddle_customer_id TEXT,
+    paddle_subscription_id TEXT UNIQUE,
+    paddle_price_id TEXT,
+    status TEXT NOT NULL,
+    current_period_start TEXT,
+    current_period_end TEXT,
+    cancel_at_period_end INTEGER NOT NULL DEFAULT 0,
+    last_event_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`).run();
+  await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_paddle_subscriptions_customer ON paddle_subscriptions(paddle_customer_id)").run();
+  await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_paddle_subscriptions_status_end ON paddle_subscriptions(status, current_period_end)").run();
+  await env.DB.prepare("CREATE TABLE IF NOT EXISTS paddle_webhook_events (event_id TEXT PRIMARY KEY NOT NULL, received_at TEXT NOT NULL)").run();
 }
 function addSubscriptionMonths(source, months) {
   const date = new Date(source);
@@ -193,27 +211,32 @@ async function subscriptionAccessForUser(user, env) {
   const settings = await readSubscriptionSettings(env);
   if (!user) return { enabled: settings.enabled, active: false, allowed: false, plan: null, expiresAt: null, isAdmin: false };
   const isAdmin = !!env.ADMIN_EMAIL && normalizeEmail(user.email) === normalizeEmail(env.ADMIN_EMAIL);
-  const [grant, billing] = await Promise.all([
+  const [grant, stripe, paddle] = await Promise.all([
     env.DB.prepare("SELECT plan_code, status, starts_at, expires_at FROM user_subscriptions WHERE user_id=? LIMIT 1").bind(user.id).first(),
-    env.DB.prepare("SELECT stripe_customer_id, stripe_subscription_id, status, current_period_start, current_period_end, cancel_at_period_end FROM billing_subscriptions WHERE user_id=? LIMIT 1").bind(user.id).first()
+    env.DB.prepare("SELECT stripe_customer_id, stripe_subscription_id, status, current_period_start, current_period_end, cancel_at_period_end FROM billing_subscriptions WHERE user_id=? LIMIT 1").bind(user.id).first(),
+    env.DB.prepare("SELECT paddle_customer_id, paddle_subscription_id, status, current_period_start, current_period_end, cancel_at_period_end FROM paddle_subscriptions WHERE user_id=? LIMIT 1").bind(user.id).first()
   ]);
   const now = new Date().toISOString();
   const grantActive = !!grant && grant.status === "active" && (!grant.expires_at || grant.expires_at > now);
-  const billingActive = !!billing && ["active", "trialing"].includes(billing.status) &&
-    (!billing.current_period_end || billing.current_period_end > now);
-  const active = grantActive || billingActive;
-  const source = grantActive ? "admin-grant" : billingActive ? "stripe" : null;
+  const paddleActive = !!paddle && ["active", "trialing"].includes(paddle.status) &&
+    (!paddle.current_period_end || paddle.current_period_end > now);
+  const stripeActive = !!stripe && ["active", "trialing"].includes(stripe.status) &&
+    (!stripe.current_period_end || stripe.current_period_end > now);
+  const active = grantActive || paddleActive || stripeActive;
+  const source = grantActive ? "admin-grant" : paddleActive ? "paddle" : stripeActive ? "stripe" : null;
+  const billing = paddleActive ? paddle : stripeActive ? stripe : paddle || stripe;
   return {
     enabled: settings.enabled,
     active,
     allowed: !settings.enabled || active || isAdmin,
     source,
-    plan: grantActive ? grant.plan_code : billingActive ? "monthly_auto_renew" : null,
-    startsAt: grantActive ? grant.starts_at : billingActive ? billing.current_period_start : null,
-    expiresAt: grantActive ? grant.expires_at : billingActive ? billing.current_period_end : null,
+    plan: grantActive ? grant.plan_code : (paddleActive || stripeActive) ? "monthly_auto_renew" : null,
+    startsAt: grantActive ? grant.starts_at : billing?.current_period_start || null,
+    expiresAt: grantActive ? grant.expires_at : billing?.current_period_end || null,
     billingStatus: billing?.status || null,
     cancelAtPeriodEnd: !!Number(billing?.cancel_at_period_end || 0),
-    hasStripeCustomer: !!billing?.stripe_customer_id,
+    hasStripeCustomer: !!stripe?.stripe_customer_id,
+    hasPaddleCustomer: !!paddle?.paddle_customer_id,
     isAdmin
   };
 }
@@ -236,7 +259,13 @@ async function getAdminSubscriptionSettings(request, env) {
   const now = new Date().toISOString();
   const [grants, paid] = await Promise.all([
     env.DB.prepare("SELECT COUNT(*) AS total, SUM(CASE WHEN status='active' AND (expires_at IS NULL OR expires_at > ?) THEN 1 ELSE 0 END) AS active FROM user_subscriptions").bind(now).first(),
-    env.DB.prepare("SELECT COUNT(*) AS total, SUM(CASE WHEN status IN ('active','trialing') AND (current_period_end IS NULL OR current_period_end > ?) THEN 1 ELSE 0 END) AS active FROM billing_subscriptions").bind(now).first()
+    env.DB.prepare(`SELECT COUNT(DISTINCT user_id) AS total,
+      COUNT(DISTINCT CASE WHEN status IN ('active','trialing') AND (current_period_end IS NULL OR current_period_end > ?) THEN user_id END) AS active
+      FROM (
+        SELECT user_id, status, current_period_end FROM billing_subscriptions WHERE stripe_subscription_id IS NOT NULL
+        UNION ALL
+        SELECT user_id, status, current_period_end FROM paddle_subscriptions WHERE paddle_subscription_id IS NOT NULL
+      )`).bind(now).first()
   ]);
   return json({
     enabled: settings.enabled,
@@ -244,7 +273,8 @@ async function getAdminSubscriptionSettings(request, env) {
     activeGranted: Number(grants?.active || 0),
     totalPaid: Number(paid?.total || 0),
     activePaid: Number(paid?.active || 0),
-    paymentConfigured: !!(env.STRIPE_SECRET_KEY && env.STRIPE_PRICE_ID && env.STRIPE_WEBHOOK_SECRET)
+    paymentConfigured: !!(env.PADDLE_API_KEY && env.PADDLE_CLIENT_TOKEN && env.PADDLE_PRICE_ID && env.PADDLE_WEBHOOK_SECRET),
+    paymentProvider: "paddle"
   });
 }
 async function updateAdminSubscriptionSettings(request, env) {
@@ -257,6 +287,150 @@ async function updateAdminSubscriptionSettings(request, env) {
   await env.DB.prepare("UPDATE jalsa_settings SET setting_value=?, updated_at=?, updated_by=? WHERE setting_key='subscriptions_enabled'")
     .bind(body.enabled ? "1" : "0", now, admin.id).run();
   return json({ ok: true, enabled: body.enabled });
+}
+
+function paddleApiBase(env) {
+  return env.PADDLE_ENVIRONMENT === "sandbox" ? "https://sandbox-api.paddle.com" : "https://api.paddle.com";
+}
+async function paddleApiRequest(env, endpoint, body) {
+  if (!env.PADDLE_API_KEY) throw new Error("Paddle API key is not configured for this environment.");
+  const response = await fetch(paddleApiBase(env) + endpoint, {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer " + env.PADDLE_API_KEY,
+      "Content-Type": "application/json",
+      "Paddle-Version": "1"
+    },
+    body: JSON.stringify(body || {})
+  });
+  let data = {};
+  try { data = await response.json(); } catch {}
+  if (!response.ok) {
+    const message = data?.error?.detail || data?.error?.message || data?.errors?.[0]?.detail || "Paddle could not complete the billing request.";
+    throw new Error(String(message).slice(0, 300));
+  }
+  return data;
+}
+async function getPaddleCheckoutConfig(request, env) {
+  const user = await getSessionUser(request, env);
+  if (!user) return json({ error: "Please sign in before subscribing.", code: "LOGIN_REQUIRED" }, 401);
+  const settings = await readSubscriptionSettings(env);
+  if (!settings.enabled) return json({ error: "Subscriptions are currently disabled. JALSA is free for everyone.", code: "SUBSCRIPTIONS_DISABLED" }, 409);
+  if (!env.PADDLE_CLIENT_TOKEN || !env.PADDLE_PRICE_ID) {
+    return json({ error: "Paddle Sandbox checkout is not fully configured yet.", code: "PADDLE_NOT_CONFIGURED" }, 503);
+  }
+  const access = await subscriptionAccessForUser(user, env);
+  if (access.active) return json({ error: "Your account already has active access.", code: "ALREADY_HAS_ACCESS" }, 409);
+  return json({
+    clientToken: env.PADDLE_CLIENT_TOKEN,
+    priceId: env.PADDLE_PRICE_ID,
+    environment: env.PADDLE_ENVIRONMENT === "sandbox" ? "sandbox" : "production"
+  }, 200, { "Cache-Control": "private, no-store, max-age=0", "Vary": "Cookie" });
+}
+async function createPaddlePortalSession(request, env) {
+  const user = await getSessionUser(request, env);
+  if (!user) return json({ error: "Please sign in to manage billing.", code: "LOGIN_REQUIRED" }, 401);
+  await ensureSubscriptionSchema(env);
+  const billing = await env.DB.prepare(
+    "SELECT paddle_customer_id, paddle_subscription_id FROM paddle_subscriptions WHERE user_id=? LIMIT 1"
+  ).bind(user.id).first();
+  if (!billing?.paddle_customer_id) return json({ error: "No Paddle subscription is linked to this account.", code: "NO_PADDLE_CUSTOMER" }, 404);
+  try {
+    const body = billing.paddle_subscription_id ? { subscription_ids: [billing.paddle_subscription_id] } : {};
+    const response = await paddleApiRequest(env, "/customers/" + encodeURIComponent(billing.paddle_customer_id) + "/portal-sessions", body);
+    const portalUrl = response?.data?.urls?.general?.overview;
+    if (!portalUrl) return json({ error: "Paddle did not return a customer portal URL.", code: "PADDLE_PORTAL_URL_MISSING" }, 502);
+    return json({ ok: true, url: portalUrl });
+  } catch (error) {
+    return json({ error: "Paddle customer portal could not open: " + String(error?.message || "Unknown error").slice(0, 240), code: "PADDLE_PORTAL_FAILED" }, 502);
+  }
+}
+function hexBuffer(bytes) {
+  return Array.from(new Uint8Array(bytes), byte => byte.toString(16).padStart(2, "0")).join("");
+}
+async function verifyPaddleWebhookSignature(payload, signatureHeader, secret) {
+  if (!secret || !signatureHeader) return false;
+  const fields = signatureHeader.split(";").map(part => part.trim());
+  const timestamp = fields.find(part => part.startsWith("ts="))?.slice(3) || "";
+  const signatures = fields.filter(part => part.startsWith("h1=")).map(part => part.slice(3));
+  const timestampNumber = Number(timestamp);
+  if (!Number.isFinite(timestampNumber) || Math.abs(Date.now() / 1000 - timestampNumber) > 300 || !signatures.length) return false;
+  const key = await crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const signed = await crypto.subtle.sign("HMAC", key, encoder.encode(timestamp + ":" + payload));
+  const expected = hexBuffer(signed);
+  return signatures.some(signature => constantTimeEqual(signature.toLowerCase(), expected));
+}
+async function savePaddleSubscriptionEvent(env, event) {
+  await ensureSubscriptionSchema(env);
+  const data = event?.data || {};
+  const eventId = String(event?.event_id || event?.notification_id || "");
+  const eventType = String(event?.event_type || "");
+  const occurredAt = String(event?.occurred_at || new Date().toISOString());
+  if (!eventId || !eventType.startsWith("subscription.") || !data.id) return { ignored: true };
+  const previous = await env.DB.prepare(
+    "SELECT user_id, current_period_end, last_event_at FROM paddle_subscriptions WHERE paddle_subscription_id=? LIMIT 1"
+  ).bind(String(data.id)).first();
+  let userId = String(data.custom_data?.jalsa_user_id || data.custom_data?.jalsaUserId || previous?.user_id || "");
+  if (!userId && data.customer_id) {
+    const existing = await env.DB.prepare("SELECT user_id FROM paddle_subscriptions WHERE paddle_customer_id=? LIMIT 1").bind(String(data.customer_id)).first();
+    userId = String(existing?.user_id || "");
+  }
+  if (!userId) {
+    console.warn("Paddle subscription event has no JALSA user mapping; expected custom_data.jalsa_user_id.");
+    return { ignored: true, reason: "missing_user_mapping" };
+  }
+  if (previous?.last_event_at && occurredAt < previous.last_event_at) return { ignored: true, reason: "stale_event" };
+  const eventStatus = eventType === "subscription.canceled" ? "canceled"
+    : eventType === "subscription.past_due" ? "past_due"
+    : eventType === "subscription.paused" ? "paused"
+    : eventType === "subscription.activated" || eventType === "subscription.resumed" ? "active"
+    : eventType === "subscription.trialing" ? "trialing"
+    : String(data.status || "inactive");
+  const currentPeriod = data.current_billing_period || {};
+  const periodStart = currentPeriod.starts_at || data.started_at || null;
+  const periodEnd = currentPeriod.ends_at || data.next_billed_at || previous?.current_period_end || null;
+  const firstItem = Array.isArray(data.items) ? data.items[0] : null;
+  const priceId = firstItem?.price?.id || firstItem?.price_id || null;
+  const cancelAtPeriodEnd = data.scheduled_change?.action === "cancel" ? 1 : 0;
+  const now = new Date().toISOString();
+  await env.DB.prepare(`
+    INSERT INTO paddle_subscriptions
+      (user_id, paddle_customer_id, paddle_subscription_id, paddle_price_id, status, current_period_start, current_period_end, cancel_at_period_end, last_event_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(user_id) DO UPDATE SET
+      paddle_customer_id=excluded.paddle_customer_id,
+      paddle_subscription_id=excluded.paddle_subscription_id,
+      paddle_price_id=excluded.paddle_price_id,
+      status=excluded.status,
+      current_period_start=COALESCE(excluded.current_period_start, paddle_subscriptions.current_period_start),
+      current_period_end=COALESCE(excluded.current_period_end, paddle_subscriptions.current_period_end),
+      cancel_at_period_end=excluded.cancel_at_period_end,
+      last_event_at=excluded.last_event_at,
+      updated_at=excluded.updated_at
+    WHERE excluded.last_event_at >= paddle_subscriptions.last_event_at
+  `).bind(
+    userId, String(data.customer_id || previous?.paddle_customer_id || ""), String(data.id),
+    priceId, eventStatus, periodStart, periodEnd, cancelAtPeriodEnd, occurredAt, now
+  ).run();
+  if (eventId) await env.DB.prepare("INSERT OR IGNORE INTO paddle_webhook_events (event_id, received_at) VALUES (?, ?)").bind(eventId, now).run();
+  return { saved: true, status: eventStatus };
+}
+async function handlePaddleWebhook(request, env) {
+  if (!env.PADDLE_WEBHOOK_SECRET) return json({ error: "Paddle webhook secret is not configured." }, 503);
+  const payload = await request.text();
+  const signature = request.headers.get("Paddle-Signature") || "";
+  if (!await verifyPaddleWebhookSignature(payload, signature, env.PADDLE_WEBHOOK_SECRET)) {
+    return json({ error: "Invalid Paddle webhook signature." }, 400);
+  }
+  let event;
+  try { event = JSON.parse(payload); } catch { return json({ error: "Invalid Paddle event payload." }, 400); }
+  try {
+    const result = await savePaddleSubscriptionEvent(env, event);
+    return json({ received: true, ...result });
+  } catch (error) {
+    console.error("Paddle webhook processing failed:", error?.message || "unknown");
+    return json({ error: "Paddle webhook processing failed." }, 500);
+  }
 }
 
 function stripeForm(params) {
@@ -1246,10 +1420,14 @@ async function listUsers(request, env) {
             CASE WHEN u.password_hash IS NOT NULL AND u.password_hash != '' THEN 1 ELSE 0 END AS has_password,
             g.plan_code AS subscription_plan, g.status AS subscription_status,
             g.starts_at AS subscription_starts_at, g.expires_at AS subscription_expires_at,
-            b.status AS billing_status, b.current_period_start AS billing_period_start,
-            b.current_period_end AS billing_period_end, b.cancel_at_period_end AS billing_cancel_at_period_end
+            COALESCE(p.status, b.status) AS billing_status,
+            COALESCE(p.current_period_start, b.current_period_start) AS billing_period_start,
+            COALESCE(p.current_period_end, b.current_period_end) AS billing_period_end,
+            COALESCE(p.cancel_at_period_end, b.cancel_at_period_end, 0) AS billing_cancel_at_period_end,
+            CASE WHEN p.paddle_subscription_id IS NOT NULL THEN 'paddle' WHEN b.stripe_subscription_id IS NOT NULL THEN 'stripe' ELSE NULL END AS billing_provider
      FROM users u LEFT JOIN user_subscriptions g ON g.user_id=u.id
      LEFT JOIN billing_subscriptions b ON b.user_id=u.id
+     LEFT JOIN paddle_subscriptions p ON p.user_id=u.id
      ORDER BY u.created_at DESC LIMIT 1000`,
   ).all();
   return json({ users: result.results || [] });
@@ -1264,15 +1442,20 @@ async function getAdminUser(request, env, id) {
             CASE WHEN u.password_hash IS NOT NULL AND u.password_hash != '' THEN 1 ELSE 0 END AS has_password,
             g.plan_code AS subscription_plan, g.status AS subscription_status,
             g.starts_at AS subscription_starts_at, g.expires_at AS subscription_expires_at,
-            b.status AS billing_status, b.current_period_start AS billing_period_start,
-            b.current_period_end AS billing_period_end, b.cancel_at_period_end AS billing_cancel_at_period_end
+            COALESCE(p.status, b.status) AS billing_status,
+            COALESCE(p.current_period_start, b.current_period_start) AS billing_period_start,
+            COALESCE(p.current_period_end, b.current_period_end) AS billing_period_end,
+            COALESCE(p.cancel_at_period_end, b.cancel_at_period_end, 0) AS billing_cancel_at_period_end,
+            CASE WHEN p.paddle_subscription_id IS NOT NULL THEN 'paddle' WHEN b.stripe_subscription_id IS NOT NULL THEN 'stripe' ELSE NULL END AS billing_provider
      FROM users u LEFT JOIN user_subscriptions g ON g.user_id=u.id
      LEFT JOIN billing_subscriptions b ON b.user_id=u.id
+     LEFT JOIN paddle_subscriptions p ON p.user_id=u.id
      WHERE u.id = ? LIMIT 1`,
   ).bind(id).first();
   if (!user) return json({ error: "User not found." }, 404);
   return json({ user });
 }
+
 async function requireAdmin(request, env) {
   const user = await getSessionUser(request, env);
   if (!user || !env.ADMIN_EMAIL || normalizeEmail(user.email) !== normalizeEmail(env.ADMIN_EMAIL)) return null;
