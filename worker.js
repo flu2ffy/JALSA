@@ -41,10 +41,13 @@ export default {
       if (url.pathname === "/api/admin/subscription-settings" && request.method === "GET") return await getAdminSubscriptionSettings(request, env);
       if (url.pathname === "/api/admin/subscription-settings" && request.method === "PATCH") return await updateAdminSubscriptionSettings(request, env);
       if (url.pathname === "/api/game-access/start" && request.method === "POST") return await startGameAccess(request, env);
-      const protectedGameId = url.pathname === "/api/game-content" || url.pathname === "/api/remote/create" ? "zanko"
+      const contentGameId = url.pathname === "/api/game-content"
+        ? (["zanko", "price"].includes(url.searchParams.get("gameId")) ? url.searchParams.get("gameId") : "zanko")
+        : null;
+      const protectedGameId = contentGameId || (url.pathname === "/api/remote/create" ? "zanko"
         : url.pathname === "/api/insight/create" ? "insight"
         : url.pathname === "/api/imposter/create" ? "imposter"
-        : url.pathname === "/api/mafia/create" ? "mafia" : null;
+        : url.pathname === "/api/mafia/create" ? "mafia" : null);
       if (protectedGameId) {
         const denied = await requireSubscriptionAccess(request, env, protectedGameId);
         if (denied) return denied;
@@ -149,10 +152,16 @@ const GAME_AVAILABILITY = [
   { id: "insight", name: "INSIGHT" },
   { id: "mafia", name: "Mafia" }
 ];
+const subscriptionSchemaPromises = new WeakMap();
 async function ensureSubscriptionSchema(env) {
-  await env.DB.prepare("CREATE TABLE IF NOT EXISTS jalsa_settings (setting_key TEXT PRIMARY KEY NOT NULL, setting_value TEXT NOT NULL, updated_at TEXT NOT NULL, updated_by TEXT)").run();
-  await env.DB.prepare("INSERT OR IGNORE INTO jalsa_settings (setting_key, setting_value, updated_at) VALUES ('subscriptions_enabled', '0', ?)").bind(new Date().toISOString()).run();
-  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS user_subscriptions (
+  const db = env?.DB;
+  if (!db) throw new Error("JALSA database binding is not configured.");
+  let pending = subscriptionSchemaPromises.get(db);
+  if (!pending) {
+    pending = (async () => {
+  await db.prepare("CREATE TABLE IF NOT EXISTS jalsa_settings (setting_key TEXT PRIMARY KEY NOT NULL, setting_value TEXT NOT NULL, updated_at TEXT NOT NULL, updated_by TEXT)").run();
+  await db.prepare("INSERT OR IGNORE INTO jalsa_settings (setting_key, setting_value, updated_at) VALUES ('subscriptions_enabled', '0', ?)").bind(new Date().toISOString()).run();
+  await db.prepare(`CREATE TABLE IF NOT EXISTS user_subscriptions (
     user_id TEXT PRIMARY KEY NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     plan_code TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'revoked')),
@@ -162,14 +171,14 @@ async function ensureSubscriptionSchema(env) {
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`).run();
-  await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_user_subscriptions_status_expiry ON user_subscriptions(status, expires_at)").run();
-  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS free_game_sessions (
+  await db.prepare("CREATE INDEX IF NOT EXISTS idx_user_subscriptions_status_expiry ON user_subscriptions(status, expires_at)").run();
+  await db.prepare(`CREATE TABLE IF NOT EXISTS free_game_sessions (
     user_id TEXT PRIMARY KEY NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     game_id TEXT NOT NULL CHECK (game_id IN ('zanko','price','imposter','insight','mafia')),
     session_id TEXT NOT NULL,
     started_at TEXT NOT NULL
   )`).run();
-  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS billing_subscriptions (
+  await db.prepare(`CREATE TABLE IF NOT EXISTS billing_subscriptions (
     user_id TEXT PRIMARY KEY NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     stripe_customer_id TEXT,
     stripe_subscription_id TEXT UNIQUE,
@@ -181,9 +190,9 @@ async function ensureSubscriptionSchema(env) {
     last_event_created INTEGER NOT NULL DEFAULT 0,
     updated_at TEXT NOT NULL
   )`).run();
-  await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_billing_subscriptions_status_end ON billing_subscriptions(status, current_period_end)").run();
-  await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_billing_subscriptions_customer ON billing_subscriptions(stripe_customer_id)").run();
-  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS paddle_subscriptions (
+  await db.prepare("CREATE INDEX IF NOT EXISTS idx_billing_subscriptions_status_end ON billing_subscriptions(status, current_period_end)").run();
+  await db.prepare("CREATE INDEX IF NOT EXISTS idx_billing_subscriptions_customer ON billing_subscriptions(stripe_customer_id)").run();
+  await db.prepare(`CREATE TABLE IF NOT EXISTS paddle_subscriptions (
     user_id TEXT PRIMARY KEY NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     paddle_customer_id TEXT,
     paddle_subscription_id TEXT UNIQUE,
@@ -195,9 +204,19 @@ async function ensureSubscriptionSchema(env) {
     last_event_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`).run();
-  await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_paddle_subscriptions_customer ON paddle_subscriptions(paddle_customer_id)").run();
-  await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_paddle_subscriptions_status_end ON paddle_subscriptions(status, current_period_end)").run();
-  await env.DB.prepare("CREATE TABLE IF NOT EXISTS paddle_webhook_events (event_id TEXT PRIMARY KEY NOT NULL, received_at TEXT NOT NULL)").run();
+  await db.prepare("CREATE INDEX IF NOT EXISTS idx_paddle_subscriptions_customer ON paddle_subscriptions(paddle_customer_id)").run();
+  await db.prepare("CREATE INDEX IF NOT EXISTS idx_paddle_subscriptions_status_end ON paddle_subscriptions(status, current_period_end)").run();
+  await db.prepare("CREATE TABLE IF NOT EXISTS paddle_webhook_events (event_id TEXT PRIMARY KEY NOT NULL, received_at TEXT NOT NULL)").run();
+
+    })();
+    subscriptionSchemaPromises.set(db, pending);
+  }
+  try {
+    await pending;
+  } catch (error) {
+    subscriptionSchemaPromises.delete(db);
+    throw error;
+  }
 }
 function addSubscriptionMonths(source, months) {
   const date = new Date(source);
@@ -378,8 +397,9 @@ async function getPaddleCheckoutConfig(request, env) {
   if (!user) return json({ error: "Please sign in before subscribing.", code: "LOGIN_REQUIRED" }, 401);
   const settings = await readSubscriptionSettings(env);
   if (!settings.enabled) return json({ error: "Subscriptions are currently disabled. JALSA is free for everyone.", code: "SUBSCRIPTIONS_DISABLED" }, 409);
-  if (!env.PADDLE_CLIENT_TOKEN || !env.PADDLE_PRICE_ID) {
-    return json({ error: "Paddle Sandbox checkout is not fully configured yet.", code: "PADDLE_NOT_CONFIGURED" }, 503);
+  if (!env.PADDLE_CLIENT_TOKEN || !env.PADDLE_PRICE_ID || !env.PADDLE_API_KEY || !env.PADDLE_WEBHOOK_SECRET) {
+    const environment = env.PADDLE_ENVIRONMENT === "sandbox" ? "Sandbox" : "Production";
+    return json({ error: "Paddle " + environment + " checkout and webhook are not fully configured yet.", code: "PADDLE_NOT_CONFIGURED" }, 503);
   }
   const access = await subscriptionAccessForUser(user, env);
   if (access.active) return json({ error: "Your account already has active access.", code: "ALREADY_HAS_ACCESS" }, 409);
