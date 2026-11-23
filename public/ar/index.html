@@ -522,17 +522,6 @@ html[dir="rtl"] .game-card:nth-child(5)::before{background-image:url('/mafia-bg.
 <div class="v17-drawer-backdrop" id="accountDrawerBackdrop" onclick="closeAccountDrawer()"></div>
 <aside class="v17-account-drawer" id="accountDrawer" aria-label="Account menu" aria-hidden="true">
   <div class="v17-drawer-head"><div class="v17-avatar v17-avatar-small" id="drawerAvatar">☻</div><div class="v17-drawer-identity"><strong id="drawerName"></strong><small id="drawerEmail"></small></div><button class="close-small" type="button" onclick="closeAccountDrawer()" aria-label="Close">×</button></div>
-  <section class="v17-card" id="drawerSubscriptionPanel" style="margin:12px 16px;padding:15px" hidden>
-    <strong data-v17="mySubscription">My subscription</strong>
-    <p class="v17-muted" id="drawerSubscriptionStatus" style="margin:8px 0"></p>
-    <p class="v17-muted" data-v17="recurringDisclosure" style="font-size:12px">The paid plan renews automatically every month until you cancel. You can cancel before the next renewal; access continues until the current paid period ends.</p>
-    <div class="v17-action-row" style="flex-wrap:wrap;margin:10px 0 0">
-      <button type="button" class="primary" id="subscribeMonthlyButton" onclick="v17StartMonthlyCheckout()" data-v17="subscribeMonthly" hidden>Subscribe monthly</button>
-      <button type="button" class="v17-secondary" id="manageBillingButton" onclick="v17OpenBillingPortal()" data-v17="manageBilling" hidden>Manage billing</button>
-      <button type="button" class="v17-secondary" id="cancelSubscriptionButton" onclick="v17CancelMySubscription()" data-v17="cancelAtRenewal" hidden>Cancel at renewal</button>
-    </div>
-    <p class="v17-form-message" id="drawerSubscriptionMessage" hidden></p>
-  </section>
   <nav class="v17-drawer-nav">
     <button type="button" onclick="openProfilePage();closeAccountDrawer()"><span>👤</span><span data-v17="profile">Profile</span></button>
     <button type="button" onclick="openFeedback();closeAccountDrawer()"><span>✉️</span><span data-v17="sendFeedback">Send feedback</span></button>
@@ -542,6 +531,26 @@ html[dir="rtl"] .game-card:nth-child(5)::before{background-image:url('/mafia-bg.
   </nav>
   <div class="v17-drawer-bottom"><button type="button" class="v17-logout-button" onclick="logout()"><span>↪</span><span data-v17="logout">Log out</span></button></div>
 </aside>
+<div class="v17-modal-backdrop" id="subscriptionModal" onclick="if(event.target===this)closeSubscriptionModal()">
+ <section class="v17-modal" role="dialog" aria-modal="true" aria-labelledby="subscriptionModalTitle">
+  <div class="v17-modal-head">
+   <div><h2 id="subscriptionModalTitle" data-v17="subscriptionModalTitle">Unlock all JALSA games</h2><p data-v17="subscriptionModalIntro">Enjoy every JALSA game with one monthly membership.</p></div>
+   <button class="close-small" type="button" onclick="closeSubscriptionModal()" aria-label="Close">×</button>
+  </div>
+  <div class="v17-card" style="text-align:center;padding:20px;margin:18px 0">
+   <div class="v17-eyebrow">JALSA PREMIUM</div>
+   <div style="font:700 38px Georgia,serif;color:var(--wine);margin:8px 0">AED 19.99<span style="font:600 15px Arial,sans-serif;color:var(--muted)"> / <span data-v17="perMonth">month</span></span></div>
+   <p class="v17-muted" data-v17="recurringDisclosure">The paid plan renews automatically every month until you cancel. You can cancel before the next renewal; access continues until the current paid period ends.</p>
+  </div>
+  <p class="v17-muted" id="subscriptionModalSummary"></p>
+  <button type="button" class="primary" id="subscriptionModalCheckoutButton" onclick="v17StartMonthlyCheckout()" data-v17="subscribeForMonthly">Subscribe for AED 19.99/month</button>
+  <div class="v17-action-row" style="margin-top:10px">
+   <button type="button" class="v17-secondary" id="subscriptionModalManageBillingButton" onclick="v17OpenBillingPortal()" data-v17="manageBilling" hidden>Manage billing</button>
+   <button type="button" class="v17-secondary" id="subscriptionModalCancelButton" onclick="v17CancelMySubscription()" data-v17="cancelAtRenewal" hidden>Cancel at renewal</button>
+  </div>
+  <p class="v17-form-message" id="subscriptionModalMessage" hidden></p>
+ </section>
+</div>
 <div class="v17-modal-backdrop" id="feedbackOverlay" onclick="if(event.target===this)closeFeedback()">
   <section class="v17-modal" role="dialog" aria-modal="true" aria-labelledby="feedbackTitle">
     <div class="v17-modal-head"><div><h2 id="feedbackTitle" data-v17="sendFeedback">Send feedback</h2><p data-v17="feedbackIntro">Tell us what you think. Your message goes to the JALSA team.</p></div><button class="close-small" type="button" onclick="closeFeedback()">×</button></div>
@@ -565,6 +574,10 @@ html[dir="rtl"] .game-card:nth-child(5)::before{background-image:url('/mafia-bg.
         <p class="v17-form-message" id="profileStatus" hidden></p>
         <div class="v17-action-row"><button class="primary" type="submit" data-v17="saveChanges">Save changes</button><button class="v17-secondary" type="button" onclick="closeV17Page()" data-v17="cancel">Cancel</button></div>
       </form>
+    </section>
+    <section class="v17-card" style="margin-top:16px">
+      <div class="v17-profile-heading"><div><h2 data-v17="profileSubscription">Subscription</h2><p class="v17-muted" id="profileSubscriptionSummary" data-v17="profileSubscriptionIntro">View your access and manage recurring billing.</p></div></div>
+      <button class="v17-secondary" type="button" onclick="openSubscriptionModal()" data-v17="manageSubscription">Manage subscription</button>
     </section>
   </div>
 </main>
@@ -1163,6 +1176,8 @@ Object.assign(v17I18n.en,{
  confirmEnableSubscriptions:"Enable subscriptions? Users without an active grant will no longer be able to play.",confirmDisableSubscriptions:"Make all JALSA games free for everyone?",subscriptionRequiredToast:"JALSA games currently require an active subscription. Contact the JALSA team for access.",
  grantConfirm:"Grant this user the selected subscription access?",revokeConfirm:"Revoke this user's subscription access?",subscriptionGranted:"Subscription access granted.",subscriptionRevoked:"Subscription access revoked.",adminSubscriptionAccess:"Your administrator account always has access.",
  mySubscription:"My subscription",freeSubscriptionMode:"JALSA is free for everyone right now.",subscribeMonthly:"Subscribe monthly",manageBilling:"Manage billing",cancelAtRenewal:"Cancel at renewal",
+ subscriptionModalTitle:"Unlock all JALSA games",subscriptionModalIntro:"Enjoy every JALSA game with one monthly membership.",perMonth:"month",subscribeForMonthly:"Subscribe for AED 19.99/month",
+ profileSubscription:"Subscription",profileSubscriptionIntro:"View your access and manage recurring billing.",manageSubscription:"Manage subscription",subscriptionModalNoAccess:"An active subscription is needed to play all JALSA games.",
  recurringDisclosure:"The paid plan renews automatically every month until you cancel. You can cancel before the next renewal; access continues until the current paid period ends.",
  subscriptionNeedsSetup:"Paid subscriptions are not configured in this test environment yet.",subscriptionAlreadyActive:"Your account already has active access.",
  subscriptionPaidActive:"Monthly subscription active",subscriptionCancelScheduled:"Your subscription is set to cancel at the end of this paid period.",
@@ -1185,6 +1200,8 @@ Object.assign(v17I18n.ar,{
  subscriptionRequiredToast:"تتطلب ألعاب جلسة حالياً اشتراكاً فعالاً. تواصل مع فريق جلسة للحصول على الصلاحية.",
  grantConfirm:"هل تريد منح هذا المستخدم صلاحية الاشتراك المحددة؟",revokeConfirm:"هل تريد إلغاء اشتراك هذا المستخدم؟",subscriptionGranted:"تم منح صلاحية الاشتراك.",subscriptionRevoked:"تم إلغاء صلاحية الاشتراك.",adminSubscriptionAccess:"يملك حساب المسؤول صلاحية الوصول دائماً.",
  mySubscription:"اشتراكي",freeSubscriptionMode:"جلسة مجانية للجميع حالياً.",subscribeMonthly:"اشترك شهرياً",manageBilling:"إدارة الفواتير",cancelAtRenewal:"إلغاء التجديد",
+ subscriptionModalTitle:"افتح جميع ألعاب جلسة",subscriptionModalIntro:"استمتع بجميع ألعاب جلسة مع اشتراك شهري واحد.",perMonth:"شهرياً",subscribeForMonthly:"اشترك مقابل 19.99 درهماً شهرياً",
+ profileSubscription:"الاشتراك",profileSubscriptionIntro:"راجع صلاحية وصولك وأدر الفوترة المتكررة.",manageSubscription:"إدارة الاشتراك",subscriptionModalNoAccess:"يلزم اشتراك فعال للعب جميع ألعاب جلسة.",
  recurringDisclosure:"يتم تجديد الاشتراك المدفوع تلقائياً كل شهر حتى تقوم بإلغائه. يمكنك الإلغاء قبل موعد التجديد، ويستمر وصولك حتى نهاية الفترة المدفوعة الحالية.",
  subscriptionNeedsSetup:"لم يتم إعداد الاشتراكات المدفوعة في بيئة الاختبار هذه بعد.",subscriptionAlreadyActive:"لديك صلاحية وصول فعالة بالفعل.",
  subscriptionPaidActive:"الاشتراك الشهري فعال",subscriptionCancelScheduled:"تم تحديد إلغاء الاشتراك عند نهاية الفترة المدفوعة الحالية.",
@@ -1208,46 +1225,51 @@ function v17SyncLanguage(){
 }
 function v17ShowStatus(id,message,error){const el=document.getElementById(id);if(!el)return;el.textContent=message;el.hidden=false;el.classList.toggle("error",!!error)}
 async function v17Request(path,method,body){const options={method:method||"GET",credentials:"same-origin",headers:{"Accept":"application/json"}};if(body!==undefined){options.headers["Content-Type"]="application/json";options.body=JSON.stringify(body)}const response=await fetch("/api"+path,options);let data={};try{data=await response.json()}catch{}if(!response.ok){const error=new Error(data.error||v17T("failed"));error.code=data.code||"";error.status=response.status;throw error}return data}
-async function v17LoadMySubscription(){
- const panel=document.getElementById("drawerSubscriptionPanel");if(!panel||!currentUser)return;
- panel.hidden=false;
- const subscribe=document.getElementById("subscribeMonthlyButton"),manage=document.getElementById("manageBillingButton"),cancel=document.getElementById("cancelSubscriptionButton");
- subscribe.hidden=true;manage.hidden=true;cancel.hidden=true;
+async function openSubscriptionModal(prefetchedStatus){
+ closeAccountDrawer();
+ const modal=document.getElementById("subscriptionModal");
+ const checkout=document.getElementById("subscriptionModalCheckoutButton");
+ const manage=document.getElementById("subscriptionModalManageBillingButton");
+ const cancel=document.getElementById("subscriptionModalCancelButton");
+ const message=document.getElementById("subscriptionModalMessage");
+ const summary=document.getElementById("subscriptionModalSummary");
+ checkout.hidden=true;manage.hidden=true;cancel.hidden=true;message.hidden=true;
+ summary.textContent=v17T("loading");
+ modal.classList.add("open");
  try{
-  const status=await v17Request("/subscription-status","GET");
+  const status=prefetchedStatus||await v17Request("/subscription-status","GET");
   if(!status.enabled){
-   document.getElementById("drawerSubscriptionStatus").textContent=v17T("freeSubscriptionMode");
-   return;
-  }
-  if(status.isAdmin){
-   document.getElementById("drawerSubscriptionStatus").textContent=v17T("adminSubscriptionAccess");
-   return;
-  }
-  if(status.source==="admin-grant"){
-   document.getElementById("drawerSubscriptionStatus").textContent=v17T("subscriptionAdminGrant")+(status.expiresAt?" "+v17T("subscriptionUntil")+" "+v17FormatDate(status.expiresAt):" · "+v17T("unlimited"));
-   return;
-  }
-  if(status.active&&status.source==="stripe"){
-   document.getElementById("drawerSubscriptionStatus").textContent=status.cancelAtPeriodEnd
+   summary.textContent=v17T("freeSubscriptionMode");
+   checkout.hidden=true;
+  }else if(status.isAdmin){
+   summary.textContent=v17T("adminSubscriptionAccess");
+  }else if(status.source==="admin-grant"){
+   summary.textContent=v17T("subscriptionAdminGrant")+(status.expiresAt?" "+v17T("subscriptionUntil")+" "+v17FormatDate(status.expiresAt):" · "+v17T("unlimited"));
+  }else if(status.active&&status.source==="stripe"){
+   summary.textContent=status.cancelAtPeriodEnd
     ?v17T("subscriptionCancelScheduled")+" "+v17T("subscriptionUntil")+" "+v17FormatDate(status.expiresAt)
     :v17T("subscriptionPaidActive")+" · "+v17T("subscriptionUntil")+" "+v17FormatDate(status.expiresAt);
-   manage.hidden=false;
-   cancel.hidden=!!status.cancelAtPeriodEnd;
-   return;
+   manage.hidden=false;cancel.hidden=!!status.cancelAtPeriodEnd;
+  }else{
+   summary.textContent=v17T("subscriptionModalNoAccess");
+   checkout.hidden=false;
   }
-  document.getElementById("drawerSubscriptionStatus").textContent=v17T("subscriptionRequired");
-  subscribe.hidden=false;
- }catch(error){document.getElementById("drawerSubscriptionStatus").textContent=error.message||v17T("failed")}
+ }catch(error){
+  summary.textContent=error.message||v17T("failed");
+ }
 }
+function closeSubscriptionModal(){document.getElementById("subscriptionModal")?.classList.remove("open")}
 async function v17StartMonthlyCheckout(){
- const button=document.getElementById("subscribeMonthlyButton");if(button)button.disabled=true;
+ const button=document.getElementById("subscriptionModalCheckoutButton");if(button)button.disabled=true;
+ document.getElementById("subscriptionModalMessage").hidden=true;
  try{
   const result=await v17Request("/billing/checkout","POST",{language:isArabic?"ar":"en"});
   if(!result.url)throw new Error(v17T("subscriptionBillingError"));
   window.location.assign(result.url);
  }catch(error){
-  v17ShowStatus("drawerSubscriptionMessage",error.message||v17T("subscriptionBillingError"),true);
-  if(error.code==="BILLING_NOT_CONFIGURED")v17ShowStatus("drawerSubscriptionMessage",v17T("subscriptionNeedsSetup"),true);
+  let message=error.message||v17T("subscriptionBillingError");
+  if(error.code==="BILLING_NOT_CONFIGURED")message=v17T("subscriptionNeedsSetup");
+  v17ShowStatus("subscriptionModalMessage",message,true);
  }finally{if(button)button.disabled=false}
 }
 async function v17OpenBillingPortal(){
@@ -1255,24 +1277,22 @@ async function v17OpenBillingPortal(){
   const result=await v17Request("/billing/portal","POST",{language:isArabic?"ar":"en"});
   if(!result.url)throw new Error(v17T("subscriptionBillingError"));
   window.location.assign(result.url);
- }catch(error){v17ShowStatus("drawerSubscriptionMessage",error.message||v17T("subscriptionBillingError"),true)}
+ }catch(error){v17ShowStatus("subscriptionModalMessage",error.message||v17T("subscriptionBillingError"),true)}
 }
 async function v17CancelMySubscription(){
  if(!confirm(v17T("cancelRenewalConfirm")))return;
  try{
   await v17Request("/billing/cancel","POST",{});
-  await v17LoadMySubscription();
-  v17ShowStatus("drawerSubscriptionMessage",v17T("cancellationScheduled"),false);
- }catch(error){v17ShowStatus("drawerSubscriptionMessage",error.message||v17T("subscriptionBillingError"),true)}
+  await openSubscriptionModal();
+  v17ShowStatus("subscriptionModalMessage",v17T("cancellationScheduled"),false);
+ }catch(error){v17ShowStatus("subscriptionModalMessage",error.message||v17T("subscriptionBillingError"),true)}
 }
 async function v17CheckSubscriptionAccess(){
  if(!currentUser){showAuth("login");return false}
  try{
   const status=await v17Request("/subscription-status","GET");
   if(status.allowed)return true;
-  showToast(v17T("subscriptionRequiredToast"));
-  const drawer=document.getElementById("accountDrawer");
-  if(drawer&&!drawer.classList.contains("open"))toggleAccountDrawer();
+  await openSubscriptionModal(status);
   return false;
  }catch(error){
   if(error.code==="LOGIN_REQUIRED"){showAuth("login");return false}
@@ -1291,7 +1311,7 @@ function v17SubscriptionLabel(user){
  return v17T("noActiveSubscription");
 }
 function v17RenderAvatar(data){const targets=["drawerAvatar","profileAvatarPreview"];targets.forEach(id=>{const el=document.getElementById(id);if(!el)return;el.innerHTML="";if(data){const img=document.createElement("img");img.src=data;img.alt="Profile picture";el.appendChild(img)}else el.textContent="☻"})}
-function toggleAccountDrawer(){if(!currentUser)return;const drawer=document.getElementById("accountDrawer"),backdrop=document.getElementById("accountDrawerBackdrop");drawer.classList.toggle("open");backdrop.classList.toggle("open");drawer.setAttribute("aria-hidden",drawer.classList.contains("open")?"false":"true");document.getElementById("accountLabel").setAttribute("aria-expanded",drawer.classList.contains("open")?"true":"false");if(drawer.classList.contains("open"))v17LoadMySubscription()}
+function toggleAccountDrawer(){if(!currentUser)return;const drawer=document.getElementById("accountDrawer"),backdrop=document.getElementById("accountDrawerBackdrop");drawer.classList.toggle("open");backdrop.classList.toggle("open");drawer.setAttribute("aria-hidden",drawer.classList.contains("open")?"false":"true");document.getElementById("accountLabel").setAttribute("aria-expanded",drawer.classList.contains("open")?"true":"false")}
 function closeAccountDrawer(){const drawer=document.getElementById("accountDrawer");if(!drawer)return;drawer.classList.remove("open");document.getElementById("accountDrawerBackdrop").classList.remove("open");drawer.setAttribute("aria-hidden","true");const name=document.getElementById("accountLabel");if(name)name.setAttribute("aria-expanded","false")}
 function openV17Page(id){document.getElementById("homePage").hidden=true;document.getElementById("siteHeader").hidden=true;document.querySelector(".site-footer").hidden=true;document.getElementById(id).hidden=false;v17SyncLanguage()}
 function closeV17Page(){document.getElementById("profilePage").hidden=true;document.getElementById("homePage").hidden=false;document.getElementById("siteHeader").hidden=false;document.querySelector(".site-footer").hidden=false}
