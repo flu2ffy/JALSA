@@ -159,55 +159,57 @@ async function ensureSubscriptionSchema(env) {
   let pending = subscriptionSchemaPromises.get(db);
   if (!pending) {
     pending = (async () => {
-  await db.prepare("CREATE TABLE IF NOT EXISTS jalsa_settings (setting_key TEXT PRIMARY KEY NOT NULL, setting_value TEXT NOT NULL, updated_at TEXT NOT NULL, updated_by TEXT)").run();
-  await db.prepare("INSERT OR IGNORE INTO jalsa_settings (setting_key, setting_value, updated_at) VALUES ('subscriptions_enabled', '0', ?)").bind(new Date().toISOString()).run();
-  await db.prepare(`CREATE TABLE IF NOT EXISTS user_subscriptions (
-    user_id TEXT PRIMARY KEY NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    plan_code TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'revoked')),
-    starts_at TEXT NOT NULL,
-    expires_at TEXT,
-    granted_by TEXT,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-  )`).run();
-  await db.prepare("CREATE INDEX IF NOT EXISTS idx_user_subscriptions_status_expiry ON user_subscriptions(status, expires_at)").run();
-  await db.prepare(`CREATE TABLE IF NOT EXISTS free_game_sessions (
-    user_id TEXT PRIMARY KEY NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    game_id TEXT NOT NULL CHECK (game_id IN ('zanko','price','imposter','insight','mafia')),
-    session_id TEXT NOT NULL,
-    started_at TEXT NOT NULL
-  )`).run();
-  await db.prepare(`CREATE TABLE IF NOT EXISTS billing_subscriptions (
-    user_id TEXT PRIMARY KEY NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    stripe_customer_id TEXT,
-    stripe_subscription_id TEXT UNIQUE,
-    stripe_price_id TEXT,
-    status TEXT NOT NULL,
-    current_period_start TEXT,
-    current_period_end TEXT,
-    cancel_at_period_end INTEGER NOT NULL DEFAULT 0,
-    last_event_created INTEGER NOT NULL DEFAULT 0,
-    updated_at TEXT NOT NULL
-  )`).run();
-  await db.prepare("CREATE INDEX IF NOT EXISTS idx_billing_subscriptions_status_end ON billing_subscriptions(status, current_period_end)").run();
-  await db.prepare("CREATE INDEX IF NOT EXISTS idx_billing_subscriptions_customer ON billing_subscriptions(stripe_customer_id)").run();
-  await db.prepare(`CREATE TABLE IF NOT EXISTS paddle_subscriptions (
-    user_id TEXT PRIMARY KEY NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    paddle_customer_id TEXT,
-    paddle_subscription_id TEXT UNIQUE,
-    paddle_price_id TEXT,
-    status TEXT NOT NULL,
-    current_period_start TEXT,
-    current_period_end TEXT,
-    cancel_at_period_end INTEGER NOT NULL DEFAULT 0,
-    last_event_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-  )`).run();
-  await db.prepare("CREATE INDEX IF NOT EXISTS idx_paddle_subscriptions_customer ON paddle_subscriptions(paddle_customer_id)").run();
-  await db.prepare("CREATE INDEX IF NOT EXISTS idx_paddle_subscriptions_status_end ON paddle_subscriptions(status, current_period_end)").run();
-  await db.prepare("CREATE TABLE IF NOT EXISTS paddle_webhook_events (event_id TEXT PRIMARY KEY NOT NULL, received_at TEXT NOT NULL)").run();
-
+      // D1 batch keeps first-time schema setup to one database round trip.
+      await db.batch([
+        db.prepare("CREATE TABLE IF NOT EXISTS jalsa_settings (setting_key TEXT PRIMARY KEY NOT NULL, setting_value TEXT NOT NULL, updated_at TEXT NOT NULL, updated_by TEXT)"),
+        db.prepare("INSERT OR IGNORE INTO jalsa_settings (setting_key, setting_value, updated_at) VALUES ('subscriptions_enabled', '0', ?)").bind(new Date().toISOString()),
+        db.prepare(`CREATE TABLE IF NOT EXISTS user_subscriptions (
+          user_id TEXT PRIMARY KEY NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          plan_code TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'revoked')),
+          starts_at TEXT NOT NULL,
+          expires_at TEXT,
+          granted_by TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        )`),
+        db.prepare("CREATE INDEX IF NOT EXISTS idx_user_subscriptions_status_expiry ON user_subscriptions(status, expires_at)"),
+        db.prepare(`CREATE TABLE IF NOT EXISTS free_game_sessions (
+          user_id TEXT PRIMARY KEY NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          game_id TEXT NOT NULL CHECK (game_id IN ('zanko','price','imposter','insight','mafia')),
+          session_id TEXT NOT NULL,
+          started_at TEXT NOT NULL
+        )`),
+        db.prepare(`CREATE TABLE IF NOT EXISTS billing_subscriptions (
+          user_id TEXT PRIMARY KEY NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          stripe_customer_id TEXT,
+          stripe_subscription_id TEXT UNIQUE,
+          stripe_price_id TEXT,
+          status TEXT NOT NULL,
+          current_period_start TEXT,
+          current_period_end TEXT,
+          cancel_at_period_end INTEGER NOT NULL DEFAULT 0,
+          last_event_created INTEGER NOT NULL DEFAULT 0,
+          updated_at TEXT NOT NULL
+        )`),
+        db.prepare("CREATE INDEX IF NOT EXISTS idx_billing_subscriptions_status_end ON billing_subscriptions(status, current_period_end)"),
+        db.prepare("CREATE INDEX IF NOT EXISTS idx_billing_subscriptions_customer ON billing_subscriptions(stripe_customer_id)"),
+        db.prepare(`CREATE TABLE IF NOT EXISTS paddle_subscriptions (
+          user_id TEXT PRIMARY KEY NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          paddle_customer_id TEXT,
+          paddle_subscription_id TEXT UNIQUE,
+          paddle_price_id TEXT,
+          status TEXT NOT NULL,
+          current_period_start TEXT,
+          current_period_end TEXT,
+          cancel_at_period_end INTEGER NOT NULL DEFAULT 0,
+          last_event_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        )`),
+        db.prepare("CREATE INDEX IF NOT EXISTS idx_paddle_subscriptions_customer ON paddle_subscriptions(paddle_customer_id)"),
+        db.prepare("CREATE INDEX IF NOT EXISTS idx_paddle_subscriptions_status_end ON paddle_subscriptions(status, current_period_end)"),
+        db.prepare("CREATE TABLE IF NOT EXISTS paddle_webhook_events (event_id TEXT PRIMARY KEY NOT NULL, received_at TEXT NOT NULL)")
+      ]);
     })();
     subscriptionSchemaPromises.set(db, pending);
   }
@@ -233,35 +235,74 @@ async function readSubscriptionSettings(env) {
   return { enabled: row?.setting_value === "1" };
 }
 async function subscriptionAccessForUser(user, env) {
-  const settings = await readSubscriptionSettings(env);
-  if (!user) return { enabled: settings.enabled, active: false, allowed: false, plan: null, expiresAt: null, isAdmin: false };
+  if (!user) {
+    const settings = await readSubscriptionSettings(env);
+    return { enabled: settings.enabled, active: false, allowed: false, plan: null, expiresAt: null, isAdmin: false };
+  }
+
+  await ensureSubscriptionSchema(env);
   const isAdmin = !!env.ADMIN_EMAIL && normalizeEmail(user.email) === normalizeEmail(env.ADMIN_EMAIL);
-  const [grant, stripe, paddle] = await Promise.all([
-    env.DB.prepare("SELECT plan_code, status, starts_at, expires_at FROM user_subscriptions WHERE user_id=? LIMIT 1").bind(user.id).first(),
-    env.DB.prepare("SELECT stripe_customer_id, stripe_subscription_id, status, current_period_start, current_period_end, cancel_at_period_end FROM billing_subscriptions WHERE user_id=? LIMIT 1").bind(user.id).first(),
-    env.DB.prepare("SELECT paddle_customer_id, paddle_subscription_id, status, current_period_start, current_period_end, cancel_at_period_end FROM paddle_subscriptions WHERE user_id=? LIMIT 1").bind(user.id).first()
-  ]);
+
+  // Read the global switch and all three entitlement sources in one D1 query.
+  // This is the data needed by /api/me to display the Premium badge.
+  const row = await env.DB.prepare(`
+    SELECT
+      settings.setting_value AS subscriptions_enabled,
+      user_grant.plan_code AS grant_plan_code,
+      user_grant.status AS grant_status,
+      user_grant.starts_at AS grant_starts_at,
+      user_grant.expires_at AS grant_expires_at,
+      stripe.stripe_customer_id AS stripe_customer_id,
+      stripe.status AS stripe_status,
+      stripe.current_period_start AS stripe_period_start,
+      stripe.current_period_end AS stripe_period_end,
+      stripe.cancel_at_period_end AS stripe_cancel_at_period_end,
+      paddle.paddle_customer_id AS paddle_customer_id,
+      paddle.status AS paddle_status,
+      paddle.current_period_start AS paddle_period_start,
+      paddle.current_period_end AS paddle_period_end,
+      paddle.cancel_at_period_end AS paddle_cancel_at_period_end
+    FROM (SELECT ? AS user_id) AS account
+    LEFT JOIN jalsa_settings AS settings
+      ON settings.setting_key='subscriptions_enabled'
+    LEFT JOIN user_subscriptions AS user_grant
+      ON user_grant.user_id=account.user_id
+    LEFT JOIN billing_subscriptions AS stripe
+      ON stripe.user_id=account.user_id
+    LEFT JOIN paddle_subscriptions AS paddle
+      ON paddle.user_id=account.user_id
+    LIMIT 1
+  `).bind(user.id).first();
+
   const now = new Date().toISOString();
-  const grantActive = !!grant && grant.status === "active" && (!grant.expires_at || grant.expires_at > now);
-  const paddleActive = !!paddle && ["active", "trialing"].includes(paddle.status) &&
-    (!paddle.current_period_end || paddle.current_period_end > now);
-  const stripeActive = !!stripe && ["active", "trialing"].includes(stripe.status) &&
-    (!stripe.current_period_end || stripe.current_period_end > now);
+  const grantActive = !!row?.grant_status && row.grant_status === "active" &&
+    (!row.grant_expires_at || row.grant_expires_at > now);
+  const paddleActive = !!row?.paddle_status && ["active", "trialing"].includes(row.paddle_status) &&
+    (!row.paddle_period_end || row.paddle_period_end > now);
+  const stripeActive = !!row?.stripe_status && ["active", "trialing"].includes(row.stripe_status) &&
+    (!row.stripe_period_end || row.stripe_period_end > now);
   const active = grantActive || paddleActive || stripeActive;
   const source = grantActive ? "admin-grant" : paddleActive ? "paddle" : stripeActive ? "stripe" : null;
-  const billing = paddleActive ? paddle : stripeActive ? stripe : paddle || stripe;
+
+  const hasPaddleRecord = !!row?.paddle_status;
+  const usePaddleBilling = paddleActive || (!stripeActive && hasPaddleRecord);
+  const billingStart = usePaddleBilling ? row?.paddle_period_start : row?.stripe_period_start;
+  const billingEnd = usePaddleBilling ? row?.paddle_period_end : row?.stripe_period_end;
+  const billingStatus = usePaddleBilling ? row?.paddle_status : row?.stripe_status;
+  const cancelAtPeriodEnd = usePaddleBilling ? row?.paddle_cancel_at_period_end : row?.stripe_cancel_at_period_end;
+
   return {
-    enabled: settings.enabled,
+    enabled: row?.subscriptions_enabled === "1",
     active,
-    allowed: !settings.enabled || active || isAdmin,
+    allowed: row?.subscriptions_enabled !== "1" || active || isAdmin,
     source,
-    plan: grantActive ? grant.plan_code : (paddleActive || stripeActive) ? "monthly_auto_renew" : null,
-    startsAt: grantActive ? grant.starts_at : billing?.current_period_start || null,
-    expiresAt: grantActive ? grant.expires_at : billing?.current_period_end || null,
-    billingStatus: billing?.status || null,
-    cancelAtPeriodEnd: !!Number(billing?.cancel_at_period_end || 0),
-    hasStripeCustomer: !!stripe?.stripe_customer_id,
-    hasPaddleCustomer: !!paddle?.paddle_customer_id,
+    plan: grantActive ? row.grant_plan_code : (paddleActive || stripeActive) ? "monthly_auto_renew" : null,
+    startsAt: grantActive ? row.grant_starts_at : billingStart || null,
+    expiresAt: grantActive ? row.grant_expires_at : billingEnd || null,
+    billingStatus: billingStatus || null,
+    cancelAtPeriodEnd: !!Number(cancelAtPeriodEnd || 0),
+    hasStripeCustomer: !!row?.stripe_customer_id,
+    hasPaddleCustomer: !!row?.paddle_customer_id,
     isAdmin
   };
 }
