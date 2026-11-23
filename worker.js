@@ -282,41 +282,51 @@ async function stripeApiRequest(env, endpoint, params, method = "POST") {
   return data;
 }
 async function createBillingCheckout(request, env, url) {
-  const user = await getSessionUser(request, env);
-  if (!user) return json({ error: "Please sign in before subscribing.", code: "LOGIN_REQUIRED" }, 401);
-  const settings = await readSubscriptionSettings(env);
-  if (!settings.enabled) return json({ error: "Subscriptions are not currently enabled. JALSA is free for everyone right now.", code: "SUBSCRIPTIONS_DISABLED" }, 409);
-  if (!env.STRIPE_SECRET_KEY || !env.STRIPE_PRICE_ID) return json({ error: "Paid subscriptions are not configured in this test environment yet.", code: "BILLING_NOT_CONFIGURED" }, 503);
-  const access = await subscriptionAccessForUser(user, env);
-  if (access.active) return json({ error: "Your account already has active access.", code: "ALREADY_HAS_ACCESS" }, 409);
-  const existing = await env.DB.prepare("SELECT stripe_customer_id, stripe_subscription_id, status, current_period_end FROM billing_subscriptions WHERE user_id=? LIMIT 1").bind(user.id).first();
-  if (existing?.stripe_subscription_id && existing.current_period_end && existing.current_period_end > new Date().toISOString() &&
-      ["active", "trialing", "past_due", "unpaid", "incomplete"].includes(existing.status)) {
-    return json({ error: "A subscription already exists for this account. Open Manage billing to update payment details or cancel it.", code: "EXISTING_BILLING_SUBSCRIPTION" }, 409);
+  try {
+    const user = await getSessionUser(request, env);
+    if (!user) return json({ error: "Please sign in before subscribing.", code: "LOGIN_REQUIRED" }, 401);
+    const settings = await readSubscriptionSettings(env);
+    if (!settings.enabled) return json({ error: "Subscriptions are not currently enabled. JALSA is free for everyone right now.", code: "SUBSCRIPTIONS_DISABLED" }, 409);
+    if (!env.STRIPE_SECRET_KEY || !env.STRIPE_PRICE_ID) return json({ error: "Paid subscriptions are not configured in this test environment yet.", code: "BILLING_NOT_CONFIGURED" }, 503);
+    const access = await subscriptionAccessForUser(user, env);
+    if (access.active) return json({ error: "Your account already has active access.", code: "ALREADY_HAS_ACCESS" }, 409);
+    const existing = await env.DB.prepare("SELECT stripe_customer_id, stripe_subscription_id, status, current_period_end FROM billing_subscriptions WHERE user_id=? LIMIT 1").bind(user.id).first();
+    if (existing?.stripe_subscription_id && existing.current_period_end && existing.current_period_end > new Date().toISOString() &&
+        ["active", "trialing", "past_due", "unpaid", "incomplete"].includes(existing.status)) {
+      return json({ error: "A subscription already exists for this account. Open Manage billing to update payment details or cancel it.", code: "EXISTING_BILLING_SUBSCRIPTION" }, 409);
+    }
+    const body = await readBody(request);
+    const language = body.language === "ar" ? "ar" : "en";
+    const origin = url.origin;
+    const pagePath = language === "ar" ? "/ar/" : "/";
+    const params = {
+      mode: "subscription",
+      "line_items[0][price]": env.STRIPE_PRICE_ID,
+      "line_items[0][quantity]": "1",
+      client_reference_id: user.id,
+      customer: existing?.stripe_customer_id || undefined,
+      customer_email: existing?.stripe_customer_id ? undefined : user.email,
+      "metadata[jalsa_user_id]": user.id,
+      "subscription_data[metadata][jalsa_user_id]": user.id,
+      "subscription_data[description]": "JALSA monthly auto-renewing access",
+      allow_promotion_codes: "true",
+      billing_address_collection: "auto",
+      success_url: origin + pagePath + "?subscription=success",
+      cancel_url: origin + pagePath + "?subscription=cancelled",
+      locale: language === "ar" ? "auto" : "en"
+    };
+    const session = await stripeApiRequest(env, "/checkout/sessions", params);
+    if (!session.url) return json({ error: "Stripe did not return a Checkout URL.", code: "STRIPE_NO_CHECKOUT_URL" }, 502);
+    return json({ ok: true, url: session.url });
+  } catch (error) {
+    const raw = String(error?.message || "Unknown checkout error");
+    const safeMessage = raw
+      .replace(/sk_(?:test|live)_[A-Za-z0-9]+/g, "[redacted Stripe key]")
+      .replace(/whsec_[A-Za-z0-9]+/g, "[redacted webhook secret]")
+      .slice(0, 320);
+    console.error("JALSA Stripe checkout failed:", safeMessage);
+    return json({ error: "Stripe checkout could not start: " + safeMessage, code: "STRIPE_CHECKOUT_FAILED" }, 502);
   }
-  const body = await readBody(request);
-  const language = body.language === "ar" ? "ar" : "en";
-  const origin = url.origin;
-  const pagePath = language === "ar" ? "/ar/" : "/";
-  const params = {
-    mode: "subscription",
-    "line_items[0][price]": env.STRIPE_PRICE_ID,
-    "line_items[0][quantity]": "1",
-    client_reference_id: user.id,
-    customer: existing?.stripe_customer_id || undefined,
-    customer_email: existing?.stripe_customer_id ? undefined : user.email,
-    "metadata[jalsa_user_id]": user.id,
-    "subscription_data[metadata][jalsa_user_id]": user.id,
-    "subscription_data[description]": "JALSA monthly auto-renewing access",
-    "allow_promotion_codes": "true",
-    "billing_address_collection": "auto",
-    success_url: origin + pagePath + "?subscription=success",
-    cancel_url: origin + pagePath + "?subscription=cancelled",
-    locale: language === "ar" ? "auto" : "en"
-  };
-  const session = await stripeApiRequest(env, "/checkout/sessions", params);
-  if (!session.url) return json({ error: "Stripe did not return a Checkout URL." }, 502);
-  return json({ ok: true, url: session.url });
 }
 async function createBillingPortal(request, env, url) {
   const user = await getSessionUser(request, env);
