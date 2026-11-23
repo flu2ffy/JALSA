@@ -105,7 +105,8 @@ function toggleLanguage(){lang=lang==="en"?"ar":"en";localStorage.setItem("jalsa
 const qs=new URLSearchParams(location.search);let roomId=qs.get("roomId"),key=qs.get("key"),playerId=localStorage.getItem("insight:"+roomId),isHost=false,lastRenderKey="",chosenAnswer="",chosenSide="",choiceStep="player",isSending=false,targetRevealSeen=false,activeQuestionKey="",activeRoundNumber=0,coinAnimationRound="";
 const $=id=>document.getElementById(id);
 applyLanguage();
-async function api(path,body){const r=await fetch("/api/insight/"+path,{method:body?"POST":"GET",headers:body?{"Content-Type":"application/json"}:{},body:body?JSON.stringify(body):undefined});const d=await r.json();if(!r.ok)throw Error(d.error||"Something went wrong.");return d}
+function freeGameSessionHeaders(){try{const saved=JSON.parse(localStorage.getItem("jalsa_free_game_session_v1")||"null");return saved&&saved.gameId==="insight"&&saved.sessionId?{"X-JALSA-Free-Game-Session":saved.sessionId}:{}}catch{return {}}}
+async function api(path,body){const sessionHeaders=freeGameSessionHeaders();const r=await fetch("/api/insight/"+path,{method:body?"POST":"GET",headers:{...sessionHeaders,...(body?{"Content-Type":"application/json"}:{})},body:body?JSON.stringify(body):undefined});const d=await r.json();if(!r.ok)throw Error(d.error||"Something went wrong.");return d}
 function show(id){["hostLobby","joinPanel","phonePanel","resultPanel"].forEach(x=>$(x).classList.toggle("hidden",x!==id))}
 function roomBody(extra={}){return {roomId,key,...extra}}
 async function init(){
