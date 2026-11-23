@@ -292,6 +292,7 @@ async function startGameAccess(request, env) {
 async function getSubscriptionStatus(request, env) {
   const user = await getSessionUser(request, env);
   if (!user) return json({ error: "Please sign in to check subscription access.", code: "LOGIN_REQUIRED" }, 401);
+  await ensureSubscriptionSchema(env);
   const access = await subscriptionAccessForUser(user, env);
   const freeGame = await freeGameSessionForUser(user.id, env);
   return json({ ...access, freeGameUsed: !!freeGame, freeGameId: freeGame?.game_id || null }, 200, { "Cache-Control": "private, no-store, max-age=0", "Vary": "Cookie" });
@@ -299,6 +300,7 @@ async function getSubscriptionStatus(request, env) {
 async function requireSubscriptionAccess(request, env, gameId) {
   const user = await getSessionUser(request, env);
   if (!user) return json({ error: "Please sign in to play.", code: "LOGIN_REQUIRED" }, 401);
+  await ensureSubscriptionSchema(env);
   const access = await subscriptionAccessForUser(user, env);
   if (access.allowed) return null;
   const sessionId = request.headers.get("X-JALSA-Free-Game-Session") || "";
