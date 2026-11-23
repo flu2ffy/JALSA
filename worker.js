@@ -40,13 +40,13 @@ export default {
       if (url.pathname === "/api/subscription-status" && request.method === "GET") return await getSubscriptionStatus(request, env);
       if (url.pathname === "/api/admin/subscription-settings" && request.method === "GET") return await getAdminSubscriptionSettings(request, env);
       if (url.pathname === "/api/admin/subscription-settings" && request.method === "PATCH") return await updateAdminSubscriptionSettings(request, env);
-      const requiresSubscription = url.pathname === "/api/game-content" ||
-        url.pathname === "/api/remote/create" ||
-        url.pathname === "/api/insight/create" ||
-        url.pathname === "/api/imposter/create" ||
-        url.pathname === "/api/mafia/create";
-      if (requiresSubscription) {
-        const denied = await requireSubscriptionAccess(request, env);
+      if (url.pathname === "/api/game-access/start" && request.method === "POST") return await startGameAccess(request, env);
+      const protectedGameId = url.pathname === "/api/game-content" || url.pathname === "/api/remote/create" ? "zanko"
+        : url.pathname === "/api/insight/create" ? "insight"
+        : url.pathname === "/api/imposter/create" ? "imposter"
+        : url.pathname === "/api/mafia/create" ? "mafia" : null;
+      if (protectedGameId) {
+        const denied = await requireSubscriptionAccess(request, env, protectedGameId);
         if (denied) return denied;
       }
       if (url.pathname === "/api/game-availability" && request.method === "GET") return await getGameAvailability(env);
@@ -163,6 +163,12 @@ async function ensureSubscriptionSchema(env) {
     updated_at TEXT NOT NULL
   )`).run();
   await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_user_subscriptions_status_expiry ON user_subscriptions(status, expires_at)").run();
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS free_game_sessions (
+    user_id TEXT PRIMARY KEY NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    game_id TEXT NOT NULL CHECK (game_id IN ('zanko','price','imposter','insight','mafia')),
+    session_id TEXT NOT NULL,
+    started_at TEXT NOT NULL
+  )`).run();
   await env.DB.prepare(`CREATE TABLE IF NOT EXISTS billing_subscriptions (
     user_id TEXT PRIMARY KEY NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     stripe_customer_id TEXT,
@@ -240,18 +246,72 @@ async function subscriptionAccessForUser(user, env) {
     isAdmin
   };
 }
+const FREE_GAME_SESSION_MAX_AGE_MS = 6 * 60 * 60 * 1000;
+const VALID_FREE_GAME_IDS = new Set(["zanko", "price", "imposter", "insight", "mafia"]);
+async function freeGameSessionForUser(userId, env) {
+  await ensureSubscriptionSchema(env);
+  return await env.DB.prepare("SELECT game_id, session_id, started_at FROM free_game_sessions WHERE user_id=? LIMIT 1").bind(userId).first();
+}
+async function startGameAccess(request, env) {
+  const user = await getSessionUser(request, env);
+  if (!user) return json({ error: "Please sign in to play.", code: "LOGIN_REQUIRED" }, 401);
+  const body = await readBody(request);
+  const gameId = String(body.gameId || "");
+  const sessionId = String(body.sessionId || "");
+  if (!VALID_FREE_GAME_IDS.has(gameId)) return json({ error: "Choose a valid JALSA game.", code: "INVALID_GAME" }, 400);
+  if (!/^[A-Za-z0-9_-]{20,80}$/.test(sessionId)) return json({ error: "Refresh the page and try again.", code: "INVALID_GAME_SESSION" }, 400);
+  await ensureSubscriptionSchema(env);
+  const access = await subscriptionAccessForUser(user, env);
+  if (access.allowed) return json({ allowed: true, freeGame: false, ...access });
+  const existing = await freeGameSessionForUser(user.id, env);
+  const startedAtMs = existing?.started_at ? Date.parse(existing.started_at) : 0;
+  const sessionStillActive = startedAtMs > 0 && Date.now() - startedAtMs <= FREE_GAME_SESSION_MAX_AGE_MS;
+  if (existing) {
+    if (existing.game_id === gameId && existing.session_id === sessionId && sessionStillActive) {
+      return json({ allowed: true, freeGame: true, freeGameUsed: true, gameId, startedAt: existing.started_at });
+    }
+    return json({
+      allowed: false, freeGame: false, freeGameUsed: true,
+      error: "Your one free JALSA game has already been used. Subscribe to JALSA Premium to play another game.",
+      code: "SUBSCRIPTION_REQUIRED", gameId: existing.game_id
+    }, 402);
+  }
+  const now = new Date().toISOString();
+  await env.DB.prepare("INSERT OR IGNORE INTO free_game_sessions (user_id, game_id, session_id, started_at) VALUES (?, ?, ?, ?)")
+    .bind(user.id, gameId, sessionId, now).run();
+  const saved = await freeGameSessionForUser(user.id, env);
+  if (saved?.game_id === gameId && saved?.session_id === sessionId) {
+    return json({ allowed: true, freeGame: true, freeGameUsed: true, gameId, startedAt: saved.started_at });
+  }
+  return json({
+    allowed: false, freeGame: false, freeGameUsed: true,
+    error: "Your one free JALSA game has already been used. Subscribe to JALSA Premium to play another game.",
+    code: "SUBSCRIPTION_REQUIRED", gameId: saved?.game_id || null
+  }, 402);
+}
 async function getSubscriptionStatus(request, env) {
   const user = await getSessionUser(request, env);
   if (!user) return json({ error: "Please sign in to check subscription access.", code: "LOGIN_REQUIRED" }, 401);
   const access = await subscriptionAccessForUser(user, env);
-  return json(access, 200, { "Cache-Control": "private, no-store, max-age=0", "Vary": "Cookie" });
+  const freeGame = await freeGameSessionForUser(user.id, env);
+  return json({ ...access, freeGameUsed: !!freeGame, freeGameId: freeGame?.game_id || null }, 200, { "Cache-Control": "private, no-store, max-age=0", "Vary": "Cookie" });
 }
-async function requireSubscriptionAccess(request, env) {
+async function requireSubscriptionAccess(request, env, gameId) {
   const user = await getSessionUser(request, env);
   if (!user) return json({ error: "Please sign in to play.", code: "LOGIN_REQUIRED" }, 401);
   const access = await subscriptionAccessForUser(user, env);
   if (access.allowed) return null;
-  return json({ error: "JALSA games currently require an active subscription. Subscribe monthly or contact the JALSA team for access.", code: "SUBSCRIPTION_REQUIRED" }, 402);
+  const sessionId = request.headers.get("X-JALSA-Free-Game-Session") || "";
+  if (VALID_FREE_GAME_IDS.has(gameId) && sessionId) {
+    const freeGame = await freeGameSessionForUser(user.id, env);
+    const startedAtMs = freeGame?.started_at ? Date.parse(freeGame.started_at) : 0;
+    if (freeGame?.game_id === gameId && freeGame?.session_id === sessionId &&
+        startedAtMs > 0 && Date.now() - startedAtMs <= FREE_GAME_SESSION_MAX_AGE_MS) return null;
+  }
+  return json({
+    error: "Your one free JALSA game has already been used. Subscribe to JALSA Premium to play another game.",
+    code: "SUBSCRIPTION_REQUIRED", freeGameUsed: true
+  }, 402);
 }
 async function getAdminSubscriptionSettings(request, env) {
   if (!await requireAdmin(request, env)) return json({ error: "Administrator access required." }, 403);
