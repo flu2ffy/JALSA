@@ -31,7 +31,9 @@
       "MAIL_FROM": "JALSA <Accountservice@jalsa.me>",
       "REPLY_TO": "support@jalsa.me",
       "ADMIN_EMAIL": "1mr.cute3@gmail.com",
-      "STRIPE_PRICE_ID": "price_1Uefk5HUmKKASX4ki1gof5gw"
+      "STRIPE_PRICE_ID": "price_1Uefk5HUmKKASX4ki1gof5gw",
+      "PADDLE_ENVIRONMENT": "sandbox",
+      "PADDLE_PRICE_ID": "pri_01m83p9227pxdkyw07q63asq0q"
     },
     "d1_databases": [
       {
