@@ -71,7 +71,7 @@ export default {
       if (url.pathname === "/api/me" && request.method === "GET") {
         const cookiePresent = !!cookieValue(request, COOKIE_NAME);
         const user = await getSessionUser(request, env);
-        return json({ user: publicUser(user, env) }, 200, {
+        return json({ user: await publicUserWithSubscription(user, env) }, 200, {
           "Cache-Control": "private, no-store, max-age=0",
           "Vary": "Cookie",
           // Safe diagnostics for the preview: booleans only, never expose the token.
@@ -1221,6 +1221,22 @@ function publicUser(user, env) {
     lastLoginAt: user.last_login_at || null,
   };
 }
+async function publicUserWithSubscription(user, env) {
+  const safeUser = publicUser(user, env);
+  if (!safeUser) return null;
+  try {
+    const access = await subscriptionAccessForUser(user, env);
+    return {
+      ...safeUser,
+      premiumActive: !!(access.active && ["paddle", "stripe", "admin-grant"].includes(access.source)),
+      premiumSource: access.source || null,
+      premiumExpiresAt: access.expiresAt || null
+    };
+  } catch (error) {
+    console.warn("JALSA premium status could not be included in account response:", error?.message || "unknown");
+    return { ...safeUser, premiumActive: false, premiumSource: null, premiumExpiresAt: null };
+  }
+}
 
 function escapeHtml(value) {
   return String(value || "").replace(/[&<>"']/g, (char) => ({
@@ -1391,7 +1407,7 @@ async function login(request, env) {
   user.last_login_at = new Date().toISOString();
   await env.DB.prepare("UPDATE users SET last_login_at = ? WHERE id = ?").bind(user.last_login_at, user.id).run();
   const token = await createSession(user.id, env);
-  return json({ ok: true, user: publicUser(user, env) }, 200, { "Set-Cookie": sessionCookie(token) });
+  return json({ ok: true, user: await publicUserWithSubscription(user, env) }, 200, { "Set-Cookie": sessionCookie(token) });
 }
 
 async function readAndValidateCode(email, code, purpose, env) {
@@ -1430,7 +1446,7 @@ async function verifyRegistration(request, env) {
   user.email_verified = 1;
   await env.DB.prepare("DELETE FROM verification_codes WHERE email = ? AND purpose = 'register'").bind(email).run();
   const token = await createSession(user.id, env);
-  return json({ ok: true, user: publicUser(user, env) }, 200, { "Set-Cookie": sessionCookie(token) });
+  return json({ ok: true, user: await publicUserWithSubscription(user, env) }, 200, { "Set-Cookie": sessionCookie(token) });
 }
 
 async function forgotPassword(request, env) {
