@@ -543,7 +543,7 @@ html[dir="rtl"] .game-card:nth-child(5)::before{background-image:url('/mafia-bg.
    <p class="v17-muted" data-v17="recurringDisclosure">The paid plan renews automatically every month until you cancel. You can cancel before the next renewal; access continues until the current paid period ends.</p>
   </div>
   <p class="v17-muted" id="subscriptionModalSummary"></p>
-  <button type="button" class="primary" id="subscriptionModalCheckoutButton" onclick="v17StartMonthlyCheckout()" data-v17="subscribeForMonthly">Subscribe for AED 19.99/month</button>
+  <button type="button" class="primary" id="subscriptionModalCheckoutButton" onclick="v17StartMonthlyCheckout()" data-v17="subscribeForMonthly">Subscribe for $7.99/month</button>
   <div class="v17-action-row" style="margin-top:10px">
    <button type="button" class="v17-secondary" id="subscriptionModalManageBillingButton" onclick="v17OpenBillingPortal()" data-v17="manageBilling" hidden>Manage billing</button>
    <button type="button" class="v17-secondary" id="subscriptionModalCancelButton" onclick="v17CancelMySubscription()" data-v17="cancelAtRenewal" hidden>Cancel at renewal</button>
@@ -1189,7 +1189,7 @@ Object.assign(v17I18n.en,{
  billingCheckoutSuccess:"Checkout completed. Your subscription will appear after Paddle confirms the payment.",
  billingCheckoutCancelled:"Checkout was cancelled. No subscription was started.",
  paymentsConfiguration:"Paddle Sandbox payments",paymentsConfigured:"Paddle Sandbox is configured for this preview.",paymentsNotConfigured:"Add the Paddle API key, client token, recurring price ID and webhook secret to Cloudflare Preview settings before accepting test payments.",
- activePaidSubscribers:"Paid subscribers",activeAdminGrants:"Active admin grants",monthlyAutoRenew:"Paddle monthly auto-renewing",cancelScheduled:"Cancels at period end"
+ activePaidSubscribers:"Paid subscribers",activeAdminGrants:"Active admin grants",monthlyAutoRenew:"Paddle monthly auto-renewing",stripeMonthlyAutoRenew:"Stripe monthly auto-renewing",cancelScheduled:"Cancels at period end"
 });
 Object.assign(v17I18n.ar,{
  subscriptionSettings:"الاشتراكات",subscriptionSettingsIntro:"اختر ما إذا كانت ألعاب جلسة مجانية للجميع أو تتطلب اشتراكاً فعالاً.",
@@ -1215,7 +1215,7 @@ Object.assign(v17I18n.ar,{
  billingCheckoutSuccess:"اكتملت عملية الدفع. سيظهر اشتراكك بعد تأكيد Stripe للدفع.",
  billingCheckoutCancelled:"تم إلغاء عملية الدفع. لم يتم إنشاء اشتراك.",
  paymentsConfiguration:"مدفوعات Paddle التجريبية",paymentsConfigured:"تم إعداد Paddle Sandbox لبيئة الاختبار هذه.",paymentsNotConfigured:"أضف مفتاح Paddle التجريبي ورمز العميل ومعرّف السعر الشهري وسر الويب هوك إلى إعدادات Preview في Cloudflare قبل اختبار الدفع.",
- activePaidSubscribers:"المشتركون المدفوعون",activeAdminGrants:"الصلاحيات المجانية من المسؤول",monthlyAutoRenew:"تجديد شهري تلقائي عبر Paddle",cancelScheduled:"ملغي عند نهاية الفترة"
+ activePaidSubscribers:"المشتركون المدفوعون",activeAdminGrants:"الصلاحيات المجانية من المسؤول",monthlyAutoRenew:"تجديد شهري تلقائي عبر Paddle",stripeMonthlyAutoRenew:"تجديد شهري تلقائي عبر Stripe",cancelScheduled:"ملغي عند نهاية الفترة"
 });
 let v17Content={categories:[],questions:[],priceItems:[]},v17ContentLoaded=false,v17ProfileAvatar="";
 function v17T(key){return (v17I18n[isArabic?"ar":"en"][key]||v17I18n.en[key]||key)}
@@ -1338,7 +1338,7 @@ function v17SubscriptionLabel(user){
   return (plans[user.subscription_plan]||user.subscription_plan)+(user.subscription_expires_at?" · "+v17T("until")+" "+v17FormatDate(user.subscription_expires_at):"");
  }
  const paidActive=["active","trialing"].includes(user.billing_status)&&(!user.billing_period_end||new Date(user.billing_period_end).getTime()>Date.now());
- if(paidActive)return v17T(user.billing_cancel_at_period_end?"cancelScheduled":"monthlyAutoRenew")+(user.billing_period_end?" · "+v17FormatDate(user.billing_period_end):"");
+ if(paidActive)return v17T(user.billing_cancel_at_period_end?"cancelScheduled":(user.billing_provider==="stripe"?"stripeMonthlyAutoRenew":"monthlyAutoRenew"))+(user.billing_period_end?" · "+v17FormatDate(user.billing_period_end):"");
  return v17T("noActiveSubscription");
 }
 function v17RenderAvatar(data){const targets=["drawerAvatar","profileAvatarPreview"];targets.forEach(id=>{const el=document.getElementById(id);if(!el)return;el.innerHTML="";if(data){const img=document.createElement("img");img.src=data;img.alt="Profile picture";el.appendChild(img)}else el.textContent="☻"})}
