@@ -1148,6 +1148,7 @@ async function openAdmin(){
  const page=document.getElementById("adminPage");if(page)page.hidden=false;
  const signed=document.getElementById("adminSignedInAs");if(signed)signed.textContent=currentUser.email||"";
  if(typeof v17SyncLanguage==="function")v17SyncLanguage();
+ try{await v17EnsureSeeded()}catch(error){v17SetAdminStatus(error.message,true)}
  if(typeof switchAdminTab==="function")switchAdminTab("games");
 }
 window.addEventListener('DOMContentLoaded',()=>{
@@ -1326,10 +1327,13 @@ async function v17CheckSubscriptionAccess(gameId="zanko"){
  if(!currentUser){showAuth("login");return false}
  v17ActiveGameId=gameId;
  try{
-  const saved=v17GetSavedFreeGame(gameId);
-  const sessionId=saved?.sessionId||(crypto.randomUUID?crypto.randomUUID():Array.from(crypto.getRandomValues(new Uint8Array(24)),b=>b.toString(16).padStart(2,"0")).join(""));
+  const sessionId=crypto.randomUUID?crypto.randomUUID():Array.from(crypto.getRandomValues(new Uint8Array(24)),b=>b.toString(16).padStart(2,"0")).join("");
   const result=await v17Request("/game-access/start","POST",{gameId,sessionId});
-  localStorage.setItem("jalsa_free_game_session_v1",JSON.stringify({userId:currentUser.id,gameId,sessionId}));
+  if(result.freeGame===true){
+   localStorage.setItem("jalsa_free_game_session_v1",JSON.stringify({userId:currentUser.id,gameId,sessionId}));
+  }else{
+   localStorage.removeItem("jalsa_free_game_session_v1");
+  }
   return !!result.allowed;
  }catch(error){
   if(error.code==="LOGIN_REQUIRED"){showAuth("login");return false}
