@@ -1,7 +1,17 @@
 <!doctype html>
 <html lang="en" dir="ltr">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8">
+<script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script><meta name="viewport" content="width=device-width,initial-scale=1">
+<script>
+/* Prevent the homepage from flashing while an active Zanko game is restored. */
+try {
+ const saved=JSON.parse(localStorage.getItem("jalsa_zanko_active_v1")||"null");
+ if(saved&&saved.version===1&&saved.state&&["team","category","board","question","gameover"].includes(saved.state.screen)){
+  document.documentElement.classList.add("zanko-restore-pending");
+ }
+} catch {}
+</script>
 <meta name="theme-color" content="#55151c">
 <title>JALSA – Arabic &amp; English Party Games to Play Together</title>
 <meta name="description" content="Play Arabic and English party games online with friends and family. Discover JALSA games including Zanko, Price Guessing, Imposter, Mafia and INSIGHT.">
@@ -26,6 +36,11 @@
 <link rel="icon" type="image/svg+xml" href="jalsa-favicon.svg?v=1.5">
 <link rel="shortcut icon" href="jalsa-favicon.svg?v=1.5">
 <style>
+/* Keep the first paint on a quiet branded restore screen, never the homepage. */
+html.zanko-restore-pending body::before{
+ content:"";position:fixed;inset:0;z-index:9998;pointer-events:none;
+ background:linear-gradient(#fff4e3 0 74px,transparent 74px),linear-gradient(135deg,#4b121a,#7d2028 58%,#a54c32);
+}
 :root{--wine:#55151c;--wine2:#7c2028;--red:#a83232;--red2:#c34b35;--orange:#ed8245;--gold:#e4b96b;--cream:#fff3df;--cream2:#f7e4c8;--ink:#38231f;--muted:#7c6558;--line:#e8cda9;--shadow:0 18px 42px #21090c25;--blue:#233d68;--green:#2c6b4b;--jalsa-games-bg:url('/insight-home-en.webp')}
 *{box-sizing:border-box}[hidden]{display:none!important}html{scroll-behavior:smooth}body{margin:0;background:var(--cream);color:var(--ink);font-family:Arial,Helvetica,sans-serif}button,input{font:inherit}button{cursor:pointer}button:disabled{cursor:not-allowed}
 .site-header{height:88px;padding:10px clamp(18px,5vw,72px);display:flex;align-items:center;justify-content:space-between;direction:ltr;position:relative;z-index:10;background:#fff5e5;border-bottom:1px solid #e8d5ba}.brand{display:flex;align-items:center;gap:13px;text-decoration:none;color:var(--wine)}.brand img{width:220px;height:74px;object-fit:contain;display:block}.version-pill{font-size:12px;font-weight:800;color:var(--wine);border:1px solid var(--wine);padding:5px 9px;border-radius:20px}.lang-button{position:absolute;right:clamp(18px,5vw,72px);top:50%;transform:translateY(-50%);background:#fff;border:1px solid var(--line);border-radius:26px;padding:12px 19px;color:var(--wine);font-weight:800;box-shadow:0 5px 16px #3e180e12;white-space:nowrap}.site-header .brand{margin-right:180px}
@@ -63,9 +78,9 @@
 .v17-account-drawer{position:fixed;z-index:321;inset:0 auto 0 0;width:min(370px,88vw);background:#fff8ed;box-shadow:22px 0 60px #17080a44;display:flex;flex-direction:column;padding:22px;transform:translateX(-105%);transition:transform .24s ease;color:var(--ink);direction:inherit}
 .v17-account-drawer.open{transform:translateX(0)}
 .v17-drawer-head{display:flex;align-items:center;gap:13px;padding:10px 0 22px;border-bottom:1px solid var(--line)}
-.v17-drawer-identity{min-width:0;flex:1;display:grid;gap:4px}.v17-drawer-identity strong{font-size:18px;color:var(--wine);overflow-wrap:anywhere}.v17-drawer-identity small{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.v17-drawer-identity{min-width:0;flex:1;display:grid;gap:4px}.v17-drawer-identity strong{font-size:18px;color:var(--wine);overflow-wrap:anywhere}.v17-drawer-identity small{font-size:12px;color:var(--muted);overflow-wrap:anywhere}.v17-premium-badge{justify-self:start;background:linear-gradient(110deg,#8c2529,#b94b32);color:#fff1d5;border:1px solid #e5b766;border-radius:999px;padding:3px 9px;font-size:9px;font-weight:900;letter-spacing:1.3px;line-height:1.2;box-shadow:0 2px 6px #55151c22}
 .v17-drawer-nav{display:grid;gap:8px;padding:22px 0}.v17-drawer-nav button,.v17-logout-button{display:flex;align-items:center;gap:14px;width:100%;border:1px solid transparent;border-radius:14px;background:transparent;color:var(--ink);padding:14px 15px;text-align:start;font-weight:800}.v17-drawer-nav button:hover{background:#f8e8d2;border-color:#ecd4b4}
-.v17-drawer-nav button span:first-child{font-size:20px;width:28px;text-align:center}.v17-drawer-bottom{margin-top:auto;border-top:1px solid var(--line);padding-top:18px}.v17-logout-button{background:#f8e3dc;color:#922b30}.v17-logout-button:hover{background:#f2d1c8}
+.v17-drawer-nav button span:first-child{font-size:20px;width:28px;text-align:center}.v17-drawer-nav .v17-buy-premium-button{background:linear-gradient(110deg,#8c2529,#b94b32);border-color:#e5b766;color:#fff1d5;box-shadow:0 4px 12px #55151c22}.v17-drawer-nav .v17-buy-premium-button:hover{background:linear-gradient(110deg,#762027,#a13b30);border-color:#e5b766}.v17-drawer-bottom{margin-top:auto;border-top:1px solid var(--line);padding-top:18px}.v17-logout-button{background:#f8e3dc;color:#922b30}.v17-logout-button:hover{background:#f2d1c8}
 .v17-avatar{border-radius:50%;background:linear-gradient(135deg,#f4d9b3,#f8ead3);border:2px solid #e8cda9;display:grid;place-items:center;color:var(--wine);font-weight:900;overflow:hidden;flex-shrink:0}.v17-avatar img{width:100%;height:100%;object-fit:cover}.v17-avatar-small{width:54px;height:54px;font-size:26px}.v17-avatar-large{width:112px;height:112px;font-size:48px}
 .v17-page{position:fixed;inset:0;z-index:280;overflow:auto;background:linear-gradient(140deg,#fff3df,#f7e5cb);color:var(--ink)}
 .v17-page-inner{max-width:1000px;margin:0 auto;padding:24px clamp(16px,4vw,48px) 60px}.v17-profile-wrap{max-width:820px}.v17-page-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px}
@@ -428,7 +443,7 @@ html[dir="rtl"] .game-card:nth-child(5)::before{background-image:url('/mafia-bg.
 <header class="site-header" id="siteHeader"><a class="brand" href="#top" aria-label="JALSA home" onclick="showHome()"><img src="jalsa-logo.png" alt="JALSA logo"><span class="version-pill">v1.9</span></a><div class="header-actions"><button class="lang-button" id="homeLang" type="button" onclick="toggleLanguage();history.replaceState(null,'',isArabic?'/ar/':'/')">العربية / English</button><button class="auth-button" id="loginButton" type="button" onclick="showAuth('login')">Log in</button><button class="auth-button auth-register" id="registerButton" type="button" onclick="showAuth('register')">Register</button><button class="account-label" id="accountLabel" type="button" hidden onclick="toggleAccountDrawer()" aria-expanded="false"></button></div></header>
 <main id="homePage">
 <section class="home-hero" id="top"><div class="hero-glow"></div><div class="hero-copy"><h1 id="heroTitle">Every game deserves a JALSA.</h1><p id="heroSubtitle">Gather your friends. Pick a game. Make memories.</p><button class="primary-light" id="exploreButton" onclick="document.getElementById('games').scrollIntoView({behavior:'smooth'})">Explore games →</button></div>
-<div class="hero-art" aria-hidden="true"><img id="heroFamily" src="hero-family.png" data-en="hero-family.png" data-ar="hero-family-ar.png" alt="" loading="eager"></div></div></section>
+<div class="hero-art" aria-hidden="true"><img id="heroFamily" src="/hero-family.png" data-en="/hero-family.png" data-ar="/hero-family-ar.png" alt="" loading="eager"></div></div></section>
 <section class="games-section" id="games"><div class="section-intro"><h2 id="gamesTitle">Choose your game</h2><p id="gamesIntro">Made for friends, family, and unforgettable game nights.</p></div><div class="game-cards"><article class="game-card"><div class="game-icon">🧠</div><h3 id="zankoCardTitle">Zanko</h3><p id="zankoCardDescription">Quick thinking, clever questions, and friendly competition.</p><button class="primary" id="zankoPlay" onclick="startZankoSetup()">Play together</button></article><article class="game-card"><div class="game-icon">🛍️</div><h3 id="priceCardTitle">Price Guessing</h3><p id="priceCardDescription">Guess the price before everyone else.</p><button class="primary" id="pricePlay" onclick="openPriceSetup()">Play together</button></article><article class="game-card"><div class="game-icon">🕵️</div><h3 id="imposterCardTitle">Imposter</h3><p id="imposterCardDescription">Find the player who does not know the secret word.</p><button class="primary" id="imposterPlay" onclick="startImposterGame()">Play together</button></article><article class="game-card"><div class="game-icon">💔</div><h3 id="insightCardTitle">INSIGHT</h3><p id="insightCardDescription">Secret questions, suspense, and a coin flip that can reveal everything.</p><button class="primary" id="insightPlay" onclick="startInsightGame()">Play together</button></article><article class="game-card"><div class="game-icon">🎭</div><h3 id="mafiaCardTitle">Mafia</h3><p id="mafiaCardDescription">A hidden-role mystery. Trust no one.</p><button class="primary" id="mafiaPlay" onclick="startMafiaGame()">Play together</button></article><article class="game-card soon-card"><div class="game-icon">🎲</div><h3 id="moreCardTitle">More games coming soon</h3><p id="moreCardDescription">The JALSA game table is just getting started.</p></article></div></section>
 </main>
 <footer class="site-footer"><span class="powered">Powered by Noah Jason</span><a class="support" href="mailto:support@jalsa.me">support@jalsa.me</a><span class="version">v1.9</span></footer>
@@ -506,16 +521,37 @@ html[dir="rtl"] .game-card:nth-child(5)::before{background-image:url('/mafia-bg.
 
 <div class="v17-drawer-backdrop" id="accountDrawerBackdrop" onclick="closeAccountDrawer()"></div>
 <aside class="v17-account-drawer" id="accountDrawer" aria-label="Account menu" aria-hidden="true">
-  <div class="v17-drawer-head"><div class="v17-avatar v17-avatar-small" id="drawerAvatar">☻</div><div class="v17-drawer-identity"><strong id="drawerName"></strong><small id="drawerEmail"></small></div><button class="close-small" type="button" onclick="closeAccountDrawer()" aria-label="Close">×</button></div>
+  <div class="v17-drawer-head"><div class="v17-avatar v17-avatar-small" id="drawerAvatar">☻</div><div class="v17-drawer-identity"><strong id="drawerName"></strong><span class="v17-premium-badge" id="drawerPremiumBadge" hidden>PREMIUM</span><small id="drawerEmail"></small></div><button class="close-small" type="button" onclick="closeAccountDrawer()" aria-label="Close">×</button></div>
   <nav class="v17-drawer-nav">
     <button type="button" onclick="openProfilePage();closeAccountDrawer()"><span>👤</span><span data-v17="profile">Profile</span></button>
     <button type="button" onclick="openFeedback();closeAccountDrawer()"><span>✉️</span><span data-v17="sendFeedback">Send feedback</span></button>
     <button type="button" onclick="window.location.href=isArabic?'/ar/about/':'/about/'"><span>ℹ️</span><span data-v17="aboutUs">About us</span></button>
     <button type="button" onclick="window.location.href=isArabic?'/ar/faq/':'/faq/'"><span>❓</span><span data-v17="faq">FAQ</span></button>
+    <button type="button" class="v17-buy-premium-button" id="drawerBuyPremiumButton" hidden onclick="openSubscriptionModal()"><span>✨</span><span data-v17="buyPremium">Buy Premium</span></button>
     <button type="button" id="drawerDashboardButton" hidden onclick="openAdmin();closeAccountDrawer()"><span>📊</span><span data-v17="dashboard">Dashboard</span></button>
   </nav>
   <div class="v17-drawer-bottom"><button type="button" class="v17-logout-button" onclick="logout()"><span>↪</span><span data-v17="logout">Log out</span></button></div>
 </aside>
+<div class="v17-modal-backdrop" id="subscriptionModal" onclick="if(event.target===this)closeSubscriptionModal()">
+ <section class="v17-modal" role="dialog" aria-modal="true" aria-labelledby="subscriptionModalTitle">
+  <div class="v17-modal-head">
+   <div><h2 id="subscriptionModalTitle" data-v17="subscriptionModalTitle">Unlock all JALSA games</h2><p data-v17="subscriptionModalIntro">Enjoy every JALSA game with one monthly membership.</p></div>
+   <button class="close-small" type="button" onclick="closeSubscriptionModal()" aria-label="Close">×</button>
+  </div>
+  <div class="v17-card" style="text-align:center;padding:20px;margin:18px 0">
+   <div class="v17-eyebrow">JALSA PREMIUM</div>
+   <div style="font:700 38px Georgia,serif;color:var(--wine);margin:8px 0">$7.99<span style="font:600 15px Arial,sans-serif;color:var(--muted)"> / <span data-v17="perMonth">month</span></span></div>
+   <p class="v17-muted" data-v17="recurringDisclosure">The paid plan renews automatically every month until you cancel. You can cancel before the next renewal; access continues until the current paid period ends.</p>
+  </div>
+  <p class="v17-muted" id="subscriptionModalSummary"></p>
+  <button type="button" class="primary" id="subscriptionModalCheckoutButton" onclick="v17StartMonthlyCheckout()" data-v17="subscribeForMonthly">Subscribe for $7.99/month</button>
+  <div class="v17-action-row" style="margin-top:10px">
+   <button type="button" class="v17-secondary" id="subscriptionModalManageBillingButton" onclick="v17OpenBillingPortal()" data-v17="manageBilling" hidden>Manage billing</button>
+   <button type="button" class="v17-secondary" id="subscriptionModalCancelButton" onclick="v17CancelMySubscription()" data-v17="cancelAtRenewal" hidden>Cancel at renewal</button>
+  </div>
+  <p class="v17-form-message" id="subscriptionModalMessage" hidden></p>
+ </section>
+</div>
 <div class="v17-modal-backdrop" id="feedbackOverlay" onclick="if(event.target===this)closeFeedback()">
   <section class="v17-modal" role="dialog" aria-modal="true" aria-labelledby="feedbackTitle">
     <div class="v17-modal-head"><div><h2 id="feedbackTitle" data-v17="sendFeedback">Send feedback</h2><p data-v17="feedbackIntro">Tell us what you think. Your message goes to the JALSA team.</p></div><button class="close-small" type="button" onclick="closeFeedback()">×</button></div>
@@ -540,6 +576,10 @@ html[dir="rtl"] .game-card:nth-child(5)::before{background-image:url('/mafia-bg.
         <div class="v17-action-row"><button class="primary" type="submit" data-v17="saveChanges">Save changes</button><button class="v17-secondary" type="button" onclick="closeV17Page()" data-v17="cancel">Cancel</button></div>
       </form>
     </section>
+    <section class="v17-card" style="margin-top:16px">
+      <div class="v17-profile-heading"><div><h2 data-v17="profileSubscription">Subscription</h2><p class="v17-muted" id="profileSubscriptionSummary" data-v17="profileSubscriptionIntro">View your access and manage recurring billing.</p></div></div>
+      <button class="v17-secondary" type="button" onclick="openSubscriptionModal()" data-v17="manageSubscription">Manage subscription</button>
+    </section>
   </div>
 </main>
 <main class="v17-page v17-admin-page" id="adminPage" hidden>
@@ -549,6 +589,7 @@ html[dir="rtl"] .game-card:nth-child(5)::before{background-image:url('/mafia-bg.
       <button class="active" data-admin-tab="users" onclick="switchAdminTab('users')" data-v17="registeredUsers">Registered users</button>
       <button data-admin-tab="feedback" onclick="switchAdminTab('feedback')" data-v17="feedbackInbox">Feedback</button>
       <button data-admin-tab="faqQuestions" onclick="switchAdminTab('faqQuestions')" data-v17="faqQuestions">FAQ Questions</button>
+      <button data-admin-tab="subscriptions" onclick="switchAdminTab('subscriptions')" data-v17="subscriptionSettings">Subscriptions</button>
       <button type="button" id="gameEditorToggle" class="v17-game-editor-toggle" aria-expanded="false" aria-controls="gameEditorTabs" onclick="toggleGameEditorGroup()" data-v17="gameEditors">Game editor</button>
     </nav>
     <nav class="v17-admin-game-tabs" id="gameEditorTabs" hidden aria-label="Game editor sections">
@@ -561,6 +602,16 @@ html[dir="rtl"] .game-card:nth-child(5)::before{background-image:url('/mafia-bg.
     <section class="v17-admin-tab" id="adminTabUsers">
       <div class="v17-section-heading"><div><p class="v17-eyebrow">ACCOUNTS</p><h1 data-v17="registeredUsers">Registered users</h1><p data-v17="usersIntro">Manage JALSA members, verification, and account access.</p></div><span class="v17-count" id="usersCount">0</span></div>
       <div class="v17-table-wrap" id="adminUserTable"><p class="v17-muted" data-v17="loading">Loading…</p></div>
+    </section>
+    <section class="v17-admin-tab" id="adminTabSubscriptions" hidden>
+      <div class="v17-section-heading"><div><p class="v17-eyebrow">ACCESS CONTROL</p><h1 data-v17="subscriptionSettings">Subscriptions</h1><p data-v17="subscriptionSettingsIntro">Choose whether JALSA games are free for everyone or require an active subscription.</p></div></div>
+      <section class="v17-card">
+        <div class="v17-feedback-meta"><div><strong data-v17="globalSubscriptionMode">Global subscription mode</strong><div class="v17-muted" id="subscriptionModeDescription"></div></div><span class="v17-status-pill good" id="subscriptionModeBadge">Free for everyone</span></div>
+        <div class="v17-action-row"><button class="primary" type="button" id="subscriptionModeToggle" onclick="toggleSubscriptionMode()">Enable subscriptions</button></div>
+        <p class="v17-muted" data-v17="subscriptionModeNote">When disabled, every registered user can play. When enabled, only users with an active grant can play. Your admin account always has access.</p>
+        <div class="v17-user-meta" id="subscriptionStats"></div>
+        <p class="v17-form-message" id="adminSubscriptionStatus" hidden></p>
+      </section>
     </section>
     <section class="v17-admin-tab" id="adminTabFeedback" hidden>
       <div class="v17-section-heading"><div><p class="v17-eyebrow">COMMUNITY</p><h1 data-v17="feedbackInbox">Feedback inbox</h1><p data-v17="feedbackAdminIntro">Messages sent by JALSA members.</p></div><span class="v17-count" id="feedbackCount">0</span></div>
@@ -656,6 +707,23 @@ html[dir="rtl"] .game-card:nth-child(5)::before{background-image:url('/mafia-bg.
         <label class="v17-field"><span data-v17="newPassword">Set a new password</span><input id="adminUserNewPassword" type="password" minlength="10" maxlength="128" autocomplete="new-password" placeholder="Leave blank to keep current password"></label>
       </div>
       <label class="v17-field" style="display:flex;align-items:center;gap:10px;margin-top:12px"><input id="adminUserVerified" type="checkbox" style="width:auto"><span data-v17="emailVerifiedToggle">Email verified</span></label>
+      <section class="v17-card" style="margin-top:16px">
+        <h3 data-v17="subscriptionAccess">Subscription access</h3>
+        <p class="v17-muted" id="adminUserSubscriptionSummary">No active subscription grant.</p>
+        <label class="v17-field"><span data-v17="grantDuration">Grant access for</span>
+          <select id="adminUserSubscriptionDuration">
+            <option value="1" data-v17="oneMonth">1 month</option>
+            <option value="3" data-v17="threeMonths">3 months</option>
+            <option value="6" data-v17="sixMonths">6 months</option>
+            <option value="12" data-v17="twelveMonths">12 months</option>
+            <option value="unlimited" data-v17="unlimited">Unlimited</option>
+          </select>
+        </label>
+        <div class="v17-action-row">
+          <button class="primary" type="button" onclick="grantUserSubscription()" data-v17="grantSubscription">Grant access</button>
+          <button class="v17-secondary" type="button" onclick="revokeUserSubscription()" data-v17="revokeSubscription">Revoke access</button>
+        </div>
+      </section>
       <div class="v17-user-meta" id="adminUserMeta"></div>
       <p class="v17-form-message" id="adminUserStatus" hidden></p>
       <div class="v17-action-row"><button class="primary" type="submit" data-v17="saveChanges">Save changes</button><button class="v17-secondary" type="button" onclick="closeAdminUserModal()" data-v17="cancel">Cancel</button></div>
@@ -786,11 +854,11 @@ const TEXT={en:{heroTitle:'Every game deserves a JALSA.',heroSubtitle:'Gather yo
 ar:{heroTitle:'كل لعبة إلها جلسة!',heroSubtitle:'اجمع أصحابك، اختاروا لعبة، واصنعوا ذكريات.',explore:'استكشف الألعاب ←',gamesTitle:'اختاروا لعبتكم',gamesIntro:'للأصحاب والعائلة وليالي مليانة ضحك.',zanko:'زانكو',zankoDesc:'سرعة بديهة وأسئلة ذكية ومنافسة حلوة.',price:'تخمين السعر',priceDesc:'خمنوا السعر قبل الجميع.',imposter:'المحتال',imposterDesc:'اكتشف اللاعب الذي لا يعرف الكلمة السرية.',insight:'ولع الجلسة',insightDesc:'أسئلة سرية وتشويق ورمية عملة قد تكشف كل شيء.',mafia:'مافيا',mafiaDesc:'لعبة أدوار سرية وتحقيق وخداع. لا تثق بأحد.',unavailable:'غير متاحة',gameWait:'اللعبة تحت المراجعة ويتم تحسينها. يرجى الانتظار!',more:'ألعاب جديدة قريباً',moreDesc:'لسه بداية ألعاب جلسة!',play:'العبوا معاً',teamsTitle:'زانكو — تجهيز الفريقين',teamsSubtitle:'اختاروا اسم لكل فريق. إذا تركتوا الاسم مثل ما هو بيضل الافتراضي.',teamNote:'الفريقان يلعبان معاً على نفس الشاشة.',next:'التالي ←',back:'رجوع →',categoryTitle:'اختاروا الفئات',categorySubtitle:'اختاروا الفئات الست كلها لتفعيل زر التالي.',selected:'مختارة',turn:' دور الفريق',boardProgress:'أسئلة متبقية',reveal:'◉ إظهار الإجابة',points:'نقطة',award:'يحصل على النقاط',noPoints:'بدون نقاط · تبديل الدور',callFriend:'اتصل بصديق',callFriendTip:'استخدمها مرة واحدة. اتصل بصديق وخذ تلميح سريع قبل الإجابة.',callFriendDone:'تم استخدام الاتصال',double:'مضاعفة النقاط',doubleTip:'مرة واحدة في اللعبة. ضاعف نقاط السؤال القادم لفريقك.',doubleDone:'المضاعفة جاهزة للسؤال القادم.',steal:'سرقة سؤال',stealTip:'مرة واحدة في اللعبة. في هذا الدور يمكنك اختيار أي سؤال، حتى سؤال الفريق الآخر.',stealDone:'وضع السرقة مفعل: اختاروا أي سؤال متاح في هذا الدور.',used:'مستخدمة',callTimer:'اتصال بصديق — باقي {n} ثانية.',finish:'خلصت كل الأسئلة!',champion:'الفائز',returnHome:'العودة إلى جلسة',priceSetup:'تجهيز لعبة تخمين السعر',players:'أسماء اللاعبين (افصل بينها بفواصل)',pricePass:'مرروا الجهاز بين اللاعبين. النقاط محفوظة على هذا الجهاز.',guess:'خمن السعر بالدينار الأردني',submit:'تأكيد',nextTurn:'الدور التالي',exact:'السعر مضبوط! ٣ نقاط',close:'تخمين قريب! نقطتان',actual:'السعر الصحيح:',priceOver:'انتهت اللعبة!',score:'النقاط',champion:'الفائز',finish:'انتهت كل الأسئلة!',returnHome:'العودة إلى جلسة',noRepeat:'لا تتكرر المنتجات خلال هذه الجلسة.',login:'تسجيل الدخول',register:'إنشاء حساب',email:'البريد الإلكتروني',password:'كلمة المرور',sendLoginCode:'تسجيل الدخول',forgotPassword:'نسيت كلمة المرور؟',forgotTitle:'إعادة تعيين كلمة المرور',forgotSubtitle:'سنرسل رمز إعادة تعيين مكوّناً من 6 أرقام إلى بريدك الإلكتروني.',sendResetCode:'إرسال رمز إعادة التعيين',resetTitle:'اختر كلمة مرور جديدة',resetSubtitle:'أدخل الرمز الذي وصلك واختر كلمة مرور جديدة.',newPassword:'كلمة المرور الجديدة',confirmPassword:'تأكيد كلمة المرور الجديدة',resetPassword:'تغيير كلمة المرور',resetCode:'رمز إعادة التعيين المكوّن من 6 أرقام',passwordHint:'استخدم 10 أحرف على الأقل.',createAccount:'إنشاء الحساب',backToLogin:'العودة لتسجيل الدخول',resendReset:'إرسال رمز آخر',forgotGeneric:'إذا كان هناك حساب موثّق بهذا البريد، فقد أرسلنا رمز إعادة التعيين.',resetDone:'تم تغيير كلمة المرور. سجّل الدخول الآن.',passwordMismatch:'كلمتا المرور غير متطابقتين.',passwordTooShort:'يجب أن تتكون كلمة المرور من 10 أحرف على الأقل.',fullName:'اسمك',verificationCode:'رمز التحقق المكوّن من 6 أرقام',sendCode:'إرسال رمز التحقق',resend:'إعادة إرسال الرمز',verify:'تأكيد البريد الإلكتروني',tableName:'الاسم',tableEmail:'البريد الإلكتروني',tableVerified:'تم التحقق',tableRegistered:'تاريخ التسجيل',cancel:'إلغاء',changeToRegister:'إنشاء حساب جديد',changeToLogin:'لديك حساب بالفعل؟ سجّل الدخول',authLoginTitle:'تسجيل الدخول إلى جلسة',authRegisterTitle:'إنشاء حساب في جلسة',authVerifyTitle:'تأكيد بريدك الإلكتروني',authLoginSubtitle:'سجّل الدخول للعب ألعاب جلسة.',authRegisterSubtitle:'أنشئ حساباً لفتح الألعاب.',authVerifySubtitle:'أدخل الرمز الذي أرسلناه إلى بريدك الإلكتروني.',admin:'المستخدمون المسجلون',logout:'تسجيل الخروج',close:'إغلاق',noUsers:'لا يوجد مستخدمون مسجلون بعد.',loading:'جارٍ التحميل…',playLoginRequired:'يرجى تسجيل الدخول أو إنشاء حساب قبل اللعب.'}};
 let isArabic=location.pathname.startsWith('/ar/');
 function t(key){return TEXT[isArabic?'ar':'en'][key]||TEXT.en[key]||key}
-function toggleLanguage(){isArabic=!isArabic;document.documentElement.lang=isArabic?'ar':'en';document.documentElement.dir=isArabic?'rtl':'ltr';document.documentElement.style.setProperty('--jalsa-games-bg',isArabic?'url(\'/insight-home-ar.webp\')':'url(\'/insight-home-en.webp\')');document.getElementById('homeLang').textContent=isArabic?'English / العربية':'العربية / English';document.getElementById('loginButton').textContent=t('login');document.getElementById('registerButton').textContent=t('register');document.getElementById('heroFamily').src=isArabic?'hero-family-ar.png':'hero-family.png';document.getElementById('heroFamily').classList.toggle('arabic-family',isArabic);const map={heroTitle:'heroTitle',heroSubtitle:'heroSubtitle',explore:'exploreButton',gamesTitle:'gamesTitle',gamesIntro:'gamesIntro',zanko:'zankoCardTitle',zankoDesc:'zankoCardDescription',price:'priceCardTitle',priceDesc:'priceCardDescription',imposter:'imposterCardTitle',imposterDesc:'imposterCardDescription',more:'moreCardTitle',moreDesc:'moreCardDescription',insight:'insightCardTitle',insightDesc:'insightCardDescription',mafia:'mafiaCardTitle',mafiaDesc:'mafiaCardDescription'};for(const [key,id] of Object.entries(map))document.getElementById(id).textContent=t(key);document.getElementById('zankoPlay').textContent=t('play');document.getElementById('pricePlay').textContent=t('play');document.getElementById('imposterPlay').textContent=t('play');document.getElementById('insightPlay').textContent=t('play');document.getElementById('mafiaPlay').textContent=t('play');localStorage.setItem('jalsa_language',isArabic?'ar':'en');if(document.getElementById('teamsTitle'))document.getElementById('teamsTitle').textContent=t('teamsTitle');if(document.getElementById('teamsSubtitle'))document.getElementById('teamsSubtitle').textContent=t('teamsSubtitle');if(document.getElementById('teamNote'))document.getElementById('teamNote').textContent=t('teamNote');if(document.getElementById('categoryTitle'))document.getElementById('categoryTitle').textContent=t('categoryTitle');if(document.getElementById('categorySubtitle'))document.getElementById('categorySubtitle').textContent=t('categorySubtitle');document.getElementById('categoryBack').textContent=t('back');document.getElementById('categoryNext').textContent=t('next');document.getElementById('teamsNext').textContent=t('next');document.getElementById('revealAnswerButton').textContent=t('reveal');document.getElementById('noPoints').textContent=t('noPoints');document.querySelectorAll('.category-pick').forEach(btn=>{const c=CATEGORIES.find(x=>x.id===btn.dataset.id);btn.querySelector('strong').textContent=isArabic?c.ar:c.name});renderCategoryCards();if(gameState.screen==='board')renderGameHudAndBoard();if(gameState.screen==='question'){document.getElementById('questionTurn').textContent=`${gameState.teamNames[gameState.turn]}${t('turn')}`;document.getElementById('questionHud').innerHTML=gameState.teamNames.map((name,i)=>teamCardHTML(name,i,false)).join('');const active=gameState.currentTile;if(active){const c=CATEGORIES.find(x=>x.id===active.category);document.getElementById('questionCategory').textContent=isArabic?c.ar:c.name;document.getElementById('questionPrompt').textContent=isArabic?active.qAr:active.q;document.getElementById('questionAnswer').textContent=isArabic?active.aAr:active.a;document.getElementById('questionPointValue').textContent=active.multiplied?`${active.points} × 2 = ${active.actualPoints} ${t('points')}`:`${active.points} ${t('points')}`;document.getElementById('awardOne').textContent=`${gameState.teamNames[0]} ${t('award')} +${active.actualPoints}`;document.getElementById('awardTwo').textContent=`${gameState.teamNames[1]} ${t('award')} +${active.actualPoints}`}}v17SyncLanguage();}function showHome(){if(gameState.callTimer){clearInterval(gameState.callTimer);gameState.callTimer=null}hideToast();document.getElementById('zankoStage').classList.remove('active');document.getElementById('homePage').hidden=false;document.getElementById('siteHeader').hidden=false;document.querySelector('.site-footer').hidden=false}
+function toggleLanguage(){isArabic=!isArabic;document.documentElement.lang=isArabic?'ar':'en';document.documentElement.dir=isArabic?'rtl':'ltr';document.documentElement.style.setProperty('--jalsa-games-bg',isArabic?'url(\'/insight-home-ar.webp\')':'url(\'/insight-home-en.webp\')');document.getElementById('homeLang').textContent=isArabic?'English / العربية':'العربية / English';document.getElementById('loginButton').textContent=t('login');document.getElementById('registerButton').textContent=t('register');document.getElementById('heroFamily').src=isArabic?'/hero-family-ar.png':'/hero-family.png';document.getElementById('heroFamily').classList.toggle('arabic-family',isArabic);const map={heroTitle:'heroTitle',heroSubtitle:'heroSubtitle',explore:'exploreButton',gamesTitle:'gamesTitle',gamesIntro:'gamesIntro',zanko:'zankoCardTitle',zankoDesc:'zankoCardDescription',price:'priceCardTitle',priceDesc:'priceCardDescription',imposter:'imposterCardTitle',imposterDesc:'imposterCardDescription',more:'moreCardTitle',moreDesc:'moreCardDescription',insight:'insightCardTitle',insightDesc:'insightCardDescription',mafia:'mafiaCardTitle',mafiaDesc:'mafiaCardDescription'};for(const [key,id] of Object.entries(map))document.getElementById(id).textContent=t(key);document.getElementById('zankoPlay').textContent=t('play');document.getElementById('pricePlay').textContent=t('play');document.getElementById('imposterPlay').textContent=t('play');document.getElementById('insightPlay').textContent=t('play');document.getElementById('mafiaPlay').textContent=t('play');localStorage.setItem('jalsa_language',isArabic?'ar':'en');if(document.getElementById('teamsTitle'))document.getElementById('teamsTitle').textContent=t('teamsTitle');if(document.getElementById('teamsSubtitle'))document.getElementById('teamsSubtitle').textContent=t('teamsSubtitle');if(document.getElementById('teamNote'))document.getElementById('teamNote').textContent=t('teamNote');if(document.getElementById('categoryTitle'))document.getElementById('categoryTitle').textContent=t('categoryTitle');if(document.getElementById('categorySubtitle'))document.getElementById('categorySubtitle').textContent=t('categorySubtitle');document.getElementById('categoryBack').textContent=t('back');document.getElementById('categoryNext').textContent=t('next');document.getElementById('teamsNext').textContent=t('next');document.getElementById('revealAnswerButton').textContent=t('reveal');document.getElementById('noPoints').textContent=t('noPoints');document.querySelectorAll('.category-pick').forEach(btn=>{const c=CATEGORIES.find(x=>x.id===btn.dataset.id);btn.querySelector('strong').textContent=isArabic?c.ar:c.name});renderCategoryCards();if(gameState.screen==='board')renderGameHudAndBoard();if(gameState.screen==='question'){document.getElementById('questionTurn').textContent=`${gameState.teamNames[gameState.turn]}${t('turn')}`;document.getElementById('questionHud').innerHTML=gameState.teamNames.map((name,i)=>teamCardHTML(name,i,false)).join('');const active=gameState.currentTile;if(active){const c=CATEGORIES.find(x=>x.id===active.category);document.getElementById('questionCategory').textContent=isArabic?c.ar:c.name;document.getElementById('questionPrompt').textContent=isArabic?active.qAr:active.q;document.getElementById('questionAnswer').textContent=isArabic?active.aAr:active.a;document.getElementById('questionPointValue').textContent=active.multiplied?`${active.points} × 2 = ${active.actualPoints} ${t('points')}`:`${active.points} ${t('points')}`;document.getElementById('awardOne').textContent=`${gameState.teamNames[0]} ${t('award')} +${active.actualPoints}`;document.getElementById('awardTwo').textContent=`${gameState.teamNames[1]} ${t('award')} +${active.actualPoints}`}}v17SyncLanguage();}function showHome(){if(gameState.callTimer){clearInterval(gameState.callTimer);gameState.callTimer=null}try{localStorage.removeItem('jalsa_zanko_active_v1')}catch{}gameState.screen='home';hideToast();document.getElementById('zankoStage').classList.remove('active');document.getElementById('homePage').hidden=false;document.getElementById('siteHeader').hidden=false;document.querySelector('.site-footer').hidden=false}
 function enterZanko(){document.getElementById('homePage').hidden=true;document.getElementById('siteHeader').hidden=true;document.querySelector('.site-footer').hidden=true;document.getElementById('zankoStage').classList.add('active')}
-function showStageScreen(name){['teamScreen','categoryScreen','boardScreen','questionScreen','gameoverScreen'].forEach(id=>document.getElementById(id).hidden=id!==name);gameState.screen=name.replace('Screen','');publishRemoteState()}
-async function startZankoSetup(){if(!(await v17IsGameEnabled("zanko"))){showToast(V17_GAME_WAIT_TEXT);return;}if(!authReady){await refreshSession()}if(!requireLogin())return;try{await v17LoadGameContent()}catch(error){showToast(error.message)}resetGameState();enterZanko();showStageScreen('teamScreen')}
-function continueToCategories(){gameState.teamNames=[document.getElementById('teamNameOne').value.trim()||'Team 1',document.getElementById('teamNameTwo').value.trim()||'Team 2'];showStageScreen('categoryScreen');renderCategoryCards()}
+function showStageScreen(name){['teamScreen','categoryScreen','boardScreen','questionScreen','gameoverScreen'].forEach(id=>document.getElementById(id).hidden=id!==name);gameState.screen=name.replace('Screen','');saveZankoSession();publishRemoteState()}
+async function startZankoSetup(){if(!(await v17IsGameEnabled("zanko"))){showToast(V17_GAME_WAIT_TEXT);return;}if(!authReady){await refreshSession()}if(!requireLogin())return;if(!(await v17CheckSubscriptionAccess("zanko")))return;try{await v17LoadGameContent()}catch(error){showToast(error.message)}resetGameState();enterZanko();showStageScreen('teamScreen')}
+function continueToCategories(){gameState.teamNames=[document.getElementById('teamNameOne').value.trim()||'Team 1',document.getElementById('teamNameTwo').value.trim()||'Team 2'];saveZankoSession();showStageScreen('categoryScreen');renderCategoryCards()}
 function backToTeams(){showStageScreen('teamScreen')}
 function renderCategoryCards(){
  const grid=document.getElementById('categoryGrid');if(!grid)return;
@@ -816,10 +884,10 @@ function renderCategoryCards(){
  const count=document.getElementById('categoryCount');if(count)count.textContent=`${gameState.selected.length} / 6 ${t('selected')}`;
  const next=document.getElementById('categoryNext');if(next){next.disabled=gameState.selected.length!==6;next.title=gameState.selected.length===6?'':'Select all six categories to continue'}
 }
-function toggleCategory(id){if(gameState.selected.includes(id))gameState.selected=gameState.selected.filter(x=>x!==id);else if(gameState.selected.length<6)gameState.selected.push(id);renderCategoryCards()}
+function toggleCategory(id){if(gameState.selected.includes(id))gameState.selected=gameState.selected.filter(x=>x!==id);else if(gameState.selected.length<6)gameState.selected.push(id);saveZankoSession();renderCategoryCards()}
 
-const gameState={screen:'home',teamNames:['Team 1','Team 2'],scores:[0,0],selected:[],tiles:{},turn:0,power:{},doubleNext:false,stealActive:false,currentTile:null,callTimer:null,remotePaused:false};
-function resetGameState(){gameState.screen='team';gameState.teamNames=['Team 1','Team 2'];gameState.scores=[0,0];gameState.selected=[];gameState.tiles={};gameState.turn=Math.floor(Math.random()*2);gameState.power={0:{call:false,double:false,steal:false},1:{call:false,double:false,steal:false}};gameState.doubleNext=false;gameState.stealActive=false;gameState.currentTile=null;gameState.remotePaused=false;if(gameState.callTimer){clearInterval(gameState.callTimer);gameState.callTimer=null}document.getElementById('teamNameOne').value='Team 1';document.getElementById('teamNameTwo').value='Team 2';hideToast()}
+const gameState={screen:'home',teamNames:['Team 1','Team 2'],scores:[0,0],selected:[],tiles:{},turn:0,power:{},doubleNext:false,stealActive:false,currentTile:null,callTimer:null,remotePaused:false,answerRevealed:false};
+function resetGameState(){try{localStorage.removeItem('jalsa_zanko_active_v1')}catch{}gameState.screen='team';gameState.teamNames=['Team 1','Team 2'];gameState.scores=[0,0];gameState.selected=[];gameState.tiles={};gameState.turn=Math.floor(Math.random()*2);gameState.power={0:{call:false,double:false,steal:false},1:{call:false,double:false,steal:false}};gameState.doubleNext=false;gameState.stealActive=false;gameState.currentTile=null;gameState.remotePaused=false;gameState.answerRevealed=false;if(gameState.callTimer){clearInterval(gameState.callTimer);gameState.callTimer=null}document.getElementById('teamNameOne').value='Team 1';document.getElementById('teamNameTwo').value='Team 2';hideToast()}
 function shuffled(list){const a=[...list];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 function buildQuestionTiles(){gameState.tiles={};const seenQuestions=new Set();for(const id of gameState.selected){const tiles=[];if(v17ContentLoaded&&v17Content.questions.length){const rows=v17Content.questions.filter(q=>q.game_type==='zanko'&&q.category_id===id);const tiers=[['hard',600],['medium',300],['easy',100]];for(const tier of tiers){const candidates=shuffled(rows.filter(q=>{const key=String(q.question_en||'').toLowerCase().replace(/[^a-z0-9\u0600-\u06ff]+/g,' ').trim();return q.difficulty===tier[0]&&!seenQuestions.has(q.id)&&!seenQuestions.has(key)}));candidates.slice(0,2).forEach((q,index)=>{const key=String(q.question_en||'').toLowerCase().replace(/[^a-z0-9\u0600-\u06ff]+/g,' ').trim();seenQuestions.add(q.id);seenQuestions.add(key);tiles.push({id:q.id+'-'+Date.now()+'-'+Math.random().toString(36).slice(2,8),category:id,points:tier[1],owner:index%2,q:q.question_en,a:q.answer_en,qAr:q.question_ar||q.question_en,aAr:q.answer_ar||q.answer_en,mediaType:q.media_type||'none',mediaUrl:q.media_url||'',used:false})})}}else{let tierBuckets;if(id==='music'){const localize=tier=>MUSIC_BANK[tier].map((q,i)=>({...q,qAr:MUSIC_BANK_AR[tier][i].q,aAr:MUSIC_BANK_AR[tier][i].a}));tierBuckets={100:shuffled(localize('easy')).slice(0,2),300:shuffled(localize('medium')).slice(0,2),600:shuffled(localize('hard')).slice(0,2)}}else{const list=(FIXED_QUESTIONS[id]||[]).map((q,i)=>({...q,qAr:(FIXED_QUESTIONS_AR[id]||[])[i]?.q||q.q,aAr:(FIXED_QUESTIONS_AR[id]||[])[i]?.a||q.a}));tierBuckets={100:shuffled(list.filter(q=>q.points===100)),300:shuffled(list.filter(q=>q.points===300)),600:shuffled(list.filter(q=>q.points===600))}}[600,300,100].forEach(points=>{for(let owner=0;owner<2;owner++){const q=(tierBuckets[points]||[])[owner];if(q)tiles.push({id:id+'-'+points+'-'+owner+'-'+Math.random().toString(36).slice(2,7),category:id,points,owner,q:q.q,a:q.a,qAr:q.qAr||q.q,aAr:q.aAr||q.a,mediaType:'none',mediaUrl:'',used:false})}})}gameState.tiles[id]=tiles.sort((a,b)=>a.points===b.points?a.owner-b.owner:b.points-a.points)}}
 
@@ -863,13 +931,46 @@ async function beginZankoGame(){if(!(await v17IsGameEnabled('zanko'))){showToast
 function renderGameHudAndBoard(){document.getElementById('turnBanner').textContent=`${gameState.teamNames[gameState.turn]}${t('turn')}`;document.getElementById('questionTurn').textContent=`${gameState.teamNames[gameState.turn]}${t('turn')}`;document.getElementById('teamHud').innerHTML=gameState.teamNames.map((name,i)=>teamCardHTML(name,i)).join('');document.getElementById('questionHud').innerHTML=gameState.teamNames.map((name,i)=>teamCardHTML(name,i)).join('');const board=document.getElementById('boardGrid');board.style.setProperty('--cat-count',gameState.selected.length);board.innerHTML='';for(const id of gameState.selected){const c=CATEGORIES.find(x=>x.id===id);const card=document.createElement('section');card.className='board-category';card.innerHTML=`<img src="${/^(https?:|data:|blob:|\/)/i.test(c.image||"")?c.image:"/"+String(c.image||"category-music.svg").replace(/^\.\//,"").replace(/^\/+/,"")}" alt=""><h3>${isArabic?c.ar:c.name}</h3>`;[600,300,100].forEach(points=>{const row=document.createElement('div');row.className='tier-row';const pair=gameState.tiles[id].filter(x=>x.points===points).sort((a,b)=>a.owner-b.owner);pair.forEach(tile=>{const button=document.createElement('button');button.type='button';button.className='tile';const isActiveOwner=tile.owner===gameState.turn;const canPick=!tile.used&&!gameState.remotePaused&&(isActiveOwner||gameState.stealActive);if(tile.used)button.classList.add('used');else if(!canPick)button.classList.add('locked');button.disabled=!canPick;button.innerHTML=`${points}<small>${escapeHtml(gameState.teamNames[tile.owner])}</small>`;button.title=tile.used?'Already played':!canPick?'Locked until this team’s turn':`Choose for ${gameState.teamNames[gameState.turn]}`;button.onclick=()=>chooseTile(tile.id);row.appendChild(button)});card.appendChild(row)});board.appendChild(card)}const total=gameState.selected.length*6;const used=Object.values(gameState.tiles).flat().filter(x=>x.used).length;document.getElementById('boardProgress').textContent=`${total-used} ${t('boardProgress')}`}
 function teamCardHTML(name,index,showPowers=true){const current=index===gameState.turn;const p=gameState.power[index]||{call:false,double:false,steal:false};const callTip=t('callFriendTip'),doubleTip=t('doubleTip'),stealTip=t('stealTip');const powers=showPowers?`<div class="power-row">${powerButton(index,'call','📞',p.call,callTip)}${powerButton(index,'double','2×',p.double,doubleTip)}${powerButton(index,'steal','⇄',p.steal,stealTip)}</div>`:'';return `<article class="team-hud-card ${index===1?'blue':''} ${current?'current':''}"><div class="hud-team-name">${escapeHtml(name)}</div><div class="hud-score">${gameState.scores[index]}</div>${powers}</article>`}
 function powerButton(team,key,icon,used,tip){const labels={call:t('callFriend'),double:t('double'),steal:t('steal')};return `<button type="button" class="power-btn ${used?'used':''}" ${used?'disabled':''} onclick="usePower(${team},'${key}')" aria-label="${labels[key]}" title="${labels[key]} — ${tip}"><span class="power-icon">${icon}</span><span class="power-label">${labels[key]}</span><span class="tooltip">${tip}</span></button>`}
-function chooseTile(id){if(gameState.remotePaused){showToast(isArabic?'اللعبة متوقفة مؤقتاً':'The game is paused.');return}const tile=Object.values(gameState.tiles).flat().find(x=>x.id===id);if(!tile||tile.used)return;if(tile.owner!==gameState.turn&&!gameState.stealActive)return;if(gameState.callTimer){clearInterval(gameState.callTimer);gameState.callTimer=null;hideToast()}gameState.currentTile=tile;if(gameState.stealActive){gameState.power[gameState.turn].steal=true;gameState.stealActive=false}tile.actualPoints=tile.points*(gameState.doubleNext?2:1);tile.multiplied=gameState.doubleNext;gameState.doubleNext=false;renderQuestionScreen();showStageScreen('questionScreen');publishRemoteState()}
-function renderQuestionScreen(){const tile=gameState.currentTile;if(!tile)return;const c=CATEGORIES.find(x=>x.id===tile.category);document.getElementById('questionTurn').textContent=gameState.teamNames[gameState.turn]+t('turn');document.getElementById('questionCategory').textContent=isArabic?c.ar:c.name;document.getElementById('questionPrompt').textContent=isArabic?tile.qAr:tile.q;document.getElementById('questionAnswer').textContent=isArabic?tile.aAr:tile.a;v17RenderMedia(document.getElementById('questionMedia'),tile.mediaType,tile.mediaUrl);document.getElementById('questionPointValue').textContent=tile.multiplied?tile.points+' × 2 = '+tile.actualPoints+' '+t('points'):tile.points+' '+t('points');document.getElementById('questionAnswer').hidden=true;document.getElementById('revealAnswerButton').hidden=false;document.getElementById('awardRow').hidden=true;document.getElementById('noPoints').hidden=true;document.getElementById('awardOne').textContent=gameState.teamNames[0]+' '+t('award')+' +'+tile.actualPoints;document.getElementById('awardTwo').textContent=gameState.teamNames[1]+' '+t('award')+' +'+tile.actualPoints;document.getElementById('questionHud').innerHTML=gameState.teamNames.map((name,i)=>teamCardHTML(name,i,false)).join('')}
-function revealCurrentAnswer(){document.getElementById('questionAnswer').hidden=false;document.getElementById('revealAnswerButton').hidden=true;document.getElementById('awardRow').hidden=false;document.getElementById('noPoints').hidden=false;publishRemoteState()}
+function chooseTile(id){if(gameState.remotePaused){showToast(isArabic?'اللعبة متوقفة مؤقتاً':'The game is paused.');return}const tile=Object.values(gameState.tiles).flat().find(x=>x.id===id);if(!tile||tile.used)return;if(tile.owner!==gameState.turn&&!gameState.stealActive)return;if(gameState.callTimer){clearInterval(gameState.callTimer);gameState.callTimer=null;hideToast()}gameState.currentTile=tile;gameState.answerRevealed=false;if(gameState.stealActive){gameState.power[gameState.turn].steal=true;gameState.stealActive=false}tile.actualPoints=tile.points*(gameState.doubleNext?2:1);tile.multiplied=gameState.doubleNext;gameState.doubleNext=false;renderQuestionScreen();showStageScreen('questionScreen');publishRemoteState()}
+function renderQuestionScreen(){const tile=gameState.currentTile;if(!tile)return;const c=CATEGORIES.find(x=>x.id===tile.category);document.getElementById('questionTurn').textContent=gameState.teamNames[gameState.turn]+t('turn');document.getElementById('questionCategory').textContent=isArabic?c.ar:c.name;document.getElementById('questionPrompt').textContent=isArabic?tile.qAr:tile.q;document.getElementById('questionAnswer').textContent=isArabic?tile.aAr:tile.a;v17RenderMedia(document.getElementById('questionMedia'),tile.mediaType,tile.mediaUrl);document.getElementById('questionPointValue').textContent=tile.multiplied?tile.points+' × 2 = '+tile.actualPoints+' '+t('points'):tile.points+' '+t('points');const answerShown=!!gameState.answerRevealed;document.getElementById('questionAnswer').hidden=!answerShown;document.getElementById('revealAnswerButton').hidden=answerShown;document.getElementById('awardRow').hidden=!answerShown;document.getElementById('noPoints').hidden=!answerShown;document.getElementById('awardOne').textContent=gameState.teamNames[0]+' '+t('award')+' +'+tile.actualPoints;document.getElementById('awardTwo').textContent=gameState.teamNames[1]+' '+t('award')+' +'+tile.actualPoints;document.getElementById('questionHud').innerHTML=gameState.teamNames.map((name,i)=>teamCardHTML(name,i,false)).join('')}
+function revealCurrentAnswer(){gameState.answerRevealed=true;saveZankoSession();document.getElementById('questionAnswer').hidden=false;document.getElementById('revealAnswerButton').hidden=true;document.getElementById('awardRow').hidden=false;document.getElementById('noPoints').hidden=false;publishRemoteState()}
 function awardQuestion(team){finishQuestion(team)}
-function finishQuestion(winner){const tile=gameState.currentTile;if(!tile)return;const storedTile=Object.values(gameState.tiles).flat().find(x=>x.id===tile.id);if(winner!==null)gameState.scores[winner]+=tile.actualPoints;if(storedTile)storedTile.used=true;tile.used=true;gameState.turn=1-gameState.turn;gameState.currentTile=null;gameState.doubleNext=false;gameState.stealActive=false;const remaining=Object.values(gameState.tiles).flat().filter(x=>!x.used).length;if(!remaining){showGameOver();return}renderGameHudAndBoard();showStageScreen('boardScreen');publishRemoteState()}
+function finishQuestion(winner){const tile=gameState.currentTile;if(!tile)return;gameState.answerRevealed=false;const storedTile=Object.values(gameState.tiles).flat().find(x=>x.id===tile.id);if(winner!==null)gameState.scores[winner]+=tile.actualPoints;if(storedTile)storedTile.used=true;tile.used=true;gameState.turn=1-gameState.turn;gameState.currentTile=null;gameState.doubleNext=false;gameState.stealActive=false;const remaining=Object.values(gameState.tiles).flat().filter(x=>!x.used).length;if(!remaining){showGameOver();return}renderGameHudAndBoard();showStageScreen('boardScreen');publishRemoteState()}
 function showGameOver(){publishRemoteState();const winner=gameState.scores[0]===gameState.scores[1]?(isArabic?'تعادل!':'It’s a tie!'):gameState.teamNames[gameState.scores[0]>gameState.scores[1]?0:1];document.getElementById('gameoverScreen').innerHTML=`<div class="stage-heading"><h1 style="color:#fff2da;font-family:Georgia,serif">${t('finish')}</h1></div><div class="turn-banner">${t('champion')}: ${escapeHtml(winner)}</div><div class="team-hud">${gameState.teamNames.map((n,i)=>`<article class="team-hud-card ${i===1?'blue':''}"><div class="hud-team-name">${escapeHtml(n)}</div><div class="hud-score">${gameState.scores[i]}</div></article>`).join('')}</div><div class="stage-action-row"><button class="primary" onclick="showHome()">${t('returnHome')}</button></div>`;showStageScreen('gameoverScreen')}
-function usePower(team,key){if(gameState.screen!=='board'){showToast(isArabic?'يمكن استخدام القوى قبل اختيار السؤال فقط.':'Powers can only be used from the board, before opening a question.');return}if(team!==gameState.turn){showToast(isArabic?'هذه قوة الفريق الذي عليه الدور فقط.':'Only the team whose turn it is can use a power.');return}if(gameState.power[team][key])return;gameState.power[team][key]=true;if(key==='call'){let seconds=20;showToast(t('callTimer').replace('{n}',seconds));if(gameState.callTimer)clearInterval(gameState.callTimer);gameState.callTimer=setInterval(()=>{seconds--;if(seconds<=0){clearInterval(gameState.callTimer);gameState.callTimer=null;showToast(isArabic?'انتهى وقت الاتصال. اختاروا سؤالكم.':'Friend call time is over. Choose your question.')}else showToast(t('callTimer').replace('{n}',seconds))},1000)}else if(key==='double'){gameState.doubleNext=true;showToast(t('doubleDone'))}else if(key==='steal'){gameState.stealActive=true;showToast(t('stealDone'))}renderGameHudAndBoard()}
+function saveZankoSession(){
+ try{
+  if(gameState.screen==='home'){localStorage.removeItem('jalsa_zanko_active_v1');return}
+  const snapshot={version:1,savedAt:Date.now(),categories:CATEGORIES.map(c=>({...c})),state:{screen:gameState.screen,teamNames:gameState.teamNames,scores:gameState.scores,selected:gameState.selected,tiles:gameState.tiles,turn:gameState.turn,power:gameState.power,doubleNext:gameState.doubleNext,stealActive:gameState.stealActive,currentTileId:gameState.currentTile?.id||null,remotePaused:!!gameState.remotePaused,answerRevealed:!!gameState.answerRevealed}};
+  localStorage.setItem('jalsa_zanko_active_v1',JSON.stringify(snapshot));
+ }catch(error){console.warn('Could not save Zanko progress locally:',error)}
+}
+function restoreZankoSession(){
+ const finishRestore=()=>document.documentElement.classList.remove('zanko-restore-pending');
+ let saved;
+ try{saved=JSON.parse(localStorage.getItem('jalsa_zanko_active_v1')||'null')}
+ catch(error){console.warn('Could not read saved Zanko progress:',error);finishRestore();return}
+ if(!saved||saved.version!==1||!saved.state){finishRestore();return}
+ const s=saved.state;
+ if(!['team','category','board','question','gameover'].includes(s.screen)){finishRestore();return}
+ try{
+  // All data required to paint the active board is saved locally, so do not wait for a network round-trip.
+  if(Array.isArray(saved.categories)&&saved.categories.length)CATEGORIES=saved.categories;
+  gameState.screen=s.screen;gameState.teamNames=Array.isArray(s.teamNames)?s.teamNames:['Team 1','Team 2'];gameState.scores=Array.isArray(s.scores)?s.scores:[0,0];gameState.selected=Array.isArray(s.selected)?s.selected:[];gameState.tiles=s.tiles&&typeof s.tiles==='object'?s.tiles:{};gameState.turn=Number(s.turn)===1?1:0;gameState.power=s.power||{0:{call:false,double:false,steal:false},1:{call:false,double:false,steal:false}};gameState.doubleNext=!!s.doubleNext;gameState.stealActive=!!s.stealActive;gameState.remotePaused=!!s.remotePaused;gameState.answerRevealed=!!s.answerRevealed;gameState.callTimer=null;
+  const allTiles=Object.values(gameState.tiles).flat();gameState.currentTile=s.currentTileId?allTiles.find(tile=>tile.id===s.currentTileId)||null:null;
+  if(s.screen==='question'&&!gameState.currentTile){gameState.screen='board';s.screen='board'}
+  document.getElementById('teamNameOne').value=gameState.teamNames[0]||'Team 1';document.getElementById('teamNameTwo').value=gameState.teamNames[1]||'Team 2';
+  enterZanko();
+  if(s.screen==='category'){renderCategoryCards();showStageScreen('categoryScreen')}
+  else if(s.screen==='team'){showStageScreen('teamScreen')}
+  else if(s.screen==='board'||s.screen==='question'){renderGameHudAndBoard();if(s.screen==='question')renderQuestionScreen();showStageScreen(s.screen==='question'?'questionScreen':'boardScreen')}
+  else if(s.screen==='gameover'){showGameOver()}
+ }catch(error){
+  console.warn('Could not restore Zanko progress locally:',error);
+ }finally{
+  finishRestore();
+ }
+}
+function usePower(team,key){if(gameState.screen!=='board'){showToast(isArabic?'يمكن استخدام القوى قبل اختيار السؤال فقط.':'Powers can only be used from the board, before opening a question.');return}if(team!==gameState.turn){showToast(isArabic?'هذه قوة الفريق الذي عليه الدور فقط.':'Only the team whose turn it is can use a power.');return}if(gameState.power[team][key])return;gameState.power[team][key]=true;if(key==='call'){let seconds=20;showToast(t('callTimer').replace('{n}',seconds));if(gameState.callTimer)clearInterval(gameState.callTimer);gameState.callTimer=setInterval(()=>{seconds--;if(seconds<=0){clearInterval(gameState.callTimer);gameState.callTimer=null;showToast(isArabic?'انتهى وقت الاتصال. اختاروا سؤالكم.':'Friend call time is over. Choose your question.')}else showToast(t('callTimer').replace('{n}',seconds))},1000)}else if(key==='double'){gameState.doubleNext=true;showToast(t('doubleDone'))}else if(key==='steal'){gameState.stealActive=true;showToast(t('stealDone'))}renderGameHudAndBoard();saveZankoSession()}
 function showToast(message){const el=document.getElementById('toast');if(!el)return;el.textContent=message;el.hidden=false;clearTimeout(window.__jalsaToastTimer);window.__jalsaToastTimer=setTimeout(hideToast,3000)}function hideToast(){const el=document.getElementById('toast');if(el)el.hidden=true;clearTimeout(window.__jalsaToastTimer);window.__jalsaToastTimer=null}
 function escapeHtml(value){return String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 
@@ -877,7 +978,7 @@ function escapeHtml(value){return String(value).replace(/[&<>"']/g,c=>({'&':'&am
 let pricePlayers=[],priceScores=[],priceTurn=0,priceRound=0,priceDeck=[],priceAnswered=false;
 async function openPriceSetup(){if(!(await v17IsGameEnabled('price'))){alert(isArabic?'هذه اللعبة متوقفة مؤقتاً. يرجى العودة لاحقاً.':'This game is temporarily unavailable. Please check back later.');return}if(!authReady){refreshSession().then(()=>{if(currentUser)openPriceSetup();else showAuth('login')});return}if(!requireLogin())return;document.getElementById('priceSetupOverlay').classList.add('open');document.getElementById('priceSetupTitle').textContent=t('priceSetup');document.getElementById('priceNamesLabel').firstChild.textContent=t('players')}
 function closePriceOverlays(){document.getElementById('priceSetupOverlay').classList.remove('open');document.getElementById('priceGameOverlay').classList.remove('open')}
-async function startPriceGame(){if(!(await v17IsGameEnabled("price"))){document.getElementById("priceStoppedNotice").hidden=false;return}if(!requireLogin())return;pricePlayers=document.getElementById('priceNames').value.split(',').map(x=>x.trim()).filter(Boolean);if(pricePlayers.length<2){alert(isArabic?'أدخلوا اسمين على الأقل وافصلوا بينهما بفواصل.':'Enter at least two player names, separated by commas.');return}priceScores=pricePlayers.map(()=>0);priceTurn=0;priceRound=0;priceDeck=shuffled(PRODUCTS);document.getElementById('priceSetupOverlay').classList.remove('open');document.getElementById('priceGameOverlay').classList.add('open');document.getElementById('priceGameTitle').textContent=t('price');document.getElementById('priceNext').hidden=true;document.getElementById('priceSubmit').hidden=false;document.getElementById('priceNext').textContent=t('nextTurn');renderPriceRound()}
+async function startPriceGame(){if(!(await v17IsGameEnabled("price"))){document.getElementById("priceStoppedNotice").hidden=false;return}if(!requireLogin())return;pricePlayers=document.getElementById('priceNames').value.split(',').map(x=>x.trim()).filter(Boolean);if(pricePlayers.length<2){alert(isArabic?'أدخلوا اسمين على الأقل وافصلوا بينهما بفواصل.':'Enter at least two player names, separated by commas.');return}if(!(await v17CheckSubscriptionAccess("price")))return;priceScores=pricePlayers.map(()=>0);priceTurn=0;priceRound=0;priceDeck=shuffled(PRODUCTS);document.getElementById('priceSetupOverlay').classList.remove('open');document.getElementById('priceGameOverlay').classList.add('open');document.getElementById('priceGameTitle').textContent=t('price');document.getElementById('priceNext').hidden=true;document.getElementById('priceSubmit').hidden=false;document.getElementById('priceNext').textContent=t('nextTurn');renderPriceRound()}
 function renderPriceRound(){if(priceRound>=priceDeck.length){finishPriceGame();return}priceAnswered=false;const item=priceDeck[priceRound];document.getElementById('priceTurn').textContent=`${pricePlayers[priceTurn]} · ${t('turn')}`;document.getElementById('priceScore').textContent=`${t('score')||'Score'}: ${priceScores[priceTurn]}`;document.getElementById('priceEmoji').textContent=item[1];document.getElementById('priceProduct').textContent=item[0];document.getElementById('priceGuess').value='';document.getElementById('priceResult').textContent='';document.getElementById('priceGuessLabel').firstChild.textContent=t('guess');document.getElementById('pricePassNote').textContent=t('pricePass');document.getElementById('priceNote').textContent=t('noRepeat');document.getElementById('priceSubmit').textContent=t('submit');document.getElementById('priceSubmit').hidden=false;document.getElementById('priceNext').hidden=true}
 function submitPriceGuess(){
  if(priceAnswered)return;
@@ -901,6 +1002,7 @@ const AUTH_API='/api';
 async function apiRequest(path, body){
   const options={method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',headers:{'Accept':'application/json','Cache-Control':'no-cache','Pragma':'no-cache'}};
   if(body){options.headers['Content-Type']='application/json';options.body=JSON.stringify(body)}
+  const savedZanko=v17GetSavedFreeGame("zanko");if(savedZanko)options.headers["X-JALSA-Free-Game-Session"]=savedZanko.sessionId;
   const response=await fetch(AUTH_API+path,options);
   let data={};try{data=await response.json()}catch{}
   if(!response.ok){const error=new Error(data.error||'Request failed. Please try again.');error.status=response.status;throw error;}
@@ -943,7 +1045,7 @@ function showAuth(view='login'){
   document.getElementById('passwordHint').textContent=t('passwordHint');
 }
 function closeAuth(){document.getElementById('authOverlay').classList.remove('open')}
-function showAdminButton(){const logged=!!currentUser;document.getElementById('loginButton').hidden=logged;document.getElementById('registerButton').hidden=logged;document.getElementById('accountLabel').hidden=!logged;document.getElementById('accountLabel').textContent=logged?currentUser.name:'';const dashboard=document.getElementById('drawerDashboardButton');if(dashboard)dashboard.hidden=!(logged&&currentUser.isAdmin);if(logged&&typeof v17RenderAvatar==='function'){v17RenderAvatar(currentUser.avatarDataUrl);document.getElementById('drawerName').textContent=currentUser.name||'';document.getElementById('drawerEmail').textContent=currentUser.email||''}document.body.classList.remove('session-pending')}
+function showAdminButton(){const logged=!!currentUser;document.getElementById('loginButton').hidden=logged;document.getElementById('registerButton').hidden=logged;document.getElementById('accountLabel').hidden=!logged;document.getElementById('accountLabel').textContent=logged?currentUser.name:'';const dashboard=document.getElementById('drawerDashboardButton');if(dashboard)dashboard.hidden=!(logged&&currentUser.isAdmin);const premiumBadge=document.getElementById('drawerPremiumBadge');if(premiumBadge)premiumBadge.hidden=!(logged&&currentUser.premiumActive===true);const buyPremium=document.getElementById('drawerBuyPremiumButton');if(buyPremium)buyPremium.hidden=!(logged&&!currentUser.premiumActive&&!currentUser.isAdmin);if(logged&&typeof v17RenderAvatar==='function'){v17RenderAvatar(currentUser.avatarDataUrl);document.getElementById('drawerName').textContent=currentUser.name||'';document.getElementById('drawerEmail').textContent=currentUser.email||''}document.body.classList.remove('session-pending')}
 async function refreshSession(){
   let lastError=null;
   for(let attempt=0;attempt<2;attempt++){
@@ -1047,9 +1149,16 @@ async function openAdmin(){
  const page=document.getElementById("adminPage");if(page)page.hidden=false;
  const signed=document.getElementById("adminSignedInAs");if(signed)signed.textContent=currentUser.email||"";
  if(typeof v17SyncLanguage==="function")v17SyncLanguage();
+ try{await v17EnsureSeeded()}catch(error){v17SetAdminStatus(error.message,true)}
  if(typeof switchAdminTab==="function")switchAdminTab("games");
 }
-window.addEventListener('DOMContentLoaded',()=>{refreshSession()});
+window.addEventListener('DOMContentLoaded',()=>{
+  const billingResult=new URLSearchParams(location.search).get("subscription");
+  if(billingResult==="success")setTimeout(()=>showToast(v17T("billingCheckoutSuccess")),700);
+  if(billingResult==="cancelled")setTimeout(()=>showToast(v17T("billingCheckoutCancelled")),700);
+  if(billingResult)history.replaceState(null,"",location.pathname+location.hash);
+  restoreZankoSession();refreshSession()
+ });
 if(isArabic){isArabic=false;try{toggleLanguage()}catch(error){isArabic=true;document.documentElement.lang='ar';document.documentElement.dir='rtl';console.error('JALSA Arabic language initialization failed:',error)}}
 
 </script>
@@ -1060,6 +1169,60 @@ const v17I18n={
  en:{profile:"Profile",sendFeedback:"Send feedback",aboutUs:"About us",faq:"FAQ",dashboard:"Dashboard",logout:"Log out",feedbackIntro:"Tell us what you think. Your message goes to the JALSA team.",yourFeedback:"Your feedback",sendMessage:"Send message",backToJalsa:"← Back to JALSA",profileIntro:"Manage your account details and profile picture.",changePhoto:"Change photo",photoHint:"JPG, PNG, or WebP. The image is resized before saving.",yourName:"Your name",emailAddress:"Email address",birthDate:"Birth date",saveChanges:"Save changes",cancel:"Cancel",registeredUsers:"Registered users",usersIntro:"Manage JALSA members, verification, and account access.",feedbackInbox:"Feedback inbox",feedbackAdminIntro:"Messages sent by JALSA members.",faqQuestions:"FAQ Questions",faqQuestionsIntro:"Questions sent by visitors from the FAQ page.",faqQuestionEmpty:"No visitor questions yet.",anonymousVisitor:"Anonymous visitor",faqQuestionNoEmail:"No contact details provided",arabicLanguage:"Arabic",englishLanguage:"English",zankoEditor:"Zanko editor",gameEditors:"Game editor",zankoAdminIntro:"Create categories and manage every Zanko question.",addCategory:"Add category",categories:"Categories",nameEnglish:"Name (English)",nameArabic:"Name (Arabic)",categoryImage:"Category image",uploadMedia:"Choose file from your device",fileHint:"Choose an image, video, or audio file from your computer. Images up to 20 MB, video 35 MB, audio 25 MB.",priceFileHint:"A real product photo is recommended. Choose a file from your computer.",categoryIcon:"Icon / emoji",addQuestion:"Add Zanko question",category:"Category",difficulty:"Difficulty",questionEnglish:"Question (English)",questionArabic:"Question (Arabic)",answerEnglish:"Answer (English)",answerArabic:"Answer (Arabic)",mediaType:"Media type",mediaUrl:"Media file",saveQuestion:"Save question",clearForm:"Clear",allZankoQuestions:"All Zanko questions",questionBankIntro:"Search, edit, or delete questions.",priceEditor:"Price Guessing editor",priceAdminIntro:"Build a fresh product bank with real photos and USD prices.",addPriceQuestion:"Add price question",productEnglish:"Product name (English)",productArabic:"Product name (Arabic)",priceUsd:"Price (USD)",savePriceQuestion:"Save product",priceGameNotes:"Price Guessing questions",priceMediaNote:"Every product uses an uploaded photo, video, or audio file. Prices are in US dollars.",loading:"Loading…",edit:"Edit",delete:"Delete",ban:"Ban",unban:"Unban",verified:"Verified",unverified:"Not verified",active:"Active",banned:"Banned",lastLogin:"Last logged in",never:"Never",registered:"Registered",actions:"Actions",noUsers:"No users found.",noFeedback:"No feedback messages yet.",noQuestions:"No questions yet.",noCategories:"No categories yet.",sent:"Sent",markReviewed:"Mark reviewed",resolve:"Resolve",newMessage:"New",save:"Save",nameRequired:"Please enter your name.",saved:"Saved successfully.",sentFeedback:"Your feedback was sent to the JALSA team.",confirmDelete:"Delete this item permanently?",confirmBan:"Ban this account? It will be signed out immediately.",confirmUnban:"Unban this account?",noMedia:"No media",questionSaved:"Question saved.",priceSaved:"Product saved.",categorySaved:"Category saved.",failed:"Something went wrong. Please try again.",adminOnly:"Administrator access required.",allQuestions:"Questions",mediaLinkNote:"Upload media directly from your computer.",saveCategory:"Save category",manage:"Manage",userDetails:"User details",username:"Username",newPassword:"Set a new password",passwordHint:"Passwords are securely hashed and cannot be viewed. Leave blank to keep the current password.",emailVerifiedToggle:"Email verified",verifiedAt:"Verified at",updatedAt:"Updated at",bannedAt:"Banned at",passwordSet:"Password set",accountStatus:"Account status",bannedReason:"Ban reason",profilePhoto:"Profile photo",removePhoto:"Remove profile photo",noProducts:"No products yet. Add a product with a real image or media file.",searchQuestions:"Search questions...",imposterEditor:"Imposter editor",gamesAvailability:"Game availability",liveGameControl:"LIVE GAME CONTROL",gameAvailabilityIntro:"Stop a game for everyone while you update it. Players will see a notice and cannot start or continue a stopped game.",gameContent:"GAME CONTENT",imposterAdminIntro:"Manage the words and categories used in the Imposter game.",addImposterWord:"Add an Imposter word",editWord:"Edit word",allImposterWords:"All game words",imposterCategory:"Category (e.g. Fruit, Restaurant, Cars)",wordEnglish:"Word (English)",wordArabicOptional:"Word (Arabic, optional)",imposterCategoryPlaceholder:"e.g. Fruit",imposterWordEnPlaceholder:"e.g. Watermelon",imposterWordArPlaceholder:"e.g. بطيخ",searchWordsCategories:"Search words or categories...",saveWord:"Save word",noImposterWords:"No words found. Add your first word.",imposterWordSaved:"Imposter word saved.",imposterWordDeleted:"Word deleted.",confirmDeleteImposterWord:"Delete this Imposter word permanently?",gameZanko:"Zanko",gamePrice:"Price Game",gameImposter:"Imposter",gameInsight:"INSIGHT",gameMafia:"Mafia",availableAllPlayers:"Available to all players",stoppedEveryone:"Stopped for everyone",available:"Available",stopped:"Stopped",stopGame:"Stop game",resumeGame:"Resume game",stoppingGame:"Stopping game…",resumingGame:"Resuming game…",gameResumed:"Game resumed for everyone.",gameStopped:"Game stopped for everyone."},
  ar:{profile:"الملف الشخصي",sendFeedback:"إرسال ملاحظات",aboutUs:"من نحن",faq:"الأسئلة الشائعة",dashboard:"لوحة التحكم",logout:"تسجيل الخروج",feedbackIntro:"شاركنا رأيك. ستصل رسالتك إلى فريق جلسة.",yourFeedback:"ملاحظاتك",sendMessage:"إرسال الرسالة",backToJalsa:"العودة إلى جلسة ←",profileIntro:"عدّل بيانات حسابك وصورتك الشخصية.",changePhoto:"تغيير الصورة",photoHint:"JPG أو PNG أو WebP. سيتم تصغير الصورة قبل حفظها.",yourName:"اسمك",emailAddress:"البريد الإلكتروني",birthDate:"تاريخ الميلاد",saveChanges:"حفظ التغييرات",cancel:"إلغاء",registeredUsers:"المستخدمون المسجلون",usersIntro:"إدارة أعضاء جلسة والتحقق من البريد وصلاحيات الحسابات.",feedbackInbox:"صندوق الملاحظات",feedbackAdminIntro:"رسائل أرسلها أعضاء جلسة.",faqQuestions:"أسئلة الزوار",faqQuestionsIntro:"الأسئلة التي أرسلها الزوار من صفحة الأسئلة الشائعة.",faqQuestionEmpty:"لا توجد أسئلة من الزوار بعد.",anonymousVisitor:"زائر بدون اسم",faqQuestionNoEmail:"لم تُضف بيانات للتواصل",arabicLanguage:"العربية",englishLanguage:"الإنجليزية",zankoEditor:"محرر زانكو",gameEditors:"محررات الألعاب",zankoAdminIntro:"أنشئ فئات وأدر جميع أسئلة زانكو.",addCategory:"إضافة فئة",categories:"الفئات",nameEnglish:"الاسم بالإنجليزية",nameArabic:"الاسم بالعربية",categoryImage:"صورة الفئة",uploadMedia:"اختر ملفاً من جهازك",fileHint:"اختر صورة أو فيديو أو ملفاً صوتياً من جهازك. الصور حتى 20 ميغابايت، الفيديو 35، والصوت 25.",priceFileHint:"ننصح بصورة حقيقية للمنتج. اختر الملف من جهازك.",categoryIcon:"أيقونة / إيموجي",addQuestion:"إضافة سؤال لزانكو",category:"الفئة",difficulty:"الصعوبة",questionEnglish:"السؤال (إنجليزي)",questionArabic:"السؤال (عربي)",answerEnglish:"الإجابة (إنجليزي)",answerArabic:"الإجابة (عربي)",mediaType:"نوع الوسائط",mediaUrl:"ملف الوسائط",saveQuestion:"حفظ السؤال",clearForm:"مسح",allZankoQuestions:"جميع أسئلة زانكو",questionBankIntro:"ابحث عن الأسئلة أو عدّلها أو احذفها.",priceEditor:"محرر تخمين السعر",priceAdminIntro:"أنشئ مجموعة منتجات جديدة بصور حقيقية وأسعار بالدولار الأمريكي.",addPriceQuestion:"إضافة سؤال سعر",productEnglish:"اسم المنتج (إنجليزي)",productArabic:"اسم المنتج (عربي)",priceUsd:"السعر (دولار أمريكي)",savePriceQuestion:"حفظ المنتج",priceGameNotes:"أسئلة تخمين السعر",priceMediaNote:"يستخدم كل منتج صورة أو فيديو أو ملفاً صوتياً ترفعه من جهازك. الأسعار بالدولار الأمريكي.",loading:"جارٍ التحميل…",edit:"تعديل",delete:"حذف",ban:"حظر",unban:"إلغاء الحظر",verified:"موثّق",unverified:"غير موثّق",active:"نشط",banned:"محظور",lastLogin:"آخر تسجيل دخول",never:"لم يسجّل الدخول",registered:"تاريخ التسجيل",actions:"الإجراءات",noUsers:"لا يوجد مستخدمون.",noFeedback:"لا توجد ملاحظات بعد.",noQuestions:"لا توجد أسئلة بعد.",noCategories:"لا توجد فئات بعد.",sent:"أُرسلت",markReviewed:"تمت المراجعة",resolve:"تم الحل",newMessage:"جديد",save:"حفظ",nameRequired:"يرجى إدخال اسمك.",saved:"تم الحفظ بنجاح.",sentFeedback:"وصلت ملاحظاتك إلى فريق جلسة.",confirmDelete:"هل تريد حذف هذا العنصر نهائياً؟",confirmBan:"هل تريد حظر هذا الحساب؟ سيتم تسجيل خروجه فوراً.",confirmUnban:"هل تريد إلغاء حظر هذا الحساب؟",noMedia:"بدون وسائط",questionSaved:"تم حفظ السؤال.",priceSaved:"تم حفظ المنتج.",categorySaved:"تم حفظ الفئة.",failed:"حدث خطأ. حاول مرة أخرى.",adminOnly:"هذه الصفحة مخصصة للمسؤول.",allQuestions:"الأسئلة",mediaLinkNote:"ارفع الوسائط مباشرة من جهازك.",saveCategory:"حفظ الفئة",manage:"إدارة",userDetails:"تفاصيل المستخدم",username:"اسم المستخدم",newPassword:"تعيين كلمة مرور جديدة",passwordHint:"تُحفظ كلمات المرور بصيغة مشفّرة ولا يمكن عرضها. اترك الحقل فارغاً للإبقاء على كلمة المرور الحالية.",emailVerifiedToggle:"البريد الإلكتروني موثّق",verifiedAt:"تاريخ التوثيق",updatedAt:"آخر تحديث",bannedAt:"تاريخ الحظر",passwordSet:"كلمة المرور موجودة",accountStatus:"حالة الحساب",bannedReason:"سبب الحظر",profilePhoto:"الصورة الشخصية",removePhoto:"إزالة الصورة الشخصية",noProducts:"لا توجد منتجات بعد. أضف منتجاً مع صورة أو ملف وسائط حقيقي.",searchQuestions:"ابحث عن الأسئلة...",imposterEditor:"محرر لعبة المحتال",gamesAvailability:"إتاحة الألعاب",liveGameControl:"التحكم المباشر بالألعاب",gameAvailabilityIntro:"يمكنك إيقاف أي لعبة مؤقتاً أثناء تحديثها. سيظهر للاعبين تنبيه ولن يتمكنوا من بدء اللعبة المتوقفة أو متابعتها.",gameContent:"محتوى اللعبة",imposterAdminIntro:"أدر الكلمات والفئات المستخدمة في لعبة المحتال.",addImposterWord:"إضافة كلمة للمحتال",editWord:"تعديل الكلمة",allImposterWords:"جميع كلمات اللعبة",imposterCategory:"الفئة (مثلاً: فواكه أو مطاعم أو سيارات)",wordEnglish:"الكلمة (بالإنجليزية)",wordArabicOptional:"الكلمة (بالعربية، اختياري)",imposterCategoryPlaceholder:"مثلاً: فواكه",imposterWordEnPlaceholder:"مثلاً: Watermelon",imposterWordArPlaceholder:"مثلاً: بطيخ",searchWordsCategories:"ابحث عن الكلمات أو الفئات...",saveWord:"حفظ الكلمة",noImposterWords:"لا توجد كلمات مطابقة. أضف أول كلمة.",imposterWordSaved:"تم حفظ كلمة المحتال.",imposterWordDeleted:"تم حذف الكلمة.",confirmDeleteImposterWord:"هل تريد حذف كلمة المحتال نهائياً؟",gameZanko:"زانكو",gamePrice:"لعبة تخمين السعر",gameImposter:"المحتال",gameInsight:"INSIGHT",gameMafia:"مافيا",availableAllPlayers:"متاحة لجميع اللاعبين",stoppedEveryone:"متوقفة للجميع",available:"متاحة",stopped:"متوقفة",stopGame:"إيقاف اللعبة",resumeGame:"استئناف اللعبة",stoppingGame:"جارٍ إيقاف اللعبة…",resumingGame:"جارٍ استئناف اللعبة…",gameResumed:"تم استئناف اللعبة للجميع.",gameStopped:"تم إيقاف اللعبة للجميع."}
 };
+Object.assign(v17I18n.en,{
+ buyPremium:"Buy Premium",
+ subscriptionSettings:"Subscriptions",subscriptionSettingsIntro:"Choose whether JALSA games are free for everyone or require an active subscription.",
+ globalSubscriptionMode:"Global subscription mode",freeEveryone:"Free for everyone",subscriptionRequired:"Subscription required",
+ subscriptionModeNote:"When disabled, every registered user can play. When enabled, only users with an active grant can play. Your admin account always has access.",
+ enableSubscriptions:"Enable subscriptions",disableSubscriptions:"Make games free for everyone",subscriptionEnabledMessage:"Subscriptions are now required for non-admin users.",subscriptionDisabledMessage:"All registered users can play for free.",
+ subscriptionStats:"Active grants",subscriptionAccess:"Subscription access",grantDuration:"Grant access for",oneMonth:"1 month",threeMonths:"3 months",sixMonths:"6 months",twelveMonths:"12 months",unlimited:"Unlimited",
+ grantSubscription:"Grant access",revokeSubscription:"Revoke access",noActiveSubscription:"No active grant",subscriptionColumn:"Subscription",plan:"Plan",until:"Until",monthsOne:"1 month",monthsThree:"3 months",monthsSix:"6 months",monthsTwelve:"12 months",
+ confirmEnableSubscriptions:"Enable subscriptions? Users without an active grant will no longer be able to play.",confirmDisableSubscriptions:"Make all JALSA games free for everyone?",subscriptionRequiredToast:"JALSA games currently require an active subscription. Contact the JALSA team for access.",
+ grantConfirm:"Grant this user the selected subscription access?",revokeConfirm:"Revoke this user's subscription access?",subscriptionGranted:"Subscription access granted.",subscriptionRevoked:"Subscription access revoked.",adminSubscriptionAccess:"Your administrator account always has access.",
+ mySubscription:"My subscription",freeSubscriptionMode:"JALSA is free for everyone right now.",subscribeMonthly:"Subscribe monthly",manageBilling:"Manage billing",cancelAtRenewal:"Cancel at renewal",
+ subscriptionModalTitle:"Unlock all JALSA games",subscriptionModalIntro:"Enjoy every JALSA game with one monthly membership.",perMonth:"month",subscribeForMonthly:"Subscribe for $7.99/month",
+ profileSubscription:"Subscription",profileSubscriptionIntro:"View your access and manage recurring billing.",manageSubscription:"Manage subscription",subscriptionModalNoAccess:"An active subscription is needed to play all JALSA games.",
+ freeGameUsed:"You've used your one free game. Subscribe to JALSA Premium to keep playing.",
+ recurringDisclosure:"The paid plan renews automatically every month until you cancel. You can cancel before the next renewal; access continues until the current paid period ends.",
+ subscriptionNeedsSetup:"Paid subscriptions are not configured in this test environment yet.",subscriptionAlreadyActive:"Your account already has active access.",
+ subscriptionPaidActive:"Monthly subscription active",subscriptionCancelScheduled:"Your subscription is set to cancel at the end of this paid period.",
+ subscriptionUntil:"Access until",subscriptionAdminGrant:"JALSA has granted access to your account.",subscriptionBillingError:"Could not open billing. Please try again.",
+ paddleLibraryLoading:"Paddle Checkout is still loading. Please try again in a moment.",
+ paddleCheckoutSubmitted:"Payment submitted. JALSA will unlock your games when Paddle confirms the subscription.",
+ cancelRenewalConfirm:"Cancel automatic renewal? Your access will remain active until the end of the current paid period.",
+ cancellationScheduled:"Automatic renewal is cancelled. Your access remains available until the end of the current paid period.",
+ billingCheckoutSuccess:"Checkout completed. Your subscription will appear after Paddle confirms the payment.",
+ billingCheckoutCancelled:"Checkout was cancelled. No subscription was started.",
+ paymentsConfiguration:"Paddle Sandbox payments",paymentsConfigured:"Paddle Sandbox is configured for this preview.",paymentsNotConfigured:"Add the Paddle API key, client token, recurring price ID and webhook secret to Cloudflare Preview settings before accepting test payments.",
+ activePaidSubscribers:"Paid subscribers",activeAdminGrants:"Active admin grants",monthlyAutoRenew:"Paddle monthly auto-renewing",stripeMonthlyAutoRenew:"Stripe monthly auto-renewing",cancelScheduled:"Cancels at period end"
+});
+Object.assign(v17I18n.ar,{
+ buyPremium:"اشترك في بريميوم",
+ subscriptionSettings:"الاشتراكات",subscriptionSettingsIntro:"اختر ما إذا كانت ألعاب جلسة مجانية للجميع أو تتطلب اشتراكاً فعالاً.",
+ globalSubscriptionMode:"نظام الاشتراك العام",freeEveryone:"مجانية للجميع",subscriptionRequired:"الاشتراك مطلوب",
+ subscriptionModeNote:"عند إيقاف الاشتراكات، يستطيع جميع المستخدمين اللعب مجاناً. عند تفعيلها، يلزم وجود صلاحية اشتراك نشطة. حساب المسؤول لديه صلاحية دائماً.",
+ enableSubscriptions:"تفعيل الاشتراكات",disableSubscriptions:"إتاحة الألعاب مجاناً للجميع",subscriptionEnabledMessage:"أصبحت الألعاب تتطلب اشتراكاً للمستخدمين غير المسؤولين.",subscriptionDisabledMessage:"أصبحت جميع الألعاب مجانية لجميع المستخدمين.",
+ subscriptionStats:"الاشتراكات الفعالة",subscriptionAccess:"صلاحية الاشتراك",grantDuration:"منح الصلاحية لمدة",oneMonth:"شهر واحد",threeMonths:"3 أشهر",sixMonths:"6 أشهر",twelveMonths:"12 شهراً",unlimited:"غير محدود",
+ grantSubscription:"منح الصلاحية",revokeSubscription:"إلغاء الصلاحية",noActiveSubscription:"لا يوجد اشتراك فعال",subscriptionColumn:"الاشتراك",plan:"الخطة",until:"حتى",monthsOne:"شهر واحد",monthsThree:"3 أشهر",monthsSix:"6 أشهر",monthsTwelve:"12 شهراً",
+ confirmEnableSubscriptions:"هل تريد تفعيل الاشتراكات؟ لن يتمكن من اللعب من لا يملك اشتراكاً فعالاً.",confirmDisableSubscriptions:"هل تريد جعل جميع ألعاب جلسة مجانية للجميع؟",
+ subscriptionRequiredToast:"تتطلب ألعاب جلسة حالياً اشتراكاً فعالاً. تواصل مع فريق جلسة للحصول على الصلاحية.",
+ grantConfirm:"هل تريد منح هذا المستخدم صلاحية الاشتراك المحددة؟",revokeConfirm:"هل تريد إلغاء اشتراك هذا المستخدم؟",subscriptionGranted:"تم منح صلاحية الاشتراك.",subscriptionRevoked:"تم إلغاء صلاحية الاشتراك.",adminSubscriptionAccess:"يملك حساب المسؤول صلاحية الوصول دائماً.",
+ mySubscription:"اشتراكي",freeSubscriptionMode:"جلسة مجانية للجميع حالياً.",subscribeMonthly:"اشترك شهرياً",manageBilling:"إدارة الفواتير",cancelAtRenewal:"إلغاء التجديد",
+ subscriptionModalTitle:"افتح جميع ألعاب جلسة",subscriptionModalIntro:"استمتع بجميع ألعاب جلسة مع اشتراك شهري واحد.",perMonth:"شهرياً",subscribeForMonthly:"اشترك مقابل 7.99 دولار أمريكي شهرياً",
+ profileSubscription:"الاشتراك",profileSubscriptionIntro:"راجع صلاحية وصولك وأدر الفوترة المتكررة.",manageSubscription:"إدارة الاشتراك",subscriptionModalNoAccess:"يلزم اشتراك فعال للعب جميع ألعاب جلسة.",
+ recurringDisclosure:"يتم تجديد الاشتراك المدفوع تلقائياً كل شهر حتى تقوم بإلغائه. يمكنك الإلغاء قبل موعد التجديد، ويستمر وصولك حتى نهاية الفترة المدفوعة الحالية.",
+ subscriptionNeedsSetup:"لم يتم إعداد الاشتراكات المدفوعة في بيئة الاختبار هذه بعد.",subscriptionAlreadyActive:"لديك صلاحية وصول فعالة بالفعل.",
+ subscriptionPaidActive:"الاشتراك الشهري فعال",subscriptionCancelScheduled:"تم تحديد إلغاء الاشتراك عند نهاية الفترة المدفوعة الحالية.",
+ subscriptionUntil:"الصلاحية حتى",subscriptionAdminGrant:"منحتك جلسة صلاحية الوصول إلى حسابك.",subscriptionBillingError:"تعذّر فتح صفحة الفواتير. حاول مرة أخرى.",
+ paddleLibraryLoading:"لا تزال صفحة دفع Paddle قيد التحميل. حاول مرة أخرى بعد لحظة.",
+ paddleCheckoutSubmitted:"تم إرسال الدفع. ستفتح ألعاب جلسة بعد تأكيد Paddle للاشتراك.",
+ cancelRenewalConfirm:"هل تريد إلغاء التجديد التلقائي؟ ستبقى صلاحية الوصول فعالة حتى نهاية الفترة المدفوعة الحالية.",
+ cancellationScheduled:"تم إلغاء التجديد التلقائي. ستبقى صلاحية الوصول حتى نهاية الفترة المدفوعة الحالية.",
+ billingCheckoutSuccess:"اكتملت عملية الدفع. سيظهر اشتراكك بعد تأكيد Stripe للدفع.",
+ billingCheckoutCancelled:"تم إلغاء عملية الدفع. لم يتم إنشاء اشتراك.",
+ paymentsConfiguration:"مدفوعات Paddle التجريبية",paymentsConfigured:"تم إعداد Paddle Sandbox لبيئة الاختبار هذه.",paymentsNotConfigured:"أضف مفتاح Paddle التجريبي ورمز العميل ومعرّف السعر الشهري وسر الويب هوك إلى إعدادات Preview في Cloudflare قبل اختبار الدفع.",
+ activePaidSubscribers:"المشتركون المدفوعون",activeAdminGrants:"الصلاحيات المجانية من المسؤول",monthlyAutoRenew:"تجديد شهري تلقائي عبر Paddle",stripeMonthlyAutoRenew:"تجديد شهري تلقائي عبر Stripe",cancelScheduled:"ملغي عند نهاية الفترة"
+});
 let v17Content={categories:[],questions:[],priceItems:[]},v17ContentLoaded=false,v17ProfileAvatar="";
 function v17T(key){return (v17I18n[isArabic?"ar":"en"][key]||v17I18n.en[key]||key)}
 function v17SyncLanguage(){
@@ -1071,9 +1234,133 @@ function v17SyncLanguage(){
  const imposterTitle=document.getElementById("imposterFormTitle");if(imposterTitle)imposterTitle.textContent=v17T(document.getElementById("imposterWordId")?.value?"editWord":"addImposterWord");
 }
 function v17ShowStatus(id,message,error){const el=document.getElementById(id);if(!el)return;el.textContent=message;el.hidden=false;el.classList.toggle("error",!!error)}
-async function v17Request(path,method,body){const options={method:method||"GET",credentials:"same-origin",headers:{"Accept":"application/json"}};if(body!==undefined){options.headers["Content-Type"]="application/json";options.body=JSON.stringify(body)}const response=await fetch("/api"+path,options);let data={};try{data=await response.json()}catch{}if(!response.ok)throw new Error(data.error||v17T("failed"));return data}
+let v17ActiveGameId="";
+function v17GetSavedFreeGame(gameId){try{const saved=JSON.parse(localStorage.getItem("jalsa_free_game_session_v1")||"null");return saved&&saved.gameId===gameId&&saved.userId===currentUser?.id&&saved.sessionId? saved:null}catch{return null}}
+async function v17Request(path,method,body){const options={method:method||"GET",credentials:"same-origin",headers:{"Accept":"application/json"}};if(body!==undefined){options.headers["Content-Type"]="application/json";options.body=JSON.stringify(body)}const saved=v17ActiveGameId?v17GetSavedFreeGame(v17ActiveGameId):null;if(saved)options.headers["X-JALSA-Free-Game-Session"]=saved.sessionId;const response=await fetch("/api"+path,options);let data={};try{data=await response.json()}catch{}if(!response.ok){const error=new Error(data.error||v17T("failed"));error.code=data.code||"";error.status=response.status;throw error}return data}
+async function openSubscriptionModal(prefetchedStatus){
+ closeAccountDrawer();
+ const modal=document.getElementById("subscriptionModal");
+ const checkout=document.getElementById("subscriptionModalCheckoutButton");
+ const manage=document.getElementById("subscriptionModalManageBillingButton");
+ const cancel=document.getElementById("subscriptionModalCancelButton");
+ const message=document.getElementById("subscriptionModalMessage");
+ const summary=document.getElementById("subscriptionModalSummary");
+ checkout.hidden=true;manage.hidden=true;cancel.hidden=true;message.hidden=true;
+ summary.textContent=v17T("loading");
+ modal.classList.add("open");
+ try{
+  const status=prefetchedStatus||await v17Request("/subscription-status","GET");
+  if(!status.enabled){
+   summary.textContent=v17T("freeSubscriptionMode");
+   checkout.hidden=true;
+  }else if(status.isAdmin){
+   summary.textContent=v17T("adminSubscriptionAccess");
+  }else if(status.source==="admin-grant"){
+   summary.textContent=v17T("subscriptionAdminGrant")+(status.expiresAt?" "+v17T("subscriptionUntil")+" "+v17FormatDate(status.expiresAt):" · "+v17T("unlimited"));
+  }else if(status.active&&(status.source==="paddle"||status.source==="stripe")){
+   summary.textContent=status.cancelAtPeriodEnd
+    ?v17T("subscriptionCancelScheduled")+" "+v17T("subscriptionUntil")+" "+v17FormatDate(status.expiresAt)
+    :v17T("subscriptionPaidActive")+" · "+v17T("subscriptionUntil")+" "+v17FormatDate(status.expiresAt);
+   manage.hidden=false;
+   cancel.hidden=status.source==="paddle"||!!status.cancelAtPeriodEnd;
+  }else{
+   summary.textContent=status.freeGameUsed?v17T("freeGameUsed"):v17T("subscriptionModalNoAccess");
+   checkout.hidden=false;
+  }
+ }catch(error){
+  summary.textContent=error.message||v17T("failed");
+ }
+}
+function closeSubscriptionModal(){document.getElementById("subscriptionModal")?.classList.remove("open")}
+async function v17StartMonthlyCheckout(){
+ const button=document.getElementById("subscriptionModalCheckoutButton");if(button)button.disabled=true;
+ document.getElementById("subscriptionModalMessage").hidden=true;
+ try{
+  if(!currentUser)throw new Error(v17T("loginRequired"));
+  if(!window.Paddle)throw new Error(v17T("paddleLibraryLoading"));
+  const config=await v17Request("/paddle/config","GET");
+  if(!window.__jalsaPaddleInitialized){
+   if(config.environment==="sandbox")window.Paddle.Environment.set("sandbox");
+   window.Paddle.Initialize({
+    token:config.clientToken,
+    eventCallback:function(data){
+     if(data&&data.name==="checkout.completed"){
+      showToast(v17T("paddleCheckoutSubmitted"));
+      closeSubscriptionModal();
+     }
+    }
+   });
+   window.__jalsaPaddleInitialized=true;
+  }
+  closeSubscriptionModal();
+  window.Paddle.Checkout.open({
+   items:[{priceId:config.priceId,quantity:1}],
+   customer:{email:currentUser.email},
+   customData:{jalsa_user_id:currentUser.id},
+   settings:{displayMode:"overlay",theme:"light"}
+  });
+ }catch(error){
+  let message=error.message||v17T("subscriptionBillingError");
+  if(error.code==="PADDLE_NOT_CONFIGURED")message=v17T("subscriptionNeedsSetup");
+  v17ShowStatus("subscriptionModalMessage",message,true);
+ }finally{if(button)button.disabled=false}
+}
+async function v17OpenBillingPortal(){
+ try{
+  const status=await v17Request("/subscription-status","GET");
+  const result=await v17Request(status.source==="paddle"?"/paddle/portal":"/billing/portal","POST",{language:isArabic?"ar":"en"});
+  if(!result.url)throw new Error(v17T("subscriptionBillingError"));
+  window.location.assign(result.url);
+ }catch(error){v17ShowStatus("subscriptionModalMessage",error.message||v17T("subscriptionBillingError"),true)}
+}
+async function v17CancelMySubscription(){
+ try{
+  const status=await v17Request("/subscription-status","GET");
+  if(status.source==="paddle"){
+   await v17OpenBillingPortal();
+   return;
+  }
+  if(!confirm(v17T("cancelRenewalConfirm")))return;
+  await v17Request("/billing/cancel","POST",{});
+  await openSubscriptionModal();
+  v17ShowStatus("subscriptionModalMessage",v17T("cancellationScheduled"),false);
+ }catch(error){v17ShowStatus("subscriptionModalMessage",error.message||v17T("subscriptionBillingError"),true)}
+}
+async function v17CheckSubscriptionAccess(gameId="zanko"){
+ if(!currentUser){showAuth("login");return false}
+ v17ActiveGameId=gameId;
+ try{
+  const sessionId=crypto.randomUUID?crypto.randomUUID():Array.from(crypto.getRandomValues(new Uint8Array(24)),b=>b.toString(16).padStart(2,"0")).join("");
+  const result=await v17Request("/game-access/start","POST",{gameId,sessionId});
+  if(result.freeGame===true){
+   localStorage.setItem("jalsa_free_game_session_v1",JSON.stringify({userId:currentUser.id,gameId,sessionId}));
+  }else{
+   localStorage.removeItem("jalsa_free_game_session_v1");
+  }
+  return !!result.allowed;
+ }catch(error){
+  if(error.code==="LOGIN_REQUIRED"){showAuth("login");return false}
+  if(error.code==="SUBSCRIPTION_REQUIRED"){
+   try{const status=await v17Request("/subscription-status","GET");status.freeGameUsed=true;await openSubscriptionModal(status)}
+   catch{await openSubscriptionModal({enabled:true,active:false,allowed:false,freeGameUsed:true})}
+   return false;
+  }
+  showToast(error.message||v17T("failed"));return false;
+ }
+}
+function v17SubscriptionLabel(user){
+ const grantActive=user.subscription_status==="active"&&(!user.subscription_expires_at||new Date(user.subscription_expires_at).getTime()>Date.now());
+ if(grantActive){
+  if(user.subscription_plan==="unlimited")return v17T("unlimited");
+  const plans={month_1:v17T("monthsOne"),month_3:v17T("monthsThree"),month_6:v17T("monthsSix"),month_12:v17T("monthsTwelve")};
+  return (plans[user.subscription_plan]||user.subscription_plan)+(user.subscription_expires_at?" · "+v17T("until")+" "+v17FormatDate(user.subscription_expires_at):"");
+ }
+ const paidActive=["active","trialing"].includes(user.billing_status)&&(!user.billing_period_end||new Date(user.billing_period_end).getTime()>Date.now());
+ if(paidActive)return v17T(user.billing_cancel_at_period_end?"cancelScheduled":(user.billing_provider==="stripe"?"stripeMonthlyAutoRenew":"monthlyAutoRenew"))+(user.billing_period_end?" · "+v17FormatDate(user.billing_period_end):"");
+ return v17T("noActiveSubscription");
+}
 function v17RenderAvatar(data){const targets=["drawerAvatar","profileAvatarPreview"];targets.forEach(id=>{const el=document.getElementById(id);if(!el)return;el.innerHTML="";if(data){const img=document.createElement("img");img.src=data;img.alt="Profile picture";el.appendChild(img)}else el.textContent="☻"})}
-function toggleAccountDrawer(){if(!currentUser)return;const drawer=document.getElementById("accountDrawer"),backdrop=document.getElementById("accountDrawerBackdrop");drawer.classList.toggle("open");backdrop.classList.toggle("open");drawer.setAttribute("aria-hidden",drawer.classList.contains("open")?"false":"true");document.getElementById("accountLabel").setAttribute("aria-expanded",drawer.classList.contains("open")?"true":"false")}
+function toggleAccountDrawer(){if(!currentUser)return;const drawer=document.getElementById("accountDrawer"),backdrop=document.getElementById("accountDrawerBackdrop");drawer.classList.toggle("open");backdrop.classList.toggle("open");drawer.setAttribute("aria-hidden",drawer.classList.contains("open")?"false":"true");document.getElementById("accountLabel").setAttribute("aria-expanded",drawer.classList.contains("open")?"true":"false");const badge=document.getElementById("drawerPremiumBadge");if(badge)badge.hidden=!(currentUser.premiumActive===true);const buyPremium=document.getElementById("drawerBuyPremiumButton");if(buyPremium)buyPremium.hidden=!!(currentUser.premiumActive===true||currentUser.isAdmin)}
 function closeAccountDrawer(){const drawer=document.getElementById("accountDrawer");if(!drawer)return;drawer.classList.remove("open");document.getElementById("accountDrawerBackdrop").classList.remove("open");drawer.setAttribute("aria-hidden","true");const name=document.getElementById("accountLabel");if(name)name.setAttribute("aria-expanded","false")}
 function openV17Page(id){document.getElementById("homePage").hidden=true;document.getElementById("siteHeader").hidden=true;document.querySelector(".site-footer").hidden=true;document.getElementById(id).hidden=false;v17SyncLanguage()}
 function closeV17Page(){document.getElementById("profilePage").hidden=true;document.getElementById("homePage").hidden=false;document.getElementById("siteHeader").hidden=false;document.querySelector(".site-footer").hidden=false}
@@ -1085,7 +1372,7 @@ function previewProfilePhoto(event){const file=event.target.files&&event.target.
 async function saveProfile(event){event.preventDefault();const button=event.submitter;if(button)button.disabled=true;try{const data=await v17Request("/profile","POST",{name:document.getElementById("profileName").value,birthDate:document.getElementById("profileBirthDate").value,avatarDataUrl:v17ProfileAvatar});currentUser=data.user;showAdminButton();v17ShowStatus("profileStatus",v17T("saved"),false)}catch(error){v17ShowStatus("profileStatus",error.message,true)}finally{if(button)button.disabled=false}}
 function v17BuildLegacySeed(){const categories=CATEGORIES.map((c,i)=>({id:c.id,name_en:c.name,name_ar:c.ar,image_url:c.image,icon:c.icon}));const questions=[];Object.keys(FIXED_QUESTIONS).forEach(categoryId=>{const en=FIXED_QUESTIONS[categoryId]||[],ar=FIXED_QUESTIONS_AR[categoryId]||[];en.forEach((q,i)=>{questions.push({id:"legacy-zanko-"+categoryId+"-"+i,game_type:"zanko",category_id:categoryId,difficulty:q.points===100?"easy":q.points===600?"hard":"medium",question_en:q.q,question_ar:ar[i]?ar[i].q:q.q,answer_en:q.a,answer_ar:ar[i]?ar[i].a:q.a,media_type:"none",media_url:""})})});["easy","medium","hard"].forEach(tier=>{(MUSIC_BANK[tier]||[]).forEach((q,i)=>{const ar=(MUSIC_BANK_AR[tier]||[])[i]||q;questions.push({id:"legacy-zanko-music-"+tier+"-"+i,game_type:"zanko",category_id:"music",difficulty:tier,question_en:q.q,question_ar:ar.q,answer_en:q.a,answer_ar:ar.a,media_type:"none",media_url:""})})});return{categories,questions}}
 async function v17EnsureSeeded(){let data=await v17Request("/admin/content","GET");if(!data.questions||data.questions.length===0){const seed=v17BuildLegacySeed();await v17Request("/admin/content/seed","POST",seed);data=await v17Request("/admin/content","GET")}return data}
-async function v17LoadGameContent(){const data=await v17Request("/game-content","GET");v17Content.categories=data.categories||[];v17Content.questions=data.questions||[];v17Content.priceItems=v17Content.questions.filter(q=>q.game_type==="price"&&q.media_url&&q.media_type!=="none").map(q=>[q.product_name_en,"",Number(q.price_value||0),q.media_type,q.media_url,q.product_name_ar]);if(v17Content.categories.length){CATEGORIES=v17Content.categories.map(c=>({id:c.id,name:c.name_en,ar:c.name_ar,image:c.image_url||"category-music.svg",icon:c.icon||"🎯"}))}v17ContentLoaded=true;return data}
+async function v17LoadGameContent(gameId){const requestedGame=gameId||v17ActiveGameId||"zanko";const data=await v17Request("/game-content?gameId="+encodeURIComponent(requestedGame),"GET");v17Content.categories=data.categories||[];v17Content.questions=data.questions||[];v17Content.priceItems=v17Content.questions.filter(q=>q.game_type==="price"&&q.media_url&&q.media_type!=="none").map(q=>[q.product_name_en,"",Number(q.price_value||0),q.media_type,q.media_url,q.product_name_ar]);if(v17Content.categories.length){CATEGORIES=v17Content.categories.map(c=>({id:c.id,name:c.name_en,ar:c.name_ar,image:c.image_url||"category-music.svg",icon:c.icon||"🎯"}))}v17ContentLoaded=true;return data}
 async function v17UploadMedia(file,expectedType){
  if(!file)throw new Error("Choose a file from your device.");
  if(expectedType&&!(file.type||"").toLowerCase().startsWith(expectedType+"/"))throw new Error("The selected file does not match the media type. Choose an "+expectedType+" file.");
@@ -1120,13 +1407,24 @@ function v17BindFilePreviews(){
  const avatar=document.getElementById("adminUserAvatarFile");
  if(avatar)avatar.addEventListener("change",()=>{const file=avatar.files[0];if(file)v17SetAdminUserAvatar(URL.createObjectURL(file))});
 }
-function v17RenderMedia(container,type,url){if(!container)return;container.replaceChildren();container.hidden=true;type=String(type||"none").toLowerCase();if(!url||type==="none")return;const source=/^https?:\/\//i.test(url)?url:new URL(url,window.location.origin).href;const showError=()=>{const note=document.createElement("p");note.className="media-load-error";note.textContent=isArabic?"تعذر تشغيل الوسائط. تحقق من رفع الملف إلى مساحة التخزين الخاصة بهذه النسخة.":"This media could not be loaded. Check that the file was uploaded to this environment’s media storage.";container.replaceChildren(note)};let el;if(type==="image"){el=document.createElement("img");el.alt="Question image";el.loading="eager";el.decoding="async";el.referrerPolicy="same-origin";el.addEventListener("error",showError,{once:true})}else if(type==="video"){el=document.createElement("video");el.controls=true;el.playsInline=true;el.preload="metadata";el.addEventListener("error",showError,{once:true})}else if(type==="audio"){el=document.createElement("audio");el.controls=true;el.preload="metadata";el.setAttribute("controls","");el.setAttribute("aria-label",isArabic?"تشغيل صوت السؤال":"Play question audio");el.addEventListener("error",showError,{once:true})}else return;el.src=source;container.appendChild(el);container.hidden=false}
+function v17RenderMedia(container,type,url){
+ if(!container)return;container.replaceChildren();container.hidden=true;type=String(type||"none").toLowerCase();if(!url||type==="none")return;
+ let source;try{source=(url.startsWith("http://")||url.startsWith("https://"))?url:new URL(url,window.location.origin).href}catch{source="";}if(!source)return;
+ const showError=()=>{const note=document.createElement("p");note.className="media-load-error";note.textContent=isArabic?"تعذر تحميل الوسائط. قد يكون الملف محذوفاً أو غير متاح؛ أعد رفعه من محرر اللعبة.":"This media file is unavailable. It may have been removed; please re-upload it in the game editor.";container.replaceChildren(note)};
+ let el,attempt=0;
+ if(type==="image"){el=document.createElement("img");el.alt="Question image";el.loading="eager";el.decoding="async";el.referrerPolicy="same-origin"}
+ else if(type==="video"){el=document.createElement("video");el.controls=true;el.playsInline=true;el.preload="metadata"}
+ else if(type==="audio"){el=document.createElement("audio");el.controls=true;el.preload="metadata";el.setAttribute("controls","");el.setAttribute("aria-label",isArabic?"تشغيل صوت السؤال":"Play question audio")}
+ else return;
+ el.addEventListener("error",()=>{if(attempt<2){attempt++;setTimeout(()=>{const retryUrl=new URL(source);retryUrl.searchParams.set("jalsa_retry",String(Date.now())+"_"+attempt);el.src=retryUrl.href},350*attempt)}else showError()});
+ el.src=source;container.appendChild(el);container.hidden=false;
+}
 function v17FormatDate(value){if(!value)return v17T("never");const d=new Date(value);if(Number.isNaN(d.getTime()))return String(value);return d.toLocaleString(isArabic?"ar-JO":"en-US",{dateStyle:"medium",timeStyle:"short"})}
 function v17SetAdminStatus(message,error){v17ShowStatus("adminPageStatus",message,error)}
 async function openAdmin(){if(!currentUser||!currentUser.isAdmin)return;document.getElementById("adminPage").hidden=false;document.getElementById("adminSignedInAs").textContent=currentUser.email||"";v17SyncLanguage();switchAdminTab("users");try{const data=await v17EnsureSeeded();v17Content.categories=data.categories||[];v17Content.questions=data.questions||[];v17Content.priceItems=v17Content.questions.filter(q=>q.game_type==="price"&&q.media_url&&q.media_type!=="none").map(q=>[q.product_name_en,"",Number(q.price_value||0),q.media_type,q.media_url,q.product_name_ar]);if(v17Content.categories.length)CATEGORIES=v17Content.categories.map(c=>({id:c.id,name:c.name_en,ar:c.name_ar,image:c.image_url||"category-music.svg",icon:c.icon||"🎯"}));v17ContentLoaded=true;await renderAdminUsers()}catch(error){v17SetAdminStatus(error.message,true)}}
 function closeAdmin(){document.getElementById("adminPage").hidden=true;const old=document.getElementById("adminOverlay");if(old)old.classList.remove("open")}
 function toggleGameEditorGroup(forceOpen){const panel=document.getElementById("gameEditorTabs"),content=document.getElementById("gameEditorContent"),button=document.getElementById("gameEditorToggle");if(!panel||!content||!button)return;const open=typeof forceOpen==="boolean"?forceOpen:panel.hidden;panel.hidden=!open;content.hidden=!open;button.setAttribute("aria-expanded",String(open));button.classList.toggle("expanded",open)}
-function switchAdminTab(name){document.querySelectorAll(".v17-admin-tab").forEach(el=>el.hidden=el.id!=="adminTab"+name.charAt(0).toUpperCase()+name.slice(1));const gameEditorTab=["zanko","price","imposter","games"].includes(name);toggleGameEditorGroup(gameEditorTab);document.querySelectorAll(".v17-admin-tabs button[data-admin-tab],.v17-admin-game-tabs button[data-admin-tab]").forEach(el=>el.classList.toggle("active",el.getAttribute("data-admin-tab")===name));document.getElementById("gameEditorToggle")?.classList.toggle("active",gameEditorTab);if(name==="users")renderAdminUsers();if(name==="feedback")renderAdminFeedback();if(name==="faqQuestions")renderAdminFaqQuestions();if(name==="zanko"){v17LoadAdminContent().then(renderZankoAdmin).catch(e=>v17SetAdminStatus(e.message,true))}if(name==="price"){v17LoadAdminContent().then(renderPriceAdmin).catch(e=>v17SetAdminStatus(e.message,true))}if(name==="imposter")loadImposterWords().catch(e=>v17SetAdminStatus(e.message,true));if(name==="games")loadAdminGameAvailability().catch(e=>v17SetAdminStatus(e.message,true))}
+function switchAdminTab(name){document.querySelectorAll(".v17-admin-tab").forEach(el=>el.hidden=el.id!=="adminTab"+name.charAt(0).toUpperCase()+name.slice(1));const gameEditorTab=["zanko","price","imposter","games"].includes(name);toggleGameEditorGroup(gameEditorTab);document.querySelectorAll(".v17-admin-tabs button[data-admin-tab],.v17-admin-game-tabs button[data-admin-tab]").forEach(el=>el.classList.toggle("active",el.getAttribute("data-admin-tab")===name));document.getElementById("gameEditorToggle")?.classList.toggle("active",gameEditorTab);if(name==="users")renderAdminUsers();if(name==="feedback")renderAdminFeedback();if(name==="faqQuestions")renderAdminFaqQuestions();if(name==="zanko"){v17LoadAdminContent().then(renderZankoAdmin).catch(e=>v17SetAdminStatus(e.message,true))}if(name==="price"){v17LoadAdminContent().then(renderPriceAdmin).catch(e=>v17SetAdminStatus(e.message,true))}if(name==="imposter")loadImposterWords().catch(e=>v17SetAdminStatus(e.message,true));if(name==="games")loadAdminGameAvailability().catch(e=>v17SetAdminStatus(e.message,true));if(name==="subscriptions")loadAdminSubscriptionSettings().catch(e=>v17SetAdminStatus(e.message,true))}
 async function v17LoadAdminContent(){const data=await v17Request("/admin/content","GET");v17Content.categories=data.categories||[];v17Content.questions=data.questions||[];v17Content.priceItems=v17Content.questions.filter(q=>q.game_type==="price"&&q.media_url&&q.media_type!=="none").map(q=>[q.product_name_en,"",Number(q.price_value||0),q.media_type,q.media_url,q.product_name_ar]);v17ContentLoaded=true;if(v17Content.categories.length)CATEGORIES=v17Content.categories.map(c=>({id:c.id,name:c.name_en,ar:c.name_ar,image:c.image_url||"category-music.svg",icon:c.icon||"🎯"}));return data}
 let v17UsersCache=[],v17EditingUser=null;
 function v17SetAdminUserAvatar(src){
@@ -1143,6 +1441,8 @@ async function v17ManageUser(id){
   document.getElementById("adminUserAvatarFile").value="";document.getElementById("adminUserRemoveAvatar").checked=false;
   v17SetAdminUserAvatar(user.avatar_data_url||"");
   const status=user.banned_at?v17T("banned"):v17T("active");
+  document.getElementById("adminUserSubscriptionSummary").textContent=v17SubscriptionLabel(user);
+  document.getElementById("adminUserSubscriptionDuration").value="1";
   document.getElementById("adminUserMeta").innerHTML=
    "<div><span>"+v17T("registered")+"</span>"+escapeHtml(v17FormatDate(user.created_at))+"</div>"+
    "<div><span>"+v17T("lastLogin")+"</span>"+escapeHtml(v17FormatDate(user.last_login_at))+"</div>"+
@@ -1177,10 +1477,10 @@ async function renderAdminUsers(){
   const data=await v17Request("/admin/users","GET"),rows=data.users||[];v17UsersCache=rows;
   document.getElementById("usersCount").textContent=rows.length;
   if(!rows.length){holder.textContent=v17T("noUsers");return}
-  let html="<table class='v17-table'><thead><tr><th>"+v17T("yourName")+"</th><th>"+v17T("emailAddress")+"</th><th>"+v17T("verified")+"</th><th>"+v17T("lastLogin")+"</th><th>"+v17T("registered")+"</th><th>"+v17T("actions")+"</th></tr></thead><tbody>";
+  let html="<table class='v17-table'><thead><tr><th>"+v17T("yourName")+"</th><th>"+v17T("emailAddress")+"</th><th>"+v17T("verified")+"</th><th>"+v17T("lastLogin")+"</th><th>"+v17T("registered")+"</th><th>"+v17T("subscriptionColumn")+"</th><th>"+v17T("actions")+"</th></tr></thead><tbody>";
   rows.forEach(u=>{
    const banned=!!u.banned_at;
-   html+="<tr><td>"+escapeHtml(u.name||"")+"</td><td>"+escapeHtml(u.email||"")+"</td><td><span class='v17-status-pill "+(u.email_verified?"good":"")+"'>"+(u.email_verified?v17T("verified"):v17T("unverified"))+"</span></td><td>"+escapeHtml(v17FormatDate(u.last_login_at))+"</td><td>"+escapeHtml(v17FormatDate(u.created_at))+"</td><td><div class='v17-table-actions'>"+
+   html+="<tr><td>"+escapeHtml(u.name||"")+"</td><td>"+escapeHtml(u.email||"")+"</td><td><span class='v17-status-pill "+(u.email_verified?"good":"")+"'>"+(u.email_verified?v17T("verified"):v17T("unverified"))+"</span></td><td>"+escapeHtml(v17FormatDate(u.last_login_at))+"</td><td>"+escapeHtml(v17FormatDate(u.created_at))+"</td><td>"+escapeHtml(v17SubscriptionLabel(u))+"</td><td><div class='v17-table-actions'>"+
    "<button class='v17-small-button' onclick=\"v17ManageUser('"+u.id+"')\">"+v17T("manage")+"</button>"+
    "<button class='v17-small-button "+(banned?"success":"")+"' onclick=\"v17UserAction('"+u.id+"','"+(banned?"unban":"ban")+"')\">"+v17T(banned?"unban":"ban")+"</button>"+
    "<button class='v17-small-button danger' onclick=\"v17UserAction('"+u.id+"','delete')\">"+v17T("delete")+"</button></div></td></tr>";
@@ -1203,6 +1503,45 @@ async function v17UserAction(id,action){
  if(!confirm(ask))return;
  try{if(action==="delete")await v17Request("/admin/users/"+encodeURIComponent(id),"DELETE");else await v17Request("/admin/users/"+encodeURIComponent(id),"PATCH",{action});await renderAdminUsers()}
  catch(error){v17SetAdminStatus(error.message,true)}
+}
+
+let v17SubscriptionSettings={enabled:false,totalGranted:0,activeGranted:0};
+async function loadAdminSubscriptionSettings(){
+ const data=await v17Request("/admin/subscription-settings","GET");v17SubscriptionSettings=data;
+ const badge=document.getElementById("subscriptionModeBadge"),button=document.getElementById("subscriptionModeToggle"),description=document.getElementById("subscriptionModeDescription");
+ badge.textContent=v17T(data.enabled?"subscriptionRequired":"freeEveryone");badge.classList.toggle("good",!data.enabled);
+ button.textContent=v17T(data.enabled?"disableSubscriptions":"enableSubscriptions");button.classList.toggle("danger",data.enabled);
+ description.textContent=v17T(data.enabled?"subscriptionEnabledMessage":"subscriptionDisabledMessage");
+ document.getElementById("subscriptionStats").innerHTML="<div><span>"+v17T("activeAdminGrants")+"</span>"+Number(data.activeGranted||0)+" / "+Number(data.totalGranted||0)+"</div><div><span>"+v17T("activePaidSubscribers")+"</span>"+Number(data.activePaid||0)+" / "+Number(data.totalPaid||0)+"</div><div><span>"+v17T("paymentsConfiguration")+"</span>"+(data.paymentConfigured?v17T("paymentsConfigured"):v17T("paymentsNotConfigured"))+"</div>";
+}
+async function toggleSubscriptionMode(){
+ const enabled=!v17SubscriptionSettings.enabled;
+ if(!confirm(v17T(enabled?"confirmEnableSubscriptions":"confirmDisableSubscriptions")))return;
+ try{
+  await v17Request("/admin/subscription-settings","PATCH",{enabled});
+  await loadAdminSubscriptionSettings();
+  v17SetAdminStatus(v17T(enabled?"subscriptionEnabledMessage":"subscriptionDisabledMessage"),false);
+ }catch(error){v17ShowStatus("adminSubscriptionStatus",error.message,true);v17SetAdminStatus(error.message,true)}
+}
+async function grantUserSubscription(){
+ if(!v17EditingUser)return;
+ if(!confirm(v17T("grantConfirm")))return;
+ const id=v17EditingUser.id,duration=document.getElementById("adminUserSubscriptionDuration").value;
+ try{
+  await v17Request("/admin/users/"+encodeURIComponent(id),"PATCH",{action:"grant-subscription",duration});
+  await v17ManageUser(id);await renderAdminUsers();
+  v17ShowStatus("adminUserStatus",v17T("subscriptionGranted"),false);
+ }catch(error){v17ShowStatus("adminUserStatus",error.message,true)}
+}
+async function revokeUserSubscription(){
+ if(!v17EditingUser)return;
+ if(!confirm(v17T("revokeConfirm")))return;
+ const id=v17EditingUser.id;
+ try{
+  await v17Request("/admin/users/"+encodeURIComponent(id),"PATCH",{action:"revoke-subscription"});
+  await v17ManageUser(id);await renderAdminUsers();
+  v17ShowStatus("adminUserStatus",v17T("subscriptionRevoked"),false);
+ }catch(error){v17ShowStatus("adminUserStatus",error.message,true)}
 }
 
 
@@ -1236,9 +1575,9 @@ function resetImposterWordForm(){document.getElementById("imposterWordForm").res
 function editImposterWord(id){const w=imposterWords.find(x=>x.id===id);if(!w)return;document.getElementById("imposterWordId").value=w.id;document.getElementById("imposterWordCategory").value=w.category;document.getElementById("imposterWordEn").value=w.word_en;document.getElementById("imposterWordAr").value=w.word_ar||"";document.getElementById("imposterFormTitle").textContent=v17T("editWord");document.getElementById("imposterWordCategory").focus()}
 async function saveImposterWord(event){event.preventDefault();const id=document.getElementById("imposterWordId").value;const body={category:document.getElementById("imposterWordCategory").value,word_en:document.getElementById("imposterWordEn").value,word_ar:document.getElementById("imposterWordAr").value};try{await v17Request(id?"/admin/imposter-words/"+encodeURIComponent(id):"/admin/imposter-words",id?"PATCH":"POST",body);resetImposterWordForm();await loadImposterWords();v17SetAdminStatus(v17T("imposterWordSaved"),false)}catch(e){v17SetAdminStatus(e.message,true)}}
 async function removeImposterWord(id){if(!confirm(v17T("confirmDeleteImposterWord")))return;try{await v17Request("/admin/imposter-words/"+encodeURIComponent(id),"DELETE");await loadImposterWords();v17SetAdminStatus(v17T("imposterWordDeleted"),false)}catch(e){v17SetAdminStatus(e.message,true)}}
-async function startImposterGame(){if(!(await v17IsGameEnabled("imposter"))){showToast(V17_GAME_WAIT_TEXT);return}if(!currentUser){showAuth("login");return}location.href="/imposter.html"}
-async function startInsightGame(){if(!(await v17IsGameEnabled("insight"))){showToast(V17_GAME_WAIT_TEXT);return}if(!currentUser){showAuth("login");return}location.href="/insight.html"}
-async function startMafiaGame(){if(!(await v17IsGameEnabled("mafia"))){showToast(V17_GAME_WAIT_TEXT);return}if(!currentUser){showAuth("login");return}location.href="/mafia.html"}
+async function startImposterGame(){if(!(await v17IsGameEnabled("imposter"))){showToast(V17_GAME_WAIT_TEXT);return}if(!currentUser){showAuth("login");return}if(!(await v17CheckSubscriptionAccess("imposter")))return;location.href="/imposter.html"}
+async function startInsightGame(){if(!(await v17IsGameEnabled("insight"))){showToast(V17_GAME_WAIT_TEXT);return}if(!currentUser){showAuth("login");return}if(!(await v17CheckSubscriptionAccess("insight")))return;location.href="/insight.html"}
+async function startMafiaGame(){if(!(await v17IsGameEnabled("mafia"))){showToast(V17_GAME_WAIT_TEXT);return}if(!currentUser){showAuth("login");return}if(!(await v17CheckSubscriptionAccess("mafia")))return;location.href="/mafia.html"}
 async function renderAdminFeedback(){
  const holder=document.getElementById("adminFeedbackList");
  holder.innerHTML="<p class='v17-muted'>"+v17T("loading")+"</p>";
@@ -1412,16 +1751,13 @@ window.refreshSession=async function(){
   }
   if(lastError)console.warn("JALSA session check failed; retry sign-in only if this continues:",lastError);
   authReady=true;showAdminButton();
-  if(currentUser){
-   if(currentUser.isAdmin){try{await v17EnsureSeeded()}catch(error){console.warn("JALSA content seed:",error.message)}}
-   try{await v17LoadGameContent()}catch(error){console.warn("JALSA game content:",error.message)}
-  }
  };
 window.startPriceGame=async function(){
  if(!requireLogin())return;
  const players=document.getElementById("priceNames").value.split(",").map(x=>x.trim()).filter(Boolean);
  if(players.length<2){alert(isArabic?"أدخلوا اسمين على الأقل وافصلوا بينهما بفواصل.":"Enter at least two player names, separated by commas.");return}
- try{await v17LoadGameContent()}catch(error){showToast(error.message);return}
+ if(!(await v17CheckSubscriptionAccess("price")))return;
+ try{await v17LoadGameContent("price")}catch(error){showToast(error.message);return}
  const source=shuffled(v17Content.priceItems.filter(item=>item[3]&&item[4]));
  if(!source.length){alert(isArabic?"لا توجد منتجات بعد. أضف منتجات بصور حقيقية من لوحة التحكم.":"There are no products yet. Add products with real photos in the admin dashboard.");return}
  pricePlayers=players;priceScores=pricePlayers.map(()=>0);priceTurn=0;priceRound=0;priceDeck=source;
@@ -1448,5 +1784,6 @@ v17SyncLanguage();
 v17BindFilePreviews();
 </script>
 
+<!-- Cloudflare preview build trigger for Zanko refresh/media fixes -->
 </body></html>
 <!-- JALSA dashboard: expandable game-editor group; test preview build marker -->

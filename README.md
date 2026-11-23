@@ -98,3 +98,24 @@ Preview bindings are separate from Production bindings; check the Wrangler `prev
 - Administrators manage the word bank in Dashboard → Imposter words. The Preview migration seeds starter words across Fruit, Restaurant, Cars, Electronics, Places, and Animals.
 - For Preview, apply migrations `0005_remote_rooms.sql` and `0006_imposter_game.sql` to **jalsa-auth-preview only**. Apply them to Production only as part of the approved V1.8 release.
 - The game stores room state in the Preview D1 database and expires rooms after three hours.
+
+## Paddle billing: Preview and Production
+
+Preview and Production must use separate Paddle credentials. The Preview configuration remains on **Sandbox**. The live site uses the **Production** environment on the Cloudflare Worker named `jalsa`.
+
+In Cloudflare → Workers & Pages → `jalsa` → Settings → Variables and Secrets, add these **Production variables** using values copied from the Paddle Live dashboard:
+
+- `PADDLE_ENVIRONMENT`: `production` (also configured in the top-level Wrangler vars)
+- `PADDLE_PRICE_ID`: the live monthly Price ID (`pri_...`)
+- `PADDLE_CLIENT_TOKEN`: the live Paddle.js client-side token
+
+Add these as **Production secrets**, not committed values:
+
+- `PADDLE_API_KEY`: Paddle Live API key
+- `PADDLE_WEBHOOK_SECRET`: the signing secret generated for the live webhook destination
+
+Create a live Paddle webhook destination pointing to `https://jalsa.me/api/paddle/webhook`. Subscribe it to the subscription lifecycle events consumed by the Worker: `subscription.created`, `subscription.updated`, `subscription.activated`, `subscription.trialing`, `subscription.past_due`, `subscription.paused`, `subscription.resumed`, and `subscription.canceled`. Copy that destination's signing secret into `PADDLE_WEBHOOK_SECRET`.
+
+Keep the Preview values and Preview secrets on Sandbox; do not copy Sandbox keys, tokens, Price IDs, or webhook secrets into Production. The admin Dashboard → Subscriptions panel should show payment configuration as complete only when all four Paddle values are present. A completed checkout is not enough by itself: verify that the live webhook updates a test customer's JALSA subscription status and premium badge.
+
+Before the live release, test checkout and cancellation with a separate account on the live site, then confirm the webhook event and subscription status in Paddle and JALSA. Never commit API keys or webhook signing secrets to this repository.

@@ -30,6 +30,28 @@ export default {
 
     try {
 
+      if (url.pathname === "/api/paddle/webhook" && request.method === "POST") return await handlePaddleWebhook(request, env);
+      if (url.pathname === "/api/paddle/config" && request.method === "GET") return await getPaddleCheckoutConfig(request, env);
+      if (url.pathname === "/api/paddle/portal" && request.method === "POST") return await createPaddlePortalSession(request, env);
+      if (url.pathname === "/api/stripe/webhook" && request.method === "POST") return await handleStripeWebhook(request, env);
+      if (url.pathname === "/api/billing/checkout" && request.method === "POST") return await createBillingCheckout(request, env, url);
+      if (url.pathname === "/api/billing/portal" && request.method === "POST") return await createBillingPortal(request, env, url);
+      if (url.pathname === "/api/billing/cancel" && request.method === "POST") return await cancelBillingSubscription(request, env);
+      if (url.pathname === "/api/subscription-status" && request.method === "GET") return await getSubscriptionStatus(request, env);
+      if (url.pathname === "/api/admin/subscription-settings" && request.method === "GET") return await getAdminSubscriptionSettings(request, env);
+      if (url.pathname === "/api/admin/subscription-settings" && request.method === "PATCH") return await updateAdminSubscriptionSettings(request, env);
+      if (url.pathname === "/api/game-access/start" && request.method === "POST") return await startGameAccess(request, env);
+      const contentGameId = url.pathname === "/api/game-content"
+        ? (["zanko", "price"].includes(url.searchParams.get("gameId")) ? url.searchParams.get("gameId") : "zanko")
+        : null;
+      const protectedGameId = contentGameId || (url.pathname === "/api/remote/create" ? "zanko"
+        : url.pathname === "/api/insight/create" ? "insight"
+        : url.pathname === "/api/imposter/create" ? "imposter"
+        : url.pathname === "/api/mafia/create" ? "mafia" : null);
+      if (protectedGameId) {
+        const denied = await requireSubscriptionAccess(request, env, protectedGameId);
+        if (denied) return denied;
+      }
       if (url.pathname === "/api/game-availability" && request.method === "GET") return await getGameAvailability(env);
       if (url.pathname === "/api/admin/game-availability" && request.method === "GET") return await getAdminGameAvailability(request, env);
       if (url.pathname.startsWith("/api/admin/game-availability/") && request.method === "PATCH") return await updateGameAvailability(request, env, decodeURIComponent(url.pathname.split("/").pop()));
@@ -52,7 +74,7 @@ export default {
       if (url.pathname === "/api/me" && request.method === "GET") {
         const cookiePresent = !!cookieValue(request, COOKIE_NAME);
         const user = await getSessionUser(request, env);
-        return json({ user: publicUser(user, env) }, 200, {
+        return json({ user: await publicUserWithSubscription(user, env) }, 200, {
           "Cache-Control": "private, no-store, max-age=0",
           "Vary": "Cookie",
           // Safe diagnostics for the preview: booleans only, never expose the token.
@@ -130,6 +152,602 @@ const GAME_AVAILABILITY = [
   { id: "insight", name: "INSIGHT" },
   { id: "mafia", name: "Mafia" }
 ];
+const subscriptionSchemaPromises = new WeakMap();
+async function ensureSubscriptionSchema(env) {
+  const db = env?.DB;
+  if (!db) throw new Error("JALSA database binding is not configured.");
+  let pending = subscriptionSchemaPromises.get(db);
+  if (!pending) {
+    pending = (async () => {
+      // D1 batch keeps first-time schema setup to one database round trip.
+      await db.batch([
+        db.prepare("CREATE TABLE IF NOT EXISTS jalsa_settings (setting_key TEXT PRIMARY KEY NOT NULL, setting_value TEXT NOT NULL, updated_at TEXT NOT NULL, updated_by TEXT)"),
+        db.prepare("INSERT OR IGNORE INTO jalsa_settings (setting_key, setting_value, updated_at) VALUES ('subscriptions_enabled', '0', ?)").bind(new Date().toISOString()),
+        db.prepare(`CREATE TABLE IF NOT EXISTS user_subscriptions (
+          user_id TEXT PRIMARY KEY NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          plan_code TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'revoked')),
+          starts_at TEXT NOT NULL,
+          expires_at TEXT,
+          granted_by TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        )`),
+        db.prepare("CREATE INDEX IF NOT EXISTS idx_user_subscriptions_status_expiry ON user_subscriptions(status, expires_at)"),
+        db.prepare(`CREATE TABLE IF NOT EXISTS free_game_sessions (
+          user_id TEXT PRIMARY KEY NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          game_id TEXT NOT NULL CHECK (game_id IN ('zanko','price','imposter','insight','mafia')),
+          session_id TEXT NOT NULL,
+          started_at TEXT NOT NULL
+        )`),
+        db.prepare(`CREATE TABLE IF NOT EXISTS billing_subscriptions (
+          user_id TEXT PRIMARY KEY NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          stripe_customer_id TEXT,
+          stripe_subscription_id TEXT UNIQUE,
+          stripe_price_id TEXT,
+          status TEXT NOT NULL,
+          current_period_start TEXT,
+          current_period_end TEXT,
+          cancel_at_period_end INTEGER NOT NULL DEFAULT 0,
+          last_event_created INTEGER NOT NULL DEFAULT 0,
+          updated_at TEXT NOT NULL
+        )`),
+        db.prepare("CREATE INDEX IF NOT EXISTS idx_billing_subscriptions_status_end ON billing_subscriptions(status, current_period_end)"),
+        db.prepare("CREATE INDEX IF NOT EXISTS idx_billing_subscriptions_customer ON billing_subscriptions(stripe_customer_id)"),
+        db.prepare(`CREATE TABLE IF NOT EXISTS paddle_subscriptions (
+          user_id TEXT PRIMARY KEY NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          paddle_customer_id TEXT,
+          paddle_subscription_id TEXT UNIQUE,
+          paddle_price_id TEXT,
+          status TEXT NOT NULL,
+          current_period_start TEXT,
+          current_period_end TEXT,
+          cancel_at_period_end INTEGER NOT NULL DEFAULT 0,
+          last_event_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        )`),
+        db.prepare("CREATE INDEX IF NOT EXISTS idx_paddle_subscriptions_customer ON paddle_subscriptions(paddle_customer_id)"),
+        db.prepare("CREATE INDEX IF NOT EXISTS idx_paddle_subscriptions_status_end ON paddle_subscriptions(status, current_period_end)"),
+        db.prepare("CREATE TABLE IF NOT EXISTS paddle_webhook_events (event_id TEXT PRIMARY KEY NOT NULL, received_at TEXT NOT NULL)")
+      ]);
+    })();
+    subscriptionSchemaPromises.set(db, pending);
+  }
+  try {
+    await pending;
+  } catch (error) {
+    subscriptionSchemaPromises.delete(db);
+    throw error;
+  }
+}
+function addSubscriptionMonths(source, months) {
+  const date = new Date(source);
+  const day = date.getUTCDate();
+  date.setUTCDate(1);
+  date.setUTCMonth(date.getUTCMonth() + months);
+  const lastDay = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate();
+  date.setUTCDate(Math.min(day, lastDay));
+  return date;
+}
+async function readSubscriptionSettings(env) {
+  await ensureSubscriptionSchema(env);
+  const row = await env.DB.prepare("SELECT setting_value FROM jalsa_settings WHERE setting_key='subscriptions_enabled' LIMIT 1").first();
+  return { enabled: row?.setting_value === "1" };
+}
+async function subscriptionAccessForUser(user, env) {
+  if (!user) {
+    const settings = await readSubscriptionSettings(env);
+    return { enabled: settings.enabled, active: false, allowed: false, plan: null, expiresAt: null, isAdmin: false };
+  }
+
+  await ensureSubscriptionSchema(env);
+  const isAdmin = !!env.ADMIN_EMAIL && normalizeEmail(user.email) === normalizeEmail(env.ADMIN_EMAIL);
+
+  // Read the global switch and all three entitlement sources in one D1 query.
+  // This is the data needed by /api/me to display the Premium badge.
+  const row = await env.DB.prepare(`
+    SELECT
+      settings.setting_value AS subscriptions_enabled,
+      user_grant.plan_code AS grant_plan_code,
+      user_grant.status AS grant_status,
+      user_grant.starts_at AS grant_starts_at,
+      user_grant.expires_at AS grant_expires_at,
+      stripe.stripe_customer_id AS stripe_customer_id,
+      stripe.status AS stripe_status,
+      stripe.current_period_start AS stripe_period_start,
+      stripe.current_period_end AS stripe_period_end,
+      stripe.cancel_at_period_end AS stripe_cancel_at_period_end,
+      paddle.paddle_customer_id AS paddle_customer_id,
+      paddle.status AS paddle_status,
+      paddle.current_period_start AS paddle_period_start,
+      paddle.current_period_end AS paddle_period_end,
+      paddle.cancel_at_period_end AS paddle_cancel_at_period_end
+    FROM (SELECT ? AS user_id) AS account
+    LEFT JOIN jalsa_settings AS settings
+      ON settings.setting_key='subscriptions_enabled'
+    LEFT JOIN user_subscriptions AS user_grant
+      ON user_grant.user_id=account.user_id
+    LEFT JOIN billing_subscriptions AS stripe
+      ON stripe.user_id=account.user_id
+    LEFT JOIN paddle_subscriptions AS paddle
+      ON paddle.user_id=account.user_id
+    LIMIT 1
+  `).bind(user.id).first();
+
+  const now = new Date().toISOString();
+  const grantActive = !!row?.grant_status && row.grant_status === "active" &&
+    (!row.grant_expires_at || row.grant_expires_at > now);
+  const paddleActive = !!row?.paddle_status && ["active", "trialing"].includes(row.paddle_status) &&
+    (!row.paddle_period_end || row.paddle_period_end > now);
+  const stripeActive = !!row?.stripe_status && ["active", "trialing"].includes(row.stripe_status) &&
+    (!row.stripe_period_end || row.stripe_period_end > now);
+  const active = grantActive || paddleActive || stripeActive;
+  const source = grantActive ? "admin-grant" : paddleActive ? "paddle" : stripeActive ? "stripe" : null;
+
+  const hasPaddleRecord = !!row?.paddle_status;
+  const usePaddleBilling = paddleActive || (!stripeActive && hasPaddleRecord);
+  const billingStart = usePaddleBilling ? row?.paddle_period_start : row?.stripe_period_start;
+  const billingEnd = usePaddleBilling ? row?.paddle_period_end : row?.stripe_period_end;
+  const billingStatus = usePaddleBilling ? row?.paddle_status : row?.stripe_status;
+  const cancelAtPeriodEnd = usePaddleBilling ? row?.paddle_cancel_at_period_end : row?.stripe_cancel_at_period_end;
+
+  return {
+    enabled: row?.subscriptions_enabled === "1",
+    active,
+    allowed: row?.subscriptions_enabled !== "1" || active || isAdmin,
+    source,
+    plan: grantActive ? row.grant_plan_code : (paddleActive || stripeActive) ? "monthly_auto_renew" : null,
+    startsAt: grantActive ? row.grant_starts_at : billingStart || null,
+    expiresAt: grantActive ? row.grant_expires_at : billingEnd || null,
+    billingStatus: billingStatus || null,
+    cancelAtPeriodEnd: !!Number(cancelAtPeriodEnd || 0),
+    hasStripeCustomer: !!row?.stripe_customer_id,
+    hasPaddleCustomer: !!row?.paddle_customer_id,
+    isAdmin
+  };
+}
+const FREE_GAME_SESSION_MAX_AGE_MS = 6 * 60 * 60 * 1000;
+const VALID_FREE_GAME_IDS = new Set(["zanko", "price", "imposter", "insight", "mafia"]);
+async function freeGameSessionForUser(userId, env) {
+  await ensureSubscriptionSchema(env);
+  return await env.DB.prepare("SELECT game_id, session_id, started_at FROM free_game_sessions WHERE user_id=? LIMIT 1").bind(userId).first();
+}
+async function startGameAccess(request, env) {
+  const user = await getSessionUser(request, env);
+  if (!user) return json({ error: "Please sign in to play.", code: "LOGIN_REQUIRED" }, 401);
+  const body = await readBody(request);
+  const gameId = String(body.gameId || "");
+  const sessionId = String(body.sessionId || "");
+  if (!VALID_FREE_GAME_IDS.has(gameId)) return json({ error: "Choose a valid JALSA game.", code: "INVALID_GAME" }, 400);
+  if (!/^[A-Za-z0-9_-]{20,80}$/.test(sessionId)) return json({ error: "Refresh the page and try again.", code: "INVALID_GAME_SESSION" }, 400);
+  await ensureSubscriptionSchema(env);
+  const access = await subscriptionAccessForUser(user, env);
+  if (access.allowed) return json({ allowed: true, freeGame: false, ...access });
+  const existing = await freeGameSessionForUser(user.id, env);
+  const startedAtMs = existing?.started_at ? Date.parse(existing.started_at) : 0;
+  const sessionStillActive = startedAtMs > 0 && Date.now() - startedAtMs <= FREE_GAME_SESSION_MAX_AGE_MS;
+  if (existing) {
+    if (existing.game_id === gameId && existing.session_id === sessionId && sessionStillActive) {
+      return json({ allowed: true, freeGame: true, freeGameUsed: true, gameId, startedAt: existing.started_at });
+    }
+    return json({
+      allowed: false, freeGame: false, freeGameUsed: true,
+      error: "Your one free JALSA game has already been used. Subscribe to JALSA Premium to play another game.",
+      code: "SUBSCRIPTION_REQUIRED", gameId: existing.game_id
+    }, 402);
+  }
+  const now = new Date().toISOString();
+  await env.DB.prepare("INSERT OR IGNORE INTO free_game_sessions (user_id, game_id, session_id, started_at) VALUES (?, ?, ?, ?)")
+    .bind(user.id, gameId, sessionId, now).run();
+  const saved = await freeGameSessionForUser(user.id, env);
+  if (saved?.game_id === gameId && saved?.session_id === sessionId) {
+    return json({ allowed: true, freeGame: true, freeGameUsed: true, gameId, startedAt: saved.started_at });
+  }
+  return json({
+    allowed: false, freeGame: false, freeGameUsed: true,
+    error: "Your one free JALSA game has already been used. Subscribe to JALSA Premium to play another game.",
+    code: "SUBSCRIPTION_REQUIRED", gameId: saved?.game_id || null
+  }, 402);
+}
+async function getSubscriptionStatus(request, env) {
+  const user = await getSessionUser(request, env);
+  if (!user) return json({ error: "Please sign in to check subscription access.", code: "LOGIN_REQUIRED" }, 401);
+  await ensureSubscriptionSchema(env);
+  const access = await subscriptionAccessForUser(user, env);
+  const freeGame = await freeGameSessionForUser(user.id, env);
+  return json({ ...access, freeGameUsed: !!freeGame, freeGameId: freeGame?.game_id || null }, 200, { "Cache-Control": "private, no-store, max-age=0", "Vary": "Cookie" });
+}
+async function requireSubscriptionAccess(request, env, gameId) {
+  const user = await getSessionUser(request, env);
+  if (!user) return json({ error: "Please sign in to play.", code: "LOGIN_REQUIRED" }, 401);
+  await ensureSubscriptionSchema(env);
+  const access = await subscriptionAccessForUser(user, env);
+  if (access.allowed) return null;
+  const sessionId = request.headers.get("X-JALSA-Free-Game-Session") || "";
+  if (VALID_FREE_GAME_IDS.has(gameId) && sessionId) {
+    const freeGame = await freeGameSessionForUser(user.id, env);
+    const startedAtMs = freeGame?.started_at ? Date.parse(freeGame.started_at) : 0;
+    if (freeGame?.game_id === gameId && freeGame?.session_id === sessionId &&
+        startedAtMs > 0 && Date.now() - startedAtMs <= FREE_GAME_SESSION_MAX_AGE_MS) return null;
+  }
+  return json({
+    error: "Your one free JALSA game has already been used. Subscribe to JALSA Premium to play another game.",
+    code: "SUBSCRIPTION_REQUIRED", freeGameUsed: true
+  }, 402);
+}
+async function getAdminSubscriptionSettings(request, env) {
+  if (!await requireAdmin(request, env)) return json({ error: "Administrator access required." }, 403);
+  const settings = await readSubscriptionSettings(env);
+  const now = new Date().toISOString();
+  const [grants, paid] = await Promise.all([
+    env.DB.prepare("SELECT COUNT(*) AS total, SUM(CASE WHEN status='active' AND (expires_at IS NULL OR expires_at > ?) THEN 1 ELSE 0 END) AS active FROM user_subscriptions").bind(now).first(),
+    env.DB.prepare(`SELECT COUNT(DISTINCT user_id) AS total,
+      COUNT(DISTINCT CASE WHEN status IN ('active','trialing') AND (current_period_end IS NULL OR current_period_end > ?) THEN user_id END) AS active
+      FROM (
+        SELECT user_id, status, current_period_end FROM billing_subscriptions WHERE stripe_subscription_id IS NOT NULL
+        UNION ALL
+        SELECT user_id, status, current_period_end FROM paddle_subscriptions WHERE paddle_subscription_id IS NOT NULL
+      )`).bind(now).first()
+  ]);
+  return json({
+    enabled: settings.enabled,
+    totalGranted: Number(grants?.total || 0),
+    activeGranted: Number(grants?.active || 0),
+    totalPaid: Number(paid?.total || 0),
+    activePaid: Number(paid?.active || 0),
+    paymentConfigured: !!(env.PADDLE_API_KEY && env.PADDLE_CLIENT_TOKEN && env.PADDLE_PRICE_ID && env.PADDLE_WEBHOOK_SECRET),
+    paymentProvider: "paddle"
+  });
+}
+async function updateAdminSubscriptionSettings(request, env) {
+  const admin = await requireAdmin(request, env);
+  if (!admin) return json({ error: "Administrator access required." }, 403);
+  const body = await readBody(request);
+  if (typeof body.enabled !== "boolean") return json({ error: "Choose whether subscriptions are enabled." }, 400);
+  await ensureSubscriptionSchema(env);
+  const now = new Date().toISOString();
+  await env.DB.prepare("UPDATE jalsa_settings SET setting_value=?, updated_at=?, updated_by=? WHERE setting_key='subscriptions_enabled'")
+    .bind(body.enabled ? "1" : "0", now, admin.id).run();
+  return json({ ok: true, enabled: body.enabled });
+}
+
+function paddleApiBase(env) {
+  return env.PADDLE_ENVIRONMENT === "sandbox" ? "https://sandbox-api.paddle.com" : "https://api.paddle.com";
+}
+async function paddleApiRequest(env, endpoint, body) {
+  if (!env.PADDLE_API_KEY) throw new Error("Paddle API key is not configured for this environment.");
+  const response = await fetch(paddleApiBase(env) + endpoint, {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer " + env.PADDLE_API_KEY,
+      "Content-Type": "application/json",
+      "Paddle-Version": "1"
+    },
+    body: JSON.stringify(body || {})
+  });
+  let data = {};
+  try { data = await response.json(); } catch {}
+  if (!response.ok) {
+    const message = data?.error?.detail || data?.error?.message || data?.errors?.[0]?.detail || "Paddle could not complete the billing request.";
+    throw new Error(String(message).slice(0, 300));
+  }
+  return data;
+}
+async function getPaddleCheckoutConfig(request, env) {
+  const user = await getSessionUser(request, env);
+  if (!user) return json({ error: "Please sign in before subscribing.", code: "LOGIN_REQUIRED" }, 401);
+  const settings = await readSubscriptionSettings(env);
+  if (!settings.enabled) return json({ error: "Subscriptions are currently disabled. JALSA is free for everyone.", code: "SUBSCRIPTIONS_DISABLED" }, 409);
+  if (!env.PADDLE_CLIENT_TOKEN || !env.PADDLE_PRICE_ID || !env.PADDLE_API_KEY || !env.PADDLE_WEBHOOK_SECRET) {
+    const environment = env.PADDLE_ENVIRONMENT === "sandbox" ? "Sandbox" : "Production";
+    return json({ error: "Paddle " + environment + " checkout and webhook are not fully configured yet.", code: "PADDLE_NOT_CONFIGURED" }, 503);
+  }
+  const access = await subscriptionAccessForUser(user, env);
+  if (access.active) return json({ error: "Your account already has active access.", code: "ALREADY_HAS_ACCESS" }, 409);
+  return json({
+    clientToken: env.PADDLE_CLIENT_TOKEN,
+    priceId: env.PADDLE_PRICE_ID,
+    environment: env.PADDLE_ENVIRONMENT === "sandbox" ? "sandbox" : "production"
+  }, 200, { "Cache-Control": "private, no-store, max-age=0", "Vary": "Cookie" });
+}
+async function createPaddlePortalSession(request, env) {
+  const user = await getSessionUser(request, env);
+  if (!user) return json({ error: "Please sign in to manage billing.", code: "LOGIN_REQUIRED" }, 401);
+  await ensureSubscriptionSchema(env);
+  const billing = await env.DB.prepare(
+    "SELECT paddle_customer_id, paddle_subscription_id FROM paddle_subscriptions WHERE user_id=? LIMIT 1"
+  ).bind(user.id).first();
+  if (!billing?.paddle_customer_id) return json({ error: "No Paddle subscription is linked to this account.", code: "NO_PADDLE_CUSTOMER" }, 404);
+  try {
+    const body = billing.paddle_subscription_id ? { subscription_ids: [billing.paddle_subscription_id] } : {};
+    const response = await paddleApiRequest(env, "/customers/" + encodeURIComponent(billing.paddle_customer_id) + "/portal-sessions", body);
+    const portalUrl = response?.data?.urls?.general?.overview;
+    if (!portalUrl) return json({ error: "Paddle did not return a customer portal URL.", code: "PADDLE_PORTAL_URL_MISSING" }, 502);
+    return json({ ok: true, url: portalUrl });
+  } catch (error) {
+    return json({ error: "Paddle customer portal could not open: " + String(error?.message || "Unknown error").slice(0, 240), code: "PADDLE_PORTAL_FAILED" }, 502);
+  }
+}
+function hexBuffer(bytes) {
+  return Array.from(new Uint8Array(bytes), byte => byte.toString(16).padStart(2, "0")).join("");
+}
+async function verifyPaddleWebhookSignature(payload, signatureHeader, secret) {
+  if (!secret || !signatureHeader) return false;
+  const fields = signatureHeader.split(";").map(part => part.trim());
+  const timestamp = fields.find(part => part.startsWith("ts="))?.slice(3) || "";
+  const signatures = fields.filter(part => part.startsWith("h1=")).map(part => part.slice(3));
+  const timestampNumber = Number(timestamp);
+  if (!Number.isFinite(timestampNumber) || Math.abs(Date.now() / 1000 - timestampNumber) > 300 || !signatures.length) return false;
+  const key = await crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const signed = await crypto.subtle.sign("HMAC", key, encoder.encode(timestamp + ":" + payload));
+  const expected = hexBuffer(signed);
+  return signatures.some(signature => constantTimeEqual(signature.toLowerCase(), expected));
+}
+async function savePaddleSubscriptionEvent(env, event) {
+  await ensureSubscriptionSchema(env);
+  const data = event?.data || {};
+  const eventId = String(event?.event_id || event?.notification_id || "");
+  const eventType = String(event?.event_type || "");
+  const occurredAt = String(event?.occurred_at || new Date().toISOString());
+  if (!eventId || !eventType.startsWith("subscription.") || !data.id) return { ignored: true };
+  const previous = await env.DB.prepare(
+    "SELECT user_id, current_period_end, last_event_at FROM paddle_subscriptions WHERE paddle_subscription_id=? LIMIT 1"
+  ).bind(String(data.id)).first();
+  let userId = String(data.custom_data?.jalsa_user_id || data.custom_data?.jalsaUserId || previous?.user_id || "");
+  if (!userId && data.customer_id) {
+    const existing = await env.DB.prepare("SELECT user_id FROM paddle_subscriptions WHERE paddle_customer_id=? LIMIT 1").bind(String(data.customer_id)).first();
+    userId = String(existing?.user_id || "");
+  }
+  if (!userId) {
+    console.warn("Paddle subscription event has no JALSA user mapping; expected custom_data.jalsa_user_id.");
+    return { ignored: true, reason: "missing_user_mapping" };
+  }
+  if (previous?.last_event_at && occurredAt < previous.last_event_at) return { ignored: true, reason: "stale_event" };
+  const eventStatus = eventType === "subscription.canceled" ? "canceled"
+    : eventType === "subscription.past_due" ? "past_due"
+    : eventType === "subscription.paused" ? "paused"
+    : eventType === "subscription.activated" || eventType === "subscription.resumed" ? "active"
+    : eventType === "subscription.trialing" ? "trialing"
+    : String(data.status || "inactive");
+  const currentPeriod = data.current_billing_period || {};
+  const periodStart = currentPeriod.starts_at || data.started_at || null;
+  const periodEnd = currentPeriod.ends_at || data.next_billed_at || previous?.current_period_end || null;
+  const firstItem = Array.isArray(data.items) ? data.items[0] : null;
+  const priceId = firstItem?.price?.id || firstItem?.price_id || null;
+  const cancelAtPeriodEnd = data.scheduled_change?.action === "cancel" ? 1 : 0;
+  const now = new Date().toISOString();
+  await env.DB.prepare(`
+    INSERT INTO paddle_subscriptions
+      (user_id, paddle_customer_id, paddle_subscription_id, paddle_price_id, status, current_period_start, current_period_end, cancel_at_period_end, last_event_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(user_id) DO UPDATE SET
+      paddle_customer_id=excluded.paddle_customer_id,
+      paddle_subscription_id=excluded.paddle_subscription_id,
+      paddle_price_id=excluded.paddle_price_id,
+      status=excluded.status,
+      current_period_start=COALESCE(excluded.current_period_start, paddle_subscriptions.current_period_start),
+      current_period_end=COALESCE(excluded.current_period_end, paddle_subscriptions.current_period_end),
+      cancel_at_period_end=excluded.cancel_at_period_end,
+      last_event_at=excluded.last_event_at,
+      updated_at=excluded.updated_at
+    WHERE excluded.last_event_at >= paddle_subscriptions.last_event_at
+  `).bind(
+    userId, String(data.customer_id || previous?.paddle_customer_id || ""), String(data.id),
+    priceId, eventStatus, periodStart, periodEnd, cancelAtPeriodEnd, occurredAt, now
+  ).run();
+  if (eventId) await env.DB.prepare("INSERT OR IGNORE INTO paddle_webhook_events (event_id, received_at) VALUES (?, ?)").bind(eventId, now).run();
+  return { saved: true, status: eventStatus };
+}
+async function handlePaddleWebhook(request, env) {
+  if (!env.PADDLE_WEBHOOK_SECRET) return json({ error: "Paddle webhook secret is not configured." }, 503);
+  const payload = await request.text();
+  const signature = request.headers.get("Paddle-Signature") || "";
+  if (!await verifyPaddleWebhookSignature(payload, signature, env.PADDLE_WEBHOOK_SECRET)) {
+    return json({ error: "Invalid Paddle webhook signature." }, 400);
+  }
+  let event;
+  try { event = JSON.parse(payload); } catch { return json({ error: "Invalid Paddle event payload." }, 400); }
+  try {
+    const result = await savePaddleSubscriptionEvent(env, event);
+    return json({ received: true, ...result });
+  } catch (error) {
+    console.error("Paddle webhook processing failed:", error?.message || "unknown");
+    return json({ error: "Paddle webhook processing failed." }, 500);
+  }
+}
+
+function stripeForm(params) {
+  const form = new URLSearchParams();
+  for (const [key, value] of Object.entries(params || {})) {
+    if (value !== undefined && value !== null && value !== "") form.set(key, String(value));
+  }
+  return form;
+}
+async function stripeApiRequest(env, endpoint, params, method = "POST") {
+  if (!env.STRIPE_SECRET_KEY) throw new Error("Stripe is not configured for this environment yet.");
+  const response = await fetch("https://api.stripe.com/v1" + endpoint, {
+    method,
+    headers: {
+      "Authorization": "Bearer " + env.STRIPE_SECRET_KEY,
+      "Content-Type": "application/x-www-form-urlencoded"
+    },
+    ...(method === "GET" ? {} : { body: stripeForm(params).toString() })
+  });
+  let data = {};
+  try { data = await response.json(); } catch {}
+  if (!response.ok) throw new Error(data?.error?.message || "Stripe could not complete the billing request.");
+  return data;
+}
+async function createBillingCheckout(request, env, url) {
+  try {
+    const user = await getSessionUser(request, env);
+    if (!user) return json({ error: "Please sign in before subscribing.", code: "LOGIN_REQUIRED" }, 401);
+    const settings = await readSubscriptionSettings(env);
+    if (!settings.enabled) return json({ error: "Subscriptions are not currently enabled. JALSA is free for everyone right now.", code: "SUBSCRIPTIONS_DISABLED" }, 409);
+    if (!env.STRIPE_SECRET_KEY || !env.STRIPE_PRICE_ID) return json({ error: "Paid subscriptions are not configured in this test environment yet.", code: "BILLING_NOT_CONFIGURED" }, 503);
+    const access = await subscriptionAccessForUser(user, env);
+    if (access.active) return json({ error: "Your account already has active access.", code: "ALREADY_HAS_ACCESS" }, 409);
+    const existing = await env.DB.prepare("SELECT stripe_customer_id, stripe_subscription_id, status, current_period_end FROM billing_subscriptions WHERE user_id=? LIMIT 1").bind(user.id).first();
+    if (existing?.stripe_subscription_id && existing.current_period_end && existing.current_period_end > new Date().toISOString() &&
+        ["active", "trialing", "past_due", "unpaid", "incomplete"].includes(existing.status)) {
+      return json({ error: "A subscription already exists for this account. Open Manage billing to update payment details or cancel it.", code: "EXISTING_BILLING_SUBSCRIPTION" }, 409);
+    }
+    const body = await readBody(request);
+    const language = body.language === "ar" ? "ar" : "en";
+    const origin = url.origin;
+    const pagePath = language === "ar" ? "/ar/" : "/";
+    const params = {
+      mode: "subscription",
+      "line_items[0][price]": env.STRIPE_PRICE_ID,
+      "line_items[0][quantity]": "1",
+      client_reference_id: user.id,
+      customer: existing?.stripe_customer_id || undefined,
+      customer_email: existing?.stripe_customer_id ? undefined : user.email,
+      "metadata[jalsa_user_id]": user.id,
+      "subscription_data[metadata][jalsa_user_id]": user.id,
+      "subscription_data[description]": "JALSA monthly auto-renewing access",
+      allow_promotion_codes: "true",
+      billing_address_collection: "auto",
+      success_url: origin + pagePath + "?subscription=success",
+      cancel_url: origin + pagePath + "?subscription=cancelled",
+      locale: language === "ar" ? "auto" : "en"
+    };
+    const session = await stripeApiRequest(env, "/checkout/sessions", params);
+    if (!session.url) return json({ error: "Stripe did not return a Checkout URL.", code: "STRIPE_NO_CHECKOUT_URL" }, 502);
+    return json({ ok: true, url: session.url });
+  } catch (error) {
+    const raw = String(error?.message || "Unknown checkout error");
+    const safeMessage = raw
+      .replace(/sk_(?:test|live)_[A-Za-z0-9]+/g, "[redacted Stripe key]")
+      .replace(/whsec_[A-Za-z0-9]+/g, "[redacted webhook secret]")
+      .slice(0, 320);
+    console.error("JALSA Stripe checkout failed:", safeMessage);
+    return json({ error: "Stripe checkout could not start: " + safeMessage, code: "STRIPE_CHECKOUT_FAILED" }, 502);
+  }
+}
+async function createBillingPortal(request, env, url) {
+  const user = await getSessionUser(request, env);
+  if (!user) return json({ error: "Please sign in to manage billing.", code: "LOGIN_REQUIRED" }, 401);
+  await ensureSubscriptionSchema(env);
+  const billing = await env.DB.prepare("SELECT stripe_customer_id FROM billing_subscriptions WHERE user_id=? LIMIT 1").bind(user.id).first();
+  if (!billing?.stripe_customer_id) return json({ error: "No paid subscription is linked to this account yet.", code: "NO_BILLING_CUSTOMER" }, 404);
+  const body = await readBody(request);
+  const pagePath = body.language === "ar" ? "/ar/" : "/";
+  const params = {
+    customer: billing.stripe_customer_id,
+    return_url: url.origin + pagePath + "?billing=returned"
+  };
+  if (env.STRIPE_PORTAL_CONFIGURATION_ID) params.configuration = env.STRIPE_PORTAL_CONFIGURATION_ID;
+  const session = await stripeApiRequest(env, "/billing_portal/sessions", params);
+  if (!session.url) return json({ error: "Stripe did not return a billing portal URL." }, 502);
+  return json({ ok: true, url: session.url });
+}
+async function cancelBillingSubscription(request, env) {
+  const user = await getSessionUser(request, env);
+  if (!user) return json({ error: "Please sign in to manage billing.", code: "LOGIN_REQUIRED" }, 401);
+  await ensureSubscriptionSchema(env);
+  const billing = await env.DB.prepare("SELECT stripe_subscription_id, current_period_end, status FROM billing_subscriptions WHERE user_id=? LIMIT 1").bind(user.id).first();
+  if (!billing?.stripe_subscription_id || !["active", "trialing", "past_due"].includes(billing.status)) {
+    return json({ error: "There is no active paid subscription to cancel.", code: "NO_ACTIVE_SUBSCRIPTION" }, 409);
+  }
+  const updated = await stripeApiRequest(env, "/subscriptions/" + encodeURIComponent(billing.stripe_subscription_id), { cancel_at_period_end: "true" });
+  await env.DB.prepare("UPDATE billing_subscriptions SET cancel_at_period_end=1, updated_at=? WHERE user_id=?").bind(new Date().toISOString(), user.id).run();
+  return json({ ok: true, cancelAtPeriodEnd: !!updated.cancel_at_period_end, currentPeriodEnd: billing.current_period_end });
+}
+function hexFromBuffer(buffer) {
+  return Array.from(new Uint8Array(buffer), byte => byte.toString(16).padStart(2, "0")).join("");
+}
+async function verifyStripeWebhookSignature(payload, signatureHeader, secret) {
+  if (!secret || !signatureHeader) return false;
+  const parts = signatureHeader.split(",").map(part => part.trim());
+  const timestampPart = parts.find(part => part.startsWith("t="));
+  const timestamp = timestampPart ? Number(timestampPart.slice(2)) : 0;
+  if (!Number.isFinite(timestamp) || Math.abs(Date.now() / 1000 - timestamp) > 300) return false;
+  const signatures = parts.filter(part => part.startsWith("v1=")).map(part => part.slice(3));
+  if (!signatures.length) return false;
+  const key = await crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const signed = await crypto.subtle.sign("HMAC", key, encoder.encode(timestamp + "." + payload));
+  const expected = hexFromBuffer(signed);
+  return signatures.some(signature => constantTimeEqual(signature, expected));
+}
+function stripePeriodIso(timestamp) {
+  const value = Number(timestamp || 0);
+  return value > 0 ? new Date(value * 1000).toISOString() : null;
+}
+async function saveStripeSubscriptionEvent(env, event, subscription, forcedStatus) {
+  await ensureSubscriptionSchema(env);
+  const eventCreated = Number(event.created || 0);
+  const subscriptionId = subscription.id;
+  const customerId = typeof subscription.customer === "string" ? subscription.customer : subscription.customer?.id;
+  const metadata = subscription.metadata || {};
+  let userId = metadata.jalsa_user_id || metadata.user_id || "";
+  if (!userId && subscriptionId) {
+    const old = await env.DB.prepare("SELECT user_id FROM billing_subscriptions WHERE stripe_subscription_id=? LIMIT 1").bind(subscriptionId).first();
+    userId = old?.user_id || "";
+  }
+  if (!userId && customerId) {
+    const old = await env.DB.prepare("SELECT user_id FROM billing_subscriptions WHERE stripe_customer_id=? LIMIT 1").bind(customerId).first();
+    userId = old?.user_id || "";
+  }
+  if (!userId) {
+    console.warn("Stripe subscription event did not include a linked JALSA user.");
+    return;
+  }
+  const firstItem = subscription.items?.data?.[0] || {};
+  const priceId = firstItem.price?.id || firstItem.plan?.id || null;
+  const start = subscription.current_period_start || firstItem.current_period_start;
+  const end = subscription.current_period_end || firstItem.current_period_end;
+  const now = new Date().toISOString();
+  const status = forcedStatus || subscription.status || "incomplete";
+  await env.DB.prepare(
+    `INSERT INTO billing_subscriptions
+      (user_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, status, current_period_start, current_period_end, cancel_at_period_end, last_event_created, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(user_id) DO UPDATE SET
+       stripe_customer_id=excluded.stripe_customer_id,
+       stripe_subscription_id=excluded.stripe_subscription_id,
+       stripe_price_id=excluded.stripe_price_id,
+       status=excluded.status,
+       current_period_start=excluded.current_period_start,
+       current_period_end=excluded.current_period_end,
+       cancel_at_period_end=excluded.cancel_at_period_end,
+       last_event_created=excluded.last_event_created,
+       updated_at=excluded.updated_at
+     WHERE excluded.last_event_created >= billing_subscriptions.last_event_created`,
+  ).bind(
+    userId, customerId || null, subscriptionId, priceId, status,
+    stripePeriodIso(start), stripePeriodIso(end), subscription.cancel_at_period_end ? 1 : 0,
+    eventCreated, now
+  ).run();
+}
+async function handleStripeWebhook(request, env) {
+  if (!env.STRIPE_WEBHOOK_SECRET) return json({ error: "Stripe webhook is not configured." }, 503);
+  const payload = await request.text();
+  const signature = request.headers.get("Stripe-Signature") || "";
+  if (!await verifyStripeWebhookSignature(payload, signature, env.STRIPE_WEBHOOK_SECRET)) {
+    return json({ error: "Invalid Stripe webhook signature." }, 400);
+  }
+  let event;
+  try { event = JSON.parse(payload); } catch { return json({ error: "Invalid Stripe event payload." }, 400); }
+  const object = event.data?.object || {};
+  if (["customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted"].includes(event.type)) {
+    const forced = event.type === "customer.subscription.deleted" ? "canceled" : null;
+    await saveStripeSubscriptionEvent(env, event, object, forced);
+  } else if (event.type === "invoice.payment_failed" || event.type === "invoice.paid") {
+    const subscriptionId = typeof object.subscription === "string"
+      ? object.subscription
+      : object.parent?.subscription_details?.subscription || "";
+    if (subscriptionId) {
+      const status = event.type === "invoice.paid" ? "active" : "past_due";
+      await ensureSubscriptionSchema(env);
+      await env.DB.prepare(
+        "UPDATE billing_subscriptions SET status=?, last_event_created=?, updated_at=? WHERE stripe_subscription_id=? AND ? >= last_event_created"
+      ).bind(status, Number(event.created || 0), new Date().toISOString(), subscriptionId, Number(event.created || 0)).run();
+    }
+  }
+  return json({ received: true });
+}
+
 async function ensureGameAvailabilitySchema(env) {
   await env.DB.prepare("CREATE TABLE IF NOT EXISTS game_availability (game_id TEXT PRIMARY KEY, enabled INTEGER NOT NULL DEFAULT 1, updated_at TEXT NOT NULL, updated_by TEXT)").run();
   const now = new Date().toISOString();
@@ -664,6 +1282,22 @@ function publicUser(user, env) {
     lastLoginAt: user.last_login_at || null,
   };
 }
+async function publicUserWithSubscription(user, env) {
+  const safeUser = publicUser(user, env);
+  if (!safeUser) return null;
+  try {
+    const access = await subscriptionAccessForUser(user, env);
+    return {
+      ...safeUser,
+      premiumActive: !!(access.active && ["paddle", "stripe", "admin-grant"].includes(access.source)),
+      premiumSource: access.source || null,
+      premiumExpiresAt: access.expiresAt || null
+    };
+  } catch (error) {
+    console.warn("JALSA premium status could not be included in account response:", error?.message || "unknown");
+    return { ...safeUser, premiumActive: false, premiumSource: null, premiumExpiresAt: null };
+  }
+}
 
 function escapeHtml(value) {
   return String(value || "").replace(/[&<>"']/g, (char) => ({
@@ -834,7 +1468,7 @@ async function login(request, env) {
   user.last_login_at = new Date().toISOString();
   await env.DB.prepare("UPDATE users SET last_login_at = ? WHERE id = ?").bind(user.last_login_at, user.id).run();
   const token = await createSession(user.id, env);
-  return json({ ok: true, user: publicUser(user, env) }, 200, { "Set-Cookie": sessionCookie(token) });
+  return json({ ok: true, user: await publicUserWithSubscription(user, env) }, 200, { "Set-Cookie": sessionCookie(token) });
 }
 
 async function readAndValidateCode(email, code, purpose, env) {
@@ -873,7 +1507,7 @@ async function verifyRegistration(request, env) {
   user.email_verified = 1;
   await env.DB.prepare("DELETE FROM verification_codes WHERE email = ? AND purpose = 'register'").bind(email).run();
   const token = await createSession(user.id, env);
-  return json({ ok: true, user: publicUser(user, env) }, 200, { "Set-Cookie": sessionCookie(token) });
+  return json({ ok: true, user: await publicUserWithSubscription(user, env) }, 200, { "Set-Cookie": sessionCookie(token) });
 }
 
 async function forgotPassword(request, env) {
@@ -918,26 +1552,49 @@ async function logout(request, env) {
 
 async function listUsers(request, env) {
   if (!await requireAdmin(request, env)) return json({ error: "Administrator access required." }, 403);
+  await ensureSubscriptionSchema(env);
   const result = await env.DB.prepare(
-    `SELECT id, display_name AS name, email, email_verified, created_at, verified_at, last_login_at,
-            birth_date, updated_at, banned_at, banned_reason,
-            CASE WHEN password_hash IS NOT NULL AND password_hash != '' THEN 1 ELSE 0 END AS has_password
-     FROM users ORDER BY created_at DESC LIMIT 1000`,
+    `SELECT u.id, u.display_name AS name, u.email, u.email_verified, u.created_at, u.verified_at, u.last_login_at,
+            u.birth_date, u.updated_at, u.banned_at, u.banned_reason,
+            CASE WHEN u.password_hash IS NOT NULL AND u.password_hash != '' THEN 1 ELSE 0 END AS has_password,
+            g.plan_code AS subscription_plan, g.status AS subscription_status,
+            g.starts_at AS subscription_starts_at, g.expires_at AS subscription_expires_at,
+            COALESCE(p.status, b.status) AS billing_status,
+            COALESCE(p.current_period_start, b.current_period_start) AS billing_period_start,
+            COALESCE(p.current_period_end, b.current_period_end) AS billing_period_end,
+            COALESCE(p.cancel_at_period_end, b.cancel_at_period_end, 0) AS billing_cancel_at_period_end,
+            CASE WHEN p.paddle_subscription_id IS NOT NULL THEN 'paddle' WHEN b.stripe_subscription_id IS NOT NULL THEN 'stripe' ELSE NULL END AS billing_provider
+     FROM users u LEFT JOIN user_subscriptions g ON g.user_id=u.id
+     LEFT JOIN billing_subscriptions b ON b.user_id=u.id
+     LEFT JOIN paddle_subscriptions p ON p.user_id=u.id
+     ORDER BY u.created_at DESC LIMIT 1000`,
   ).all();
   return json({ users: result.results || [] });
 }
 
 async function getAdminUser(request, env, id) {
   if (!await requireAdmin(request, env)) return json({ error: "Administrator access required." }, 403);
+  await ensureSubscriptionSchema(env);
   const user = await env.DB.prepare(
-    `SELECT id, display_name AS name, email, email_verified, created_at, verified_at, last_login_at,
-            birth_date, avatar_data_url, updated_at, banned_at, banned_reason,
-            CASE WHEN password_hash IS NOT NULL AND password_hash != '' THEN 1 ELSE 0 END AS has_password
-     FROM users WHERE id = ? LIMIT 1`,
+    `SELECT u.id, u.display_name AS name, u.email, u.email_verified, u.created_at, u.verified_at, u.last_login_at,
+            u.birth_date, u.avatar_data_url, u.updated_at, u.banned_at, u.banned_reason,
+            CASE WHEN u.password_hash IS NOT NULL AND u.password_hash != '' THEN 1 ELSE 0 END AS has_password,
+            g.plan_code AS subscription_plan, g.status AS subscription_status,
+            g.starts_at AS subscription_starts_at, g.expires_at AS subscription_expires_at,
+            COALESCE(p.status, b.status) AS billing_status,
+            COALESCE(p.current_period_start, b.current_period_start) AS billing_period_start,
+            COALESCE(p.current_period_end, b.current_period_end) AS billing_period_end,
+            COALESCE(p.cancel_at_period_end, b.cancel_at_period_end, 0) AS billing_cancel_at_period_end,
+            CASE WHEN p.paddle_subscription_id IS NOT NULL THEN 'paddle' WHEN b.stripe_subscription_id IS NOT NULL THEN 'stripe' ELSE NULL END AS billing_provider
+     FROM users u LEFT JOIN user_subscriptions g ON g.user_id=u.id
+     LEFT JOIN billing_subscriptions b ON b.user_id=u.id
+     LEFT JOIN paddle_subscriptions p ON p.user_id=u.id
+     WHERE u.id = ? LIMIT 1`,
   ).bind(id).first();
   if (!user) return json({ error: "User not found." }, 404);
   return json({ user });
 }
+
 async function requireAdmin(request, env) {
   const user = await getSessionUser(request, env);
   if (!user || !env.ADMIN_EMAIL || normalizeEmail(user.email) !== normalizeEmail(env.ADMIN_EMAIL)) return null;
@@ -956,6 +1613,12 @@ function validMedia(type, url) {
 }
 async function deleteStoredMedia(env, value) {
   if (!env.MEDIA || !isStoredMediaUrl(value)) return;
+  // A media file may be reused by more than one question or category.
+  // Only remove the R2 object after every database reference has been removed.
+  const references = await env.DB.prepare(
+    "SELECT (SELECT COUNT(*) FROM game_questions WHERE media_url = ?) + (SELECT COUNT(*) FROM game_categories WHERE image_url = ?) AS total"
+  ).bind(String(value), String(value)).first();
+  if (!references || Number(references.total || 0) > 0) return;
   const key = String(value).slice("/api/media/".length);
   await env.MEDIA.delete(key);
 }
@@ -1129,6 +1792,33 @@ async function updateAdminUser(request, env, id) {
   const target = await env.DB.prepare("SELECT id, email, email_verified FROM users WHERE id = ? LIMIT 1").bind(id).first();
   if (!target) return json({ error: "User not found." }, 404);
   const body = await readBody(request), action = cleanText(body.action, 24), now = new Date().toISOString();
+  if (action === "grant-subscription") {
+    const duration = cleanText(body.duration, 16);
+    if (!["1", "3", "6", "12", "unlimited"].includes(duration)) return json({ error: "Choose 1, 3, 6, 12 months, or unlimited access." }, 400);
+    await ensureSubscriptionSchema(env);
+    const existing = await env.DB.prepare("SELECT plan_code, status, starts_at, expires_at, created_at FROM user_subscriptions WHERE user_id=? LIMIT 1").bind(id).first();
+    const existingActive = existing && existing.status === "active" && (!existing.expires_at || existing.expires_at > now);
+    if (existingActive && !existing.expires_at && duration !== "unlimited") {
+      return json({ ok: true, subscription: { plan_code: "unlimited", status: "active", starts_at: existing.starts_at, expires_at: null } });
+    }
+    const startsAt = duration === "unlimited" ? now : (existingActive && existing.expires_at ? existing.expires_at : (existingActive ? existing.starts_at : now));
+    const months = duration === "unlimited" ? null : Number(duration);
+    const expiresAt = months === null ? null : addSubscriptionMonths(new Date(startsAt || now), months).toISOString();
+    const planCode = duration === "unlimited" ? "unlimited" : "month_" + duration;
+    await env.DB.prepare(
+      `INSERT INTO user_subscriptions (user_id, plan_code, status, starts_at, expires_at, granted_by, created_at, updated_at)
+       VALUES (?, ?, 'active', ?, ?, ?, ?, ?)
+       ON CONFLICT(user_id) DO UPDATE SET plan_code=excluded.plan_code, status='active',
+       starts_at=excluded.starts_at, expires_at=excluded.expires_at, granted_by=excluded.granted_by, updated_at=excluded.updated_at`,
+    ).bind(id, planCode, duration === "unlimited" ? now : (existingActive ? (existing.starts_at || now) : startsAt), expiresAt, actor.id, existing?.created_at || now, now).run();
+    return json({ ok: true, subscription: { plan_code: planCode, status: "active", starts_at: duration === "unlimited" ? now : (existingActive ? (existing.starts_at || now) : startsAt), expires_at: expiresAt } });
+  }
+  if (action === "revoke-subscription") {
+    await ensureSubscriptionSchema(env);
+    const result = await env.DB.prepare("UPDATE user_subscriptions SET status='revoked', updated_at=? WHERE user_id=?").bind(now, id).run();
+    if (!Number(result.meta?.changes || 0)) return json({ error: "This user has no subscription to revoke." }, 404);
+    return json({ ok: true });
+  }
   if (action === "ban") {
     if (target.id === actor.id) return json({ error: "You cannot ban your own administrator account." }, 403);
     const reason = cleanText(body.reason, 240);
