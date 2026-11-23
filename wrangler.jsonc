@@ -21,7 +21,8 @@
   "vars": {
     "MAIL_FROM": "JALSA <Accountservice@jalsa.me>",
     "REPLY_TO": "support@jalsa.me",
-    "ADMIN_EMAIL": "1mr.cute3@gmail.com"
+    "ADMIN_EMAIL": "1mr.cute3@gmail.com",
+    "PADDLE_ENVIRONMENT": "production"
   },
   "previews": {
     "r2_buckets": [
