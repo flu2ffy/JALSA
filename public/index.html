@@ -78,7 +78,7 @@ html.zanko-restore-pending body::before{
 .v17-account-drawer{position:fixed;z-index:321;inset:0 auto 0 0;width:min(370px,88vw);background:#fff8ed;box-shadow:22px 0 60px #17080a44;display:flex;flex-direction:column;padding:22px;transform:translateX(-105%);transition:transform .24s ease;color:var(--ink);direction:inherit}
 .v17-account-drawer.open{transform:translateX(0)}
 .v17-drawer-head{display:flex;align-items:center;gap:13px;padding:10px 0 22px;border-bottom:1px solid var(--line)}
-.v17-drawer-identity{min-width:0;flex:1;display:grid;gap:4px}.v17-drawer-identity strong{font-size:18px;color:var(--wine);overflow-wrap:anywhere}.v17-drawer-identity small{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.v17-drawer-identity{min-width:0;flex:1;display:grid;gap:4px}.v17-drawer-identity strong{font-size:18px;color:var(--wine);overflow-wrap:anywhere}.v17-drawer-identity small{font-size:12px;color:var(--muted);overflow-wrap:anywhere}.v17-premium-badge{justify-self:start;background:linear-gradient(110deg,#8c2529,#b94b32);color:#fff1d5;border:1px solid #e5b766;border-radius:999px;padding:3px 9px;font-size:9px;font-weight:900;letter-spacing:1.3px;line-height:1.2;box-shadow:0 2px 6px #55151c22}
 .v17-drawer-nav{display:grid;gap:8px;padding:22px 0}.v17-drawer-nav button,.v17-logout-button{display:flex;align-items:center;gap:14px;width:100%;border:1px solid transparent;border-radius:14px;background:transparent;color:var(--ink);padding:14px 15px;text-align:start;font-weight:800}.v17-drawer-nav button:hover{background:#f8e8d2;border-color:#ecd4b4}
 .v17-drawer-nav button span:first-child{font-size:20px;width:28px;text-align:center}.v17-drawer-bottom{margin-top:auto;border-top:1px solid var(--line);padding-top:18px}.v17-logout-button{background:#f8e3dc;color:#922b30}.v17-logout-button:hover{background:#f2d1c8}
 .v17-avatar{border-radius:50%;background:linear-gradient(135deg,#f4d9b3,#f8ead3);border:2px solid #e8cda9;display:grid;place-items:center;color:var(--wine);font-weight:900;overflow:hidden;flex-shrink:0}.v17-avatar img{width:100%;height:100%;object-fit:cover}.v17-avatar-small{width:54px;height:54px;font-size:26px}.v17-avatar-large{width:112px;height:112px;font-size:48px}
@@ -521,7 +521,7 @@ html[dir="rtl"] .game-card:nth-child(5)::before{background-image:url('/mafia-bg.
 
 <div class="v17-drawer-backdrop" id="accountDrawerBackdrop" onclick="closeAccountDrawer()"></div>
 <aside class="v17-account-drawer" id="accountDrawer" aria-label="Account menu" aria-hidden="true">
-  <div class="v17-drawer-head"><div class="v17-avatar v17-avatar-small" id="drawerAvatar">☻</div><div class="v17-drawer-identity"><strong id="drawerName"></strong><small id="drawerEmail"></small></div><button class="close-small" type="button" onclick="closeAccountDrawer()" aria-label="Close">×</button></div>
+  <div class="v17-drawer-head"><div class="v17-avatar v17-avatar-small" id="drawerAvatar">☻</div><div class="v17-drawer-identity"><strong id="drawerName"></strong><span class="v17-premium-badge" id="drawerPremiumBadge" hidden>PREMIUM</span><small id="drawerEmail"></small></div><button class="close-small" type="button" onclick="closeAccountDrawer()" aria-label="Close">×</button></div>
   <nav class="v17-drawer-nav">
     <button type="button" onclick="openProfilePage();closeAccountDrawer()"><span>👤</span><span data-v17="profile">Profile</span></button>
     <button type="button" onclick="openFeedback();closeAccountDrawer()"><span>✉️</span><span data-v17="sendFeedback">Send feedback</span></button>
@@ -856,7 +856,7 @@ function t(key){return TEXT[isArabic?'ar':'en'][key]||TEXT.en[key]||key}
 function toggleLanguage(){isArabic=!isArabic;document.documentElement.lang=isArabic?'ar':'en';document.documentElement.dir=isArabic?'rtl':'ltr';document.documentElement.style.setProperty('--jalsa-games-bg',isArabic?'url(\'/insight-home-ar.webp\')':'url(\'/insight-home-en.webp\')');document.getElementById('homeLang').textContent=isArabic?'English / العربية':'العربية / English';document.getElementById('loginButton').textContent=t('login');document.getElementById('registerButton').textContent=t('register');document.getElementById('heroFamily').src=isArabic?'hero-family-ar.png':'hero-family.png';document.getElementById('heroFamily').classList.toggle('arabic-family',isArabic);const map={heroTitle:'heroTitle',heroSubtitle:'heroSubtitle',explore:'exploreButton',gamesTitle:'gamesTitle',gamesIntro:'gamesIntro',zanko:'zankoCardTitle',zankoDesc:'zankoCardDescription',price:'priceCardTitle',priceDesc:'priceCardDescription',imposter:'imposterCardTitle',imposterDesc:'imposterCardDescription',more:'moreCardTitle',moreDesc:'moreCardDescription',insight:'insightCardTitle',insightDesc:'insightCardDescription',mafia:'mafiaCardTitle',mafiaDesc:'mafiaCardDescription'};for(const [key,id] of Object.entries(map))document.getElementById(id).textContent=t(key);document.getElementById('zankoPlay').textContent=t('play');document.getElementById('pricePlay').textContent=t('play');document.getElementById('imposterPlay').textContent=t('play');document.getElementById('insightPlay').textContent=t('play');document.getElementById('mafiaPlay').textContent=t('play');localStorage.setItem('jalsa_language',isArabic?'ar':'en');if(document.getElementById('teamsTitle'))document.getElementById('teamsTitle').textContent=t('teamsTitle');if(document.getElementById('teamsSubtitle'))document.getElementById('teamsSubtitle').textContent=t('teamsSubtitle');if(document.getElementById('teamNote'))document.getElementById('teamNote').textContent=t('teamNote');if(document.getElementById('categoryTitle'))document.getElementById('categoryTitle').textContent=t('categoryTitle');if(document.getElementById('categorySubtitle'))document.getElementById('categorySubtitle').textContent=t('categorySubtitle');document.getElementById('categoryBack').textContent=t('back');document.getElementById('categoryNext').textContent=t('next');document.getElementById('teamsNext').textContent=t('next');document.getElementById('revealAnswerButton').textContent=t('reveal');document.getElementById('noPoints').textContent=t('noPoints');document.querySelectorAll('.category-pick').forEach(btn=>{const c=CATEGORIES.find(x=>x.id===btn.dataset.id);btn.querySelector('strong').textContent=isArabic?c.ar:c.name});renderCategoryCards();if(gameState.screen==='board')renderGameHudAndBoard();if(gameState.screen==='question'){document.getElementById('questionTurn').textContent=`${gameState.teamNames[gameState.turn]}${t('turn')}`;document.getElementById('questionHud').innerHTML=gameState.teamNames.map((name,i)=>teamCardHTML(name,i,false)).join('');const active=gameState.currentTile;if(active){const c=CATEGORIES.find(x=>x.id===active.category);document.getElementById('questionCategory').textContent=isArabic?c.ar:c.name;document.getElementById('questionPrompt').textContent=isArabic?active.qAr:active.q;document.getElementById('questionAnswer').textContent=isArabic?active.aAr:active.a;document.getElementById('questionPointValue').textContent=active.multiplied?`${active.points} × 2 = ${active.actualPoints} ${t('points')}`:`${active.points} ${t('points')}`;document.getElementById('awardOne').textContent=`${gameState.teamNames[0]} ${t('award')} +${active.actualPoints}`;document.getElementById('awardTwo').textContent=`${gameState.teamNames[1]} ${t('award')} +${active.actualPoints}`}}v17SyncLanguage();}function showHome(){if(gameState.callTimer){clearInterval(gameState.callTimer);gameState.callTimer=null}try{localStorage.removeItem('jalsa_zanko_active_v1')}catch{}gameState.screen='home';hideToast();document.getElementById('zankoStage').classList.remove('active');document.getElementById('homePage').hidden=false;document.getElementById('siteHeader').hidden=false;document.querySelector('.site-footer').hidden=false}
 function enterZanko(){document.getElementById('homePage').hidden=true;document.getElementById('siteHeader').hidden=true;document.querySelector('.site-footer').hidden=true;document.getElementById('zankoStage').classList.add('active')}
 function showStageScreen(name){['teamScreen','categoryScreen','boardScreen','questionScreen','gameoverScreen'].forEach(id=>document.getElementById(id).hidden=id!==name);gameState.screen=name.replace('Screen','');saveZankoSession();publishRemoteState()}
-async function startZankoSetup(){if(!(await v17IsGameEnabled("zanko"))){showToast(V17_GAME_WAIT_TEXT);return;}if(!authReady){await refreshSession()}if(!requireLogin())return;if(!(await v17CheckSubscriptionAccess()))return;try{await v17LoadGameContent()}catch(error){showToast(error.message)}resetGameState();enterZanko();showStageScreen('teamScreen')}
+async function startZankoSetup(){if(!(await v17IsGameEnabled("zanko"))){showToast(V17_GAME_WAIT_TEXT);return;}if(!authReady){await refreshSession()}if(!requireLogin())return;if(!(await v17CheckSubscriptionAccess("zanko")))return;try{await v17LoadGameContent()}catch(error){showToast(error.message)}resetGameState();enterZanko();showStageScreen('teamScreen')}
 function continueToCategories(){gameState.teamNames=[document.getElementById('teamNameOne').value.trim()||'Team 1',document.getElementById('teamNameTwo').value.trim()||'Team 2'];saveZankoSession();showStageScreen('categoryScreen');renderCategoryCards()}
 function backToTeams(){showStageScreen('teamScreen')}
 function renderCategoryCards(){
@@ -975,9 +975,9 @@ function escapeHtml(value){return String(value).replace(/[&<>"']/g,c=>({'&':'&am
 
 /* Price Guessing */
 let pricePlayers=[],priceScores=[],priceTurn=0,priceRound=0,priceDeck=[],priceAnswered=false;
-async function openPriceSetup(){if(!(await v17IsGameEnabled('price'))){alert(isArabic?'هذه اللعبة متوقفة مؤقتاً. يرجى العودة لاحقاً.':'This game is temporarily unavailable. Please check back later.');return}if(!authReady){refreshSession().then(()=>{if(currentUser)openPriceSetup();else showAuth('login')});return}if(!requireLogin())return;if(!(await v17CheckSubscriptionAccess()))return;document.getElementById('priceSetupOverlay').classList.add('open');document.getElementById('priceSetupTitle').textContent=t('priceSetup');document.getElementById('priceNamesLabel').firstChild.textContent=t('players')}
+async function openPriceSetup(){if(!(await v17IsGameEnabled('price'))){alert(isArabic?'هذه اللعبة متوقفة مؤقتاً. يرجى العودة لاحقاً.':'This game is temporarily unavailable. Please check back later.');return}if(!authReady){refreshSession().then(()=>{if(currentUser)openPriceSetup();else showAuth('login')});return}if(!requireLogin())return;document.getElementById('priceSetupOverlay').classList.add('open');document.getElementById('priceSetupTitle').textContent=t('priceSetup');document.getElementById('priceNamesLabel').firstChild.textContent=t('players')}
 function closePriceOverlays(){document.getElementById('priceSetupOverlay').classList.remove('open');document.getElementById('priceGameOverlay').classList.remove('open')}
-async function startPriceGame(){if(!(await v17IsGameEnabled("price"))){document.getElementById("priceStoppedNotice").hidden=false;return}if(!requireLogin())return;if(!(await v17CheckSubscriptionAccess()))return;pricePlayers=document.getElementById('priceNames').value.split(',').map(x=>x.trim()).filter(Boolean);if(pricePlayers.length<2){alert(isArabic?'أدخلوا اسمين على الأقل وافصلوا بينهما بفواصل.':'Enter at least two player names, separated by commas.');return}priceScores=pricePlayers.map(()=>0);priceTurn=0;priceRound=0;priceDeck=shuffled(PRODUCTS);document.getElementById('priceSetupOverlay').classList.remove('open');document.getElementById('priceGameOverlay').classList.add('open');document.getElementById('priceGameTitle').textContent=t('price');document.getElementById('priceNext').hidden=true;document.getElementById('priceSubmit').hidden=false;document.getElementById('priceNext').textContent=t('nextTurn');renderPriceRound()}
+async function startPriceGame(){if(!(await v17IsGameEnabled("price"))){document.getElementById("priceStoppedNotice").hidden=false;return}if(!requireLogin())return;pricePlayers=document.getElementById('priceNames').value.split(',').map(x=>x.trim()).filter(Boolean);if(pricePlayers.length<2){alert(isArabic?'أدخلوا اسمين على الأقل وافصلوا بينهما بفواصل.':'Enter at least two player names, separated by commas.');return}if(!(await v17CheckSubscriptionAccess("price")))return;priceScores=pricePlayers.map(()=>0);priceTurn=0;priceRound=0;priceDeck=shuffled(PRODUCTS);document.getElementById('priceSetupOverlay').classList.remove('open');document.getElementById('priceGameOverlay').classList.add('open');document.getElementById('priceGameTitle').textContent=t('price');document.getElementById('priceNext').hidden=true;document.getElementById('priceSubmit').hidden=false;document.getElementById('priceNext').textContent=t('nextTurn');renderPriceRound()}
 function renderPriceRound(){if(priceRound>=priceDeck.length){finishPriceGame();return}priceAnswered=false;const item=priceDeck[priceRound];document.getElementById('priceTurn').textContent=`${pricePlayers[priceTurn]} · ${t('turn')}`;document.getElementById('priceScore').textContent=`${t('score')||'Score'}: ${priceScores[priceTurn]}`;document.getElementById('priceEmoji').textContent=item[1];document.getElementById('priceProduct').textContent=item[0];document.getElementById('priceGuess').value='';document.getElementById('priceResult').textContent='';document.getElementById('priceGuessLabel').firstChild.textContent=t('guess');document.getElementById('pricePassNote').textContent=t('pricePass');document.getElementById('priceNote').textContent=t('noRepeat');document.getElementById('priceSubmit').textContent=t('submit');document.getElementById('priceSubmit').hidden=false;document.getElementById('priceNext').hidden=true}
 function submitPriceGuess(){
  if(priceAnswered)return;
@@ -1001,6 +1001,7 @@ const AUTH_API='/api';
 async function apiRequest(path, body){
   const options={method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',headers:{'Accept':'application/json','Cache-Control':'no-cache','Pragma':'no-cache'}};
   if(body){options.headers['Content-Type']='application/json';options.body=JSON.stringify(body)}
+  const savedZanko=v17GetSavedFreeGame("zanko");if(savedZanko)options.headers["X-JALSA-Free-Game-Session"]=savedZanko.sessionId;
   const response=await fetch(AUTH_API+path,options);
   let data={};try{data=await response.json()}catch{}
   if(!response.ok){const error=new Error(data.error||'Request failed. Please try again.');error.status=response.status;throw error;}
@@ -1043,7 +1044,7 @@ function showAuth(view='login'){
   document.getElementById('passwordHint').textContent=t('passwordHint');
 }
 function closeAuth(){document.getElementById('authOverlay').classList.remove('open')}
-function showAdminButton(){const logged=!!currentUser;document.getElementById('loginButton').hidden=logged;document.getElementById('registerButton').hidden=logged;document.getElementById('accountLabel').hidden=!logged;document.getElementById('accountLabel').textContent=logged?currentUser.name:'';const dashboard=document.getElementById('drawerDashboardButton');if(dashboard)dashboard.hidden=!(logged&&currentUser.isAdmin);if(logged&&typeof v17RenderAvatar==='function'){v17RenderAvatar(currentUser.avatarDataUrl);document.getElementById('drawerName').textContent=currentUser.name||'';document.getElementById('drawerEmail').textContent=currentUser.email||''}document.body.classList.remove('session-pending')}
+function showAdminButton(){const logged=!!currentUser;document.getElementById('loginButton').hidden=logged;document.getElementById('registerButton').hidden=logged;document.getElementById('accountLabel').hidden=!logged;document.getElementById('accountLabel').textContent=logged?currentUser.name:'';const dashboard=document.getElementById('drawerDashboardButton');if(dashboard)dashboard.hidden=!(logged&&currentUser.isAdmin);const premiumBadge=document.getElementById('drawerPremiumBadge');if(premiumBadge){premiumBadge.hidden=true;if(logged){const userId=currentUser.id;v17Request('/subscription-status','GET').then(status=>{if(!currentUser||currentUser.id!==userId)return;premiumBadge.hidden=!(status.active&&['paddle','stripe','admin-grant'].includes(status.source))}).catch(()=>{premiumBadge.hidden=true})}}if(logged&&typeof v17RenderAvatar==='function'){v17RenderAvatar(currentUser.avatarDataUrl);document.getElementById('drawerName').textContent=currentUser.name||'';document.getElementById('drawerEmail').textContent=currentUser.email||''}document.body.classList.remove('session-pending')}
 async function refreshSession(){
   let lastError=null;
   for(let attempt=0;attempt<2;attempt++){
@@ -1178,6 +1179,7 @@ Object.assign(v17I18n.en,{
  mySubscription:"My subscription",freeSubscriptionMode:"JALSA is free for everyone right now.",subscribeMonthly:"Subscribe monthly",manageBilling:"Manage billing",cancelAtRenewal:"Cancel at renewal",
  subscriptionModalTitle:"Unlock all JALSA games",subscriptionModalIntro:"Enjoy every JALSA game with one monthly membership.",perMonth:"month",subscribeForMonthly:"Subscribe for $7.99/month",
  profileSubscription:"Subscription",profileSubscriptionIntro:"View your access and manage recurring billing.",manageSubscription:"Manage subscription",subscriptionModalNoAccess:"An active subscription is needed to play all JALSA games.",
+ freeGameUsed:"You've used your one free game. Subscribe to JALSA Premium to keep playing.",
  recurringDisclosure:"The paid plan renews automatically every month until you cancel. You can cancel before the next renewal; access continues until the current paid period ends.",
  subscriptionNeedsSetup:"Paid subscriptions are not configured in this test environment yet.",subscriptionAlreadyActive:"Your account already has active access.",
  subscriptionPaidActive:"Monthly subscription active",subscriptionCancelScheduled:"Your subscription is set to cancel at the end of this paid period.",
@@ -1228,7 +1230,9 @@ function v17SyncLanguage(){
  const imposterTitle=document.getElementById("imposterFormTitle");if(imposterTitle)imposterTitle.textContent=v17T(document.getElementById("imposterWordId")?.value?"editWord":"addImposterWord");
 }
 function v17ShowStatus(id,message,error){const el=document.getElementById(id);if(!el)return;el.textContent=message;el.hidden=false;el.classList.toggle("error",!!error)}
-async function v17Request(path,method,body){const options={method:method||"GET",credentials:"same-origin",headers:{"Accept":"application/json"}};if(body!==undefined){options.headers["Content-Type"]="application/json";options.body=JSON.stringify(body)}const response=await fetch("/api"+path,options);let data={};try{data=await response.json()}catch{}if(!response.ok){const error=new Error(data.error||v17T("failed"));error.code=data.code||"";error.status=response.status;throw error}return data}
+let v17ActiveGameId="";
+function v17GetSavedFreeGame(gameId){try{const saved=JSON.parse(localStorage.getItem("jalsa_free_game_session_v1")||"null");return saved&&saved.gameId===gameId&&saved.userId===currentUser?.id&&saved.sessionId? saved:null}catch{return null}}
+async function v17Request(path,method,body){const options={method:method||"GET",credentials:"same-origin",headers:{"Accept":"application/json"}};if(body!==undefined){options.headers["Content-Type"]="application/json";options.body=JSON.stringify(body)}const saved=v17ActiveGameId?v17GetSavedFreeGame(v17ActiveGameId):null;if(saved)options.headers["X-JALSA-Free-Game-Session"]=saved.sessionId;const response=await fetch("/api"+path,options);let data={};try{data=await response.json()}catch{}if(!response.ok){const error=new Error(data.error||v17T("failed"));error.code=data.code||"";error.status=response.status;throw error}return data}
 async function openSubscriptionModal(prefetchedStatus){
  closeAccountDrawer();
  const modal=document.getElementById("subscriptionModal");
@@ -1256,7 +1260,7 @@ async function openSubscriptionModal(prefetchedStatus){
    manage.hidden=false;
    cancel.hidden=status.source==="paddle"||!!status.cancelAtPeriodEnd;
   }else{
-   summary.textContent=v17T("subscriptionModalNoAccess");
+   summary.textContent=status.freeGameUsed?v17T("freeGameUsed"):v17T("subscriptionModalNoAccess");
    checkout.hidden=false;
   }
  }catch(error){
@@ -1318,15 +1322,22 @@ async function v17CancelMySubscription(){
   v17ShowStatus("subscriptionModalMessage",v17T("cancellationScheduled"),false);
  }catch(error){v17ShowStatus("subscriptionModalMessage",error.message||v17T("subscriptionBillingError"),true)}
 }
-async function v17CheckSubscriptionAccess(){
+async function v17CheckSubscriptionAccess(gameId="zanko"){
  if(!currentUser){showAuth("login");return false}
+ v17ActiveGameId=gameId;
  try{
-  const status=await v17Request("/subscription-status","GET");
-  if(status.allowed)return true;
-  await openSubscriptionModal(status);
-  return false;
+  const saved=v17GetSavedFreeGame(gameId);
+  const sessionId=saved?.sessionId||(crypto.randomUUID?crypto.randomUUID():Array.from(crypto.getRandomValues(new Uint8Array(24)),b=>b.toString(16).padStart(2,"0")).join(""));
+  const result=await v17Request("/game-access/start","POST",{gameId,sessionId});
+  localStorage.setItem("jalsa_free_game_session_v1",JSON.stringify({userId:currentUser.id,gameId,sessionId}));
+  return !!result.allowed;
  }catch(error){
   if(error.code==="LOGIN_REQUIRED"){showAuth("login");return false}
+  if(error.code==="SUBSCRIPTION_REQUIRED"){
+   try{const status=await v17Request("/subscription-status","GET");status.freeGameUsed=true;await openSubscriptionModal(status)}
+   catch{await openSubscriptionModal({enabled:true,active:false,allowed:false,freeGameUsed:true})}
+   return false;
+  }
   showToast(error.message||v17T("failed"));return false;
  }
 }
@@ -1557,9 +1568,9 @@ function resetImposterWordForm(){document.getElementById("imposterWordForm").res
 function editImposterWord(id){const w=imposterWords.find(x=>x.id===id);if(!w)return;document.getElementById("imposterWordId").value=w.id;document.getElementById("imposterWordCategory").value=w.category;document.getElementById("imposterWordEn").value=w.word_en;document.getElementById("imposterWordAr").value=w.word_ar||"";document.getElementById("imposterFormTitle").textContent=v17T("editWord");document.getElementById("imposterWordCategory").focus()}
 async function saveImposterWord(event){event.preventDefault();const id=document.getElementById("imposterWordId").value;const body={category:document.getElementById("imposterWordCategory").value,word_en:document.getElementById("imposterWordEn").value,word_ar:document.getElementById("imposterWordAr").value};try{await v17Request(id?"/admin/imposter-words/"+encodeURIComponent(id):"/admin/imposter-words",id?"PATCH":"POST",body);resetImposterWordForm();await loadImposterWords();v17SetAdminStatus(v17T("imposterWordSaved"),false)}catch(e){v17SetAdminStatus(e.message,true)}}
 async function removeImposterWord(id){if(!confirm(v17T("confirmDeleteImposterWord")))return;try{await v17Request("/admin/imposter-words/"+encodeURIComponent(id),"DELETE");await loadImposterWords();v17SetAdminStatus(v17T("imposterWordDeleted"),false)}catch(e){v17SetAdminStatus(e.message,true)}}
-async function startImposterGame(){if(!(await v17IsGameEnabled("imposter"))){showToast(V17_GAME_WAIT_TEXT);return}if(!currentUser){showAuth("login");return}if(!(await v17CheckSubscriptionAccess()))return;location.href="/imposter.html"}
-async function startInsightGame(){if(!(await v17IsGameEnabled("insight"))){showToast(V17_GAME_WAIT_TEXT);return}if(!currentUser){showAuth("login");return}if(!(await v17CheckSubscriptionAccess()))return;location.href="/insight.html"}
-async function startMafiaGame(){if(!(await v17IsGameEnabled("mafia"))){showToast(V17_GAME_WAIT_TEXT);return}if(!currentUser){showAuth("login");return}if(!(await v17CheckSubscriptionAccess()))return;location.href="/mafia.html"}
+async function startImposterGame(){if(!(await v17IsGameEnabled("imposter"))){showToast(V17_GAME_WAIT_TEXT);return}if(!currentUser){showAuth("login");return}if(!(await v17CheckSubscriptionAccess("imposter")))return;location.href="/imposter.html"}
+async function startInsightGame(){if(!(await v17IsGameEnabled("insight"))){showToast(V17_GAME_WAIT_TEXT);return}if(!currentUser){showAuth("login");return}if(!(await v17CheckSubscriptionAccess("insight")))return;location.href="/insight.html"}
+async function startMafiaGame(){if(!(await v17IsGameEnabled("mafia"))){showToast(V17_GAME_WAIT_TEXT);return}if(!currentUser){showAuth("login");return}if(!(await v17CheckSubscriptionAccess("mafia")))return;location.href="/mafia.html"}
 async function renderAdminFeedback(){
  const holder=document.getElementById("adminFeedbackList");
  holder.innerHTML="<p class='v17-muted'>"+v17T("loading")+"</p>";
