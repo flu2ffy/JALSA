@@ -11,8 +11,8 @@ main{max-width:520px;margin:0 auto}.top{display:flex;justify-content:space-betwe
 .player-list{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.player-chip{border-radius:20px;background:#f2e0c4;padding:8px 11px;font-weight:800;font-size:13px}.player-chip.dead{opacity:.4;text-decoration:line-through}.timer{font:900 42px Georgia,serif;color:var(--red);font-variant-numeric:tabular-nums;margin:8px 0}.result-card{background:#fff;border:1px solid #e4c49a;border-radius:16px;padding:15px;margin:12px 0;font-size:18px;font-weight:900;color:var(--wine)}.role-reveal-row{display:flex;align-items:center;gap:10px;text-align:start;border-radius:13px;background:#fffaf2;padding:10px;margin:8px 0}.role-reveal-row .mini{font-size:24px;width:38px;text-align:center}.footer-note{text-align:center;color:#f7e2ca;font-size:12px;margin:14px 8px}
 @media(max-width:420px){.card{padding:17px}.role-icon{width:118px;height:118px;font-size:65px}.stage-text{font-size:21px}}
 
-.role-portrait{width:min(320px,76vw);aspect-ratio:1;margin:0 auto 16px;border-radius:22px;border:3px solid #c99b62;background-color:#26080e;background-image:none;background-repeat:no-repeat;background-size:300% 400%;box-shadow:0 14px 34px #26080e55,inset 0 0 0 1px #fff4df66}
-@media(max-width:420px){.role-portrait{width:min(270px,72vw);border-radius:18px}}
+.role-portrait{width:192px;height:192px;aspect-ratio:1;margin:0 auto 16px;border-radius:18px;border:3px solid #c99b62;background-color:#26080e;background-image:none;background-repeat:no-repeat;background-size:300% 400%;box-shadow:0 10px 26px #26080e55,inset 0 0 0 1px #fff4df66}
+@media(max-width:420px){.role-portrait{width:192px;height:192px;border-radius:18px}}
 body.player-eliminated{background:#39060d!important;overflow:hidden!important;min-height:100vh}
 body.player-eliminated main{visibility:hidden!important}
 .eliminated-screen{position:fixed;inset:0;z-index:999999;display:grid;place-items:center;box-sizing:border-box;padding:28px;color:#fff3ed;text-align:center;background:radial-gradient(ellipse at 50% 35%,#b51d2c 0%,#790b19 42%,#33040b 100%)}
@@ -22,6 +22,17 @@ body.player-eliminated main{visibility:hidden!important}
 .eliminated-title{margin:0 auto 14px;max-width:500px;color:#fff5ee;font:900 clamp(34px,8vw,58px)/1.05 Georgia,serif;text-shadow:0 3px 24px #19000688}
 .eliminated-message{margin:0 auto;color:#f7d8d0;font-size:16px;line-height:1.7;max-width:420px}
 .eliminated-round{margin-top:30px;color:#efafa9;font-size:11px;font-weight:900;letter-spacing:3px;text-transform:uppercase}
+
+
+.death-notice-screen{position:fixed;inset:0;z-index:1000000;display:grid;place-items:center;box-sizing:border-box;padding:24px;background:rgba(72,76,83,.96);backdrop-filter:blur(8px);color:#252930;text-align:center;animation:deathNoticeIn .22s ease-out both}
+.death-notice-card{width:min(520px,100%);padding:clamp(28px,7vw,52px) 22px;border:1px solid #fff;border-radius:24px;background:linear-gradient(155deg,#f1f2f3,#d7d9dc);box-shadow:0 24px 90px #11182088,inset 0 0 0 1px #ffffff99}
+.death-notice-kicker{font-size:11px;font-weight:1000;letter-spacing:4px;color:#747a83;margin-bottom:22px}
+.death-notice-icon{width:76px;height:76px;display:grid;place-items:center;margin:0 auto 20px;border-radius:50%;background:#bfc3c8;color:#343941;font-size:38px;box-shadow:inset 0 0 0 1px #fff}
+.death-notice-title{font:900 clamp(19px,4vw,25px)/1.2 Arial,sans-serif;letter-spacing:1px;color:#555c65;margin:0 0 16px}
+.death-notice-name{font:900 clamp(32px,8vw,48px)/1.1 Georgia,serif;color:#20252b;overflow-wrap:anywhere;margin:0 0 12px}
+.death-notice-message{font-size:16px;line-height:1.6;color:#535a63;margin:0 auto}
+.death-notice-round{font-size:10px;letter-spacing:3px;font-weight:900;color:#858b93;margin-top:28px}
+@keyframes deathNoticeIn{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:scale(1)}}
 
 </style></head><body><main>
 <header class="top"><a class="brand" href="/" aria-label="JALSA home"><img src="/jalsa-logo.png" alt="JALSA"></a><span class="lang" id="languageLabel">English</span></header>
@@ -38,12 +49,24 @@ body.player-eliminated main{visibility:hidden!important}
   <div id="eliminatedRound" class="eliminated-round"></div>
  </div>
 </div>
+
+<div id="deathNotice" class="death-notice-screen hidden" role="alert" aria-live="assertive" aria-atomic="true">
+ <div class="death-notice-card">
+  <div class="death-notice-kicker">JALSA · MAFIA</div>
+  <div class="death-notice-icon" aria-hidden="true">⚰</div>
+  <h2 id="deathNoticeTitle" class="death-notice-title">A PLAYER HAS BEEN ELIMINATED</h2>
+  <div id="deathNoticeName" class="death-notice-name"></div>
+  <p id="deathNoticeMessage" class="death-notice-message">has been eliminated.</p>
+  <div id="deathNoticeRound" class="death-notice-round"></div>
+ </div>
+</div>
+
 <script>
 const $=id=>document.getElementById(id);
 const params=new URLSearchParams(location.search),roomId=params.get("room")||"",key=params.get("key")||"";
 let lang=params.get("lang")||localStorage.getItem("jalsa_language")||"en";
 let playerId=roomId?localStorage.getItem("jalsa_mafia_"+roomId)||"":null;
-let pollTimer=null,lastState=null,lastRenderKey="",lastNarrationKey="";
+let pollTimer=null,lastState=null,lastRenderKey="",lastNarrationKey="",deathNoticeTimer=null,lastDeathNoticeKey="";
 let narrationAudio=null,audioUnlocked=false,audioUnlocking=false,narrationRunning=false,narrationEpoch=0;
 const pendingNarrationEvents=[];
 const queuedNarrationKeys=new Set();
@@ -52,9 +75,9 @@ let lastNarrationSeq=Number(localStorage.getItem("jalsa_mafia_narration_"+roomId
 const SILENT_UNLOCK_WAV="data:audio/wav;base64,UklGRjQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YRAAAAAAAAAAAAAAAAAAAAAAAAAA";
 const T={
 en:{
- joinTitle:"Join Mafia",joinDescription:"Enter the name you want everyone to see.",yourName:"Your name",join:"Join game",voiceHint:"Narration follows the host’s language. Keep your phone volume on.",waitingHost:"You're in! Keep your phone hidden and wait for the host.",hide:"Hide your phone from the other players.",roleReady:"Memorize your role. Tap Ready when you're done.",ready:"I'm ready",waitingReady:"Waiting for everyone to press Ready…",everyoneClose:"Everyone, close your eyes.",mafiaOpen:"Mafia, open your eyes and choose someone to kill.",mafiaClose:"Mafia, close your eyes.",doctorOpen:"Doctor, open your eyes and choose someone to save.",doctorClose:"Doctor, close your eyes.",investigatorOpen:"Investigator, open your eyes and choose someone to investigate.",investigatorClose:"Investigator, close your eyes.",nightResult:"Everyone, open your eyes.",discussion:"Discuss together. You have 10 minutes to decide who you suspect.",voteResult:"The vote is complete.",citizenEyes:"Keep your eyes closed. Wait for the narrator.",mafiaPrompt:"Choose one living player to eliminate.",doctorPrompt:"Choose one living player to save. You can save yourself.",investigatorPrompt:"Choose one living player to investigate. Your result is private.",kill:"Choose to eliminate",save:"Save this player",investigate:"Investigate",waitingAction:"Waiting for the role player to make a choice…",saved:"The Doctor saved someone. Nobody was eliminated last night.",eliminated:" was eliminated last night.",noElimination:"Nobody was eliminated last night.",timeLeft:"Time left to discuss and vote",votePrompt:"Choose who you suspect, or skip the vote.",skip:"Skip vote",submitVote:"Confirm vote",voteWaiting:"Your vote is locked. Waiting for the other living players…",voteOut:" was eliminated by the vote.",noVoteOut:"No one was eliminated by the vote.",timeout:"Time ran out before everyone voted. No one was eliminated.",youEliminated:"You have been eliminated. You can keep watching, but you cannot take actions.",eliminatedTitle:"You\u2019ve been eliminated",eliminatedMessage:"Your role is over. You can still watch the game, but you are out of the action.",mafiaWins:"The Mafia wins!",townWins:"The Citizens win!",roleMafia:"Mafia",roleDoctor:"Doctor",roleInvestigator:"Investigator",roleCitizen:"Citizen",mafiaDesc:"Your goal is to eliminate the other players without being discovered.",doctorDesc:"Choose one living player to protect each night. You may protect yourself.",investigatorDesc:"Investigate one player each night. You only learn Mafia or Citizen.",citizenDesc:"Listen, discuss, and find the Mafia. You have no night action.",mafiaResult:"MAFIA",citizenResult:"CITIZEN",yourInvestigation:"Your investigation result",newRound:"A new night is beginning…",roles:"Player roles",end:"The host ended this game.",error:"Connection problem. Reconnecting…",dead:"Eliminated",alive:"Alive",allReady:"Everyone is ready."},
+ joinTitle:"Join Mafia",joinDescription:"Enter the name you want everyone to see.",yourName:"Your name",join:"Join game",voiceHint:"Narration follows the host’s language. Keep your phone volume on.",waitingHost:"You're in! Keep your phone hidden and wait for the host.",hide:"Hide your phone from the other players.",roleReady:"Memorize your role. Tap Ready when you're done.",ready:"I'm ready",waitingReady:"Waiting for everyone to press Ready…",everyoneClose:"Everyone, close your eyes.",mafiaOpen:"Mafia, open your eyes and choose someone to kill.",mafiaClose:"Mafia, close your eyes.",doctorOpen:"Doctor, open your eyes and choose someone to save.",doctorClose:"Doctor, close your eyes.",investigatorOpen:"Investigator, open your eyes and choose someone to investigate.",investigatorClose:"Investigator, close your eyes.",nightResult:"Everyone, open your eyes.",discussion:"Discuss together. You have 10 minutes to decide who you suspect.",voteResult:"The vote is complete.",citizenEyes:"Keep your eyes closed. Wait for the narrator.",mafiaPrompt:"Choose one living player to eliminate.",doctorPrompt:"Choose one living player to save. You can save yourself.",investigatorPrompt:"Choose one living player to investigate. Your result is private.",kill:"Choose to eliminate",save:"Save this player",investigate:"Investigate",waitingAction:"Waiting for the role player to make a choice…",saved:"The Doctor saved someone. Nobody was eliminated last night.",eliminated:" was eliminated last night.",noElimination:"Nobody was eliminated last night.",timeLeft:"Time left to discuss and vote",votePrompt:"Choose who you suspect, or skip the vote.",skip:"Skip vote",submitVote:"Confirm vote",voteWaiting:"Your vote is locked. Waiting for the other living players…",voteOut:" was eliminated by the vote.",noVoteOut:"No one was eliminated by the vote.",timeout:"Time ran out before everyone voted. No one was eliminated.",youEliminated:"You have been eliminated. You can keep watching, but you cannot take actions.",eliminatedTitle:"You\u2019ve been eliminated",eliminatedMessage:"Your role is over. You can still watch the game, but you are out of the action.",deathNoticeTitle:"A PLAYER HAS BEEN ELIMINATED",deathNoticeMessage:"has been eliminated.",mafiaWins:"The Mafia wins!",townWins:"The Citizens win!",roleMafia:"Mafia",roleDoctor:"Doctor",roleInvestigator:"Investigator",roleCitizen:"Citizen",mafiaDesc:"Your goal is to eliminate the other players without being discovered.",doctorDesc:"Choose one living player to protect each night. You may protect yourself.",investigatorDesc:"Investigate one player each night. You only learn Mafia or Citizen.",citizenDesc:"Listen, discuss, and find the Mafia. You have no night action.",mafiaResult:"MAFIA",citizenResult:"CITIZEN",yourInvestigation:"Your investigation result",newRound:"A new night is beginning…",roles:"Player roles",end:"The host ended this game.",error:"Connection problem. Reconnecting…",dead:"Eliminated",alive:"Alive",allReady:"Everyone is ready."},
 ar:{
- joinTitle:"انضم إلى مافيا",joinDescription:"اكتب الاسم الذي تريد أن يراه اللاعبون.",yourName:"اسمك",join:"انضم إلى اللعبة",voiceHint:"سيتبع صوت الراوي اللغة التي يختارها المضيف. ارفع مستوى صوت هاتفك.",waitingHost:"انضممت! أخفِ هاتفك وانتظر بدء المضيف.",hide:"أخفِ هاتفك عن بقية اللاعبين.",roleReady:"احفظ دورك. اضغط «جاهز» عندما تنتهي.",ready:"أنا جاهز",waitingReady:"بانتظار ضغط الجميع على «جاهز»…",everyoneClose:"الجميع يغمض عينيه.",mafiaOpen:"يا مافيا، افتح عينيك واختر لاعباً لإقصائه.",mafiaClose:"يا مافيا، أغمض عينيك.",doctorOpen:"يا طبيب، افتح عينيك واختر لاعباً لإنقاذه.",doctorClose:"يا طبيب، أغمض عينيك.",investigatorOpen:"يا محقق، افتح عينيك واختر لاعباً للتحقيق معه.",investigatorClose:"يا محقق، أغمض عينيك.",nightResult:"الجميع يفتح عينيه.",discussion:"ابدؤوا النقاش. لديكم 10 دقائق لتحديد المشتبه به.",voteResult:"انتهى التصويت.",citizenEyes:"أبقِ عينيك مغلقتين وانتظر صوت الراوي.",mafiaPrompt:"اختر لاعباً واحداً على قيد اللعب لإقصائه.",doctorPrompt:"اختر لاعباً واحداً على قيد اللعب لإنقاذه. يمكنك إنقاذ نفسك.",investigatorPrompt:"اختر لاعباً للتحقيق معه. النتيجة سرية لك وحدك.",kill:"اختيار للإقصاء",save:"إنقاذ هذا اللاعب",investigate:"تحقيق",waitingAction:"بانتظار صاحب الدور ليختار…",saved:"أنقذ الطبيب أحد اللاعبين. لم يتم إقصاء أحد الليلة الماضية.",eliminated:" تم إقصاؤه الليلة الماضية.",noElimination:"لم يتم إقصاء أي لاعب الليلة الماضية.",timeLeft:"الوقت المتبقي للنقاش والتصويت",votePrompt:"اختر الشخص الذي تشك به أو تخطَّ التصويت.",skip:"تخطي التصويت",submitVote:"تأكيد التصويت",voteWaiting:"تم تثبيت تصويتك. بانتظار بقية اللاعبين الأحياء…",voteOut:" تم إقصاؤه بالتصويت.",noVoteOut:"لم يتم إقصاء أي لاعب بالتصويت.",timeout:"انتهى الوقت قبل تصويت الجميع. لم يتم إقصاء أحد.",youEliminated:"تم إقصاؤك. يمكنك متابعة اللعبة، لكن لا يمكنك اتخاذ أي إجراء.",eliminatedTitle:"لقد تم إقصاؤك",eliminatedMessage:"انتهى دورك في اللعبة. يمكنك متابعة ما يحدث، لكنك خرجت من اللعب.",mafiaWins:"فازت المافيا!",townWins:"فاز المواطنون!",roleMafia:"مافيا",roleDoctor:"الطبيب",roleInvestigator:"المحقق",roleCitizen:"مواطن",mafiaDesc:"هدفك إقصاء بقية اللاعبين دون أن يكتشفوا هويتك.",doctorDesc:"اختر لاعباً حياً لتحميه كل ليلة. يمكنك حماية نفسك.",investigatorDesc:"تحقّق من لاعب كل ليلة. ستعرف فقط إن كان مافيا أم مواطناً.",citizenDesc:"استمع وناقش واكتشف المافيا. ليس لديك إجراء ليلي.",mafiaResult:"مافيا",citizenResult:"مواطن",yourInvestigation:"نتيجة تحقيقك",newRound:"تبدأ ليلة جديدة…",roles:"أدوار اللاعبين",end:"أنهى المضيف هذه اللعبة.",error:"مشكلة في الاتصال. جارٍ إعادة الاتصال…",dead:"تم إقصاؤه",alive:"على قيد اللعب",allReady:"الجميع جاهز."}
+ joinTitle:"انضم إلى مافيا",joinDescription:"اكتب الاسم الذي تريد أن يراه اللاعبون.",yourName:"اسمك",join:"انضم إلى اللعبة",voiceHint:"سيتبع صوت الراوي اللغة التي يختارها المضيف. ارفع مستوى صوت هاتفك.",waitingHost:"انضممت! أخفِ هاتفك وانتظر بدء المضيف.",hide:"أخفِ هاتفك عن بقية اللاعبين.",roleReady:"احفظ دورك. اضغط «جاهز» عندما تنتهي.",ready:"أنا جاهز",waitingReady:"بانتظار ضغط الجميع على «جاهز»…",everyoneClose:"الجميع يغمض عينيه.",mafiaOpen:"يا مافيا، افتح عينيك واختر لاعباً لإقصائه.",mafiaClose:"يا مافيا، أغمض عينيك.",doctorOpen:"يا طبيب، افتح عينيك واختر لاعباً لإنقاذه.",doctorClose:"يا طبيب، أغمض عينيك.",investigatorOpen:"يا محقق، افتح عينيك واختر لاعباً للتحقيق معه.",investigatorClose:"يا محقق، أغمض عينيك.",nightResult:"الجميع يفتح عينيه.",discussion:"ابدؤوا النقاش. لديكم 10 دقائق لتحديد المشتبه به.",voteResult:"انتهى التصويت.",citizenEyes:"أبقِ عينيك مغلقتين وانتظر صوت الراوي.",mafiaPrompt:"اختر لاعباً واحداً على قيد اللعب لإقصائه.",doctorPrompt:"اختر لاعباً واحداً على قيد اللعب لإنقاذه. يمكنك إنقاذ نفسك.",investigatorPrompt:"اختر لاعباً للتحقيق معه. النتيجة سرية لك وحدك.",kill:"اختيار للإقصاء",save:"إنقاذ هذا اللاعب",investigate:"تحقيق",waitingAction:"بانتظار صاحب الدور ليختار…",saved:"أنقذ الطبيب أحد اللاعبين. لم يتم إقصاء أحد الليلة الماضية.",eliminated:" تم إقصاؤه الليلة الماضية.",noElimination:"لم يتم إقصاء أي لاعب الليلة الماضية.",timeLeft:"الوقت المتبقي للنقاش والتصويت",votePrompt:"اختر الشخص الذي تشك به أو تخطَّ التصويت.",skip:"تخطي التصويت",submitVote:"تأكيد التصويت",voteWaiting:"تم تثبيت تصويتك. بانتظار بقية اللاعبين الأحياء…",voteOut:" تم إقصاؤه بالتصويت.",noVoteOut:"لم يتم إقصاء أي لاعب بالتصويت.",timeout:"انتهى الوقت قبل تصويت الجميع. لم يتم إقصاء أحد.",youEliminated:"تم إقصاؤك. يمكنك متابعة اللعبة، لكن لا يمكنك اتخاذ أي إجراء.",eliminatedTitle:"لقد تم إقصاؤك",eliminatedMessage:"انتهى دورك في اللعبة. يمكنك متابعة ما يحدث، لكنك خرجت من اللعب.",deathNoticeTitle:"تم إقصاء لاعب",deathNoticeMessage:"تم إقصاؤه من اللعبة.",mafiaWins:"فازت المافيا!",townWins:"فاز المواطنون!",roleMafia:"مافيا",roleDoctor:"الطبيب",roleInvestigator:"المحقق",roleCitizen:"مواطن",mafiaDesc:"هدفك إقصاء بقية اللاعبين دون أن يكتشفوا هويتك.",doctorDesc:"اختر لاعباً حياً لتحميه كل ليلة. يمكنك حماية نفسك.",investigatorDesc:"تحقّق من لاعب كل ليلة. ستعرف فقط إن كان مافيا أم مواطناً.",citizenDesc:"استمع وناقش واكتشف المافيا. ليس لديك إجراء ليلي.",mafiaResult:"مافيا",citizenResult:"مواطن",yourInvestigation:"نتيجة تحقيقك",newRound:"تبدأ ليلة جديدة…",roles:"أدوار اللاعبين",end:"أنهى المضيف هذه اللعبة.",error:"مشكلة في الاتصال. جارٍ إعادة الاتصال…",dead:"تم إقصاؤه",alive:"على قيد اللعب",allReady:"الجميع جاهز."}
 };
 function t(k){return T[lang][k]||T.en[k]||k}
 function esc(v){return String(v||"").replace(/[&<>\"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]))}
@@ -147,6 +170,28 @@ doctor:{icon:'<svg viewBox="0 0 128 128" role="img" aria-label="Doctor"><path d=
 investigator:{icon:'<svg viewBox="0 0 128 128" role="img" aria-label="Investigator"><path d="M21 117Q29 82 63 82Q97 82 107 117Z" fill="#263e68"/><circle cx="63" cy="47" r="25" fill="#d7a47e"/><path d="M33 45Q35 14 66 15Q94 18 95 48L79 42L67 29L50 42Z" fill="#17253d"/><path d="M24 43Q62 29 102 43Q109 51 96 55Q61 61 30 54Q17 51 24 43Z" fill="#101b32"/><circle cx="84" cy="82" r="23" fill="#a7d8f2" fill-opacity=".35" stroke="#d9efff" stroke-width="7"/><path d="M100 99L118 117" stroke="#d9efff" stroke-width="11" stroke-linecap="round"/><circle cx="84" cy="82" r="11" fill="#dbeeff" fill-opacity=".7"/></svg>',cls:"role-investigator",name:"roleInvestigator",desc:"investigatorDesc"},
 citizen:{icon:'<svg viewBox="0 0 128 128" role="img" aria-label="Citizen"><circle cx="64" cy="36" r="18" fill="#d5a078"/><circle cx="27" cy="54" r="14" fill="#b9825d"/><circle cx="101" cy="54" r="14" fill="#e1b58a"/><path d="M31 112Q34 66 64 66Q94 66 97 112Z" fill="#c28b37"/><path d="M3 112Q5 77 27 75Q43 75 49 93L49 112Z" fill="#537c65"/><path d="M79 93Q85 75 101 75Q123 77 125 112H79Z" fill="#55729c"/><path d="M46 30Q47 10 66 9Q83 10 84 31Q65 20 46 30Z" fill="#553a2d"/></svg>',cls:"role-citizen",name:"roleCitizen",desc:"citizenDesc"}
 };return items[role]||items.citizen}
+
+function showDeathNotice(s){
+ let kind="",outcome=null;
+ if(s.stage==="nightResult"&&s.nightOutcome?.eliminatedId){kind="night";outcome=s.nightOutcome}
+ else if(s.stage==="voteResult"&&s.voteOutcome?.eliminatedId){kind="vote";outcome=s.voteOutcome}
+ if(!outcome||!outcome.eliminatedName||s.player?.alive===false||outcome.eliminatedId===s.player?.id)return;
+ const key=[kind,s.round,s.stageSeq,outcome.eliminatedId].join("|");
+ if(key===lastDeathNoticeKey)return;
+ lastDeathNoticeKey=key;
+ if(deathNoticeTimer)clearTimeout(deathNoticeTimer);
+ $("deathNoticeName").textContent=outcome.eliminatedName;
+ $("deathNoticeTitle").textContent=t("deathNoticeTitle");
+ $("deathNoticeMessage").textContent=t("deathNoticeMessage");
+ $("deathNoticeRound").textContent="JALSA · "+t("round")+" "+s.round;
+ $("deathNotice").dir=lang==="ar"?"rtl":"ltr";
+ $("deathNotice").classList.remove("hidden");
+ deathNoticeTimer=setTimeout(()=>{
+  $("deathNotice").classList.add("hidden");
+  deathNoticeTimer=null;
+ },3000);
+}
+
 function buttonList(targets,action,buttonKey,includeSelf=false){
  return '<div class="target-list">'+(targets||[]).map(p=>'<button class="target" onclick="sendMafiaAction(\''+action+'\',\''+esc(p.id)+'\')">'+esc(p.name)+(p.id===playerId?(lang==="ar"?" (أنا)":" (you)"):"")+'</button>').join("")+'</div>';
 }
@@ -167,6 +212,7 @@ function renderState(s){
  $("eliminatedScreen").classList.add("hidden");
  showGame();
  const stage=s.stage,meta=s.role?roleMeta(s.role):null;
+  showDeathNotice(s);
  if(stage==="roles"&&meta&&!s.ready&&!roleSpriteUrl&&!roleSpriteLoadStarted){
   roleSpriteLoadStarted=true;
   loadRoleSprite().then(()=>{
