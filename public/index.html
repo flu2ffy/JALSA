@@ -471,7 +471,11 @@ html[dir="rtl"] .game-card:nth-child(5)::before{background-image:url('/mafia-bg.
 
 
 /* Answer image/video should fill the available answer frame, not sit at intrinsic size. */
-#questionScreen .question-center #questionAnswerMedia{
+#questionScreen .question-center #questionAnswerMedia[hidden],
+#questionScreen .question-center #questionMedia[hidden]{
+  display:none !important;
+}
+#questionScreen .question-center #questionAnswerMedia:not([hidden]){
   display:block !important;
   width:min(1100px,100%) !important;
   max-width:min(1100px,100%) !important;
