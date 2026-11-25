@@ -469,6 +469,48 @@ html[dir="rtl"] .game-card:nth-child(5)::before{background-image:url('/mafia-bg.
   }
 }
 
+
+/* Answer image/video should fill the available answer frame, not sit at intrinsic size. */
+#questionScreen .question-center #questionAnswerMedia{
+  display:block !important;
+  width:min(1100px,100%) !important;
+  max-width:min(1100px,100%) !important;
+  height:auto !important;
+  max-height:none !important;
+  min-height:0 !important;
+  overflow:visible !important;
+  flex:0 1 auto !important;
+  margin:8px auto !important;
+  padding:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
+}
+#questionScreen .question-center #questionAnswerMedia img,
+#questionScreen .question-center #questionAnswerMedia video{
+  display:block !important;
+  width:100% !important;
+  height:auto !important;
+  max-width:100% !important;
+  max-height:54vh !important;
+  object-fit:contain !important;
+  object-position:center !important;
+  margin:0 auto !important;
+  padding:0 !important;
+  background:transparent !important;
+  border-radius:14px;
+}
+@media(max-width:760px){
+  #questionScreen .question-center #questionAnswerMedia{
+    width:100% !important;
+    max-width:100% !important;
+    margin:5px auto !important;
+  }
+  #questionScreen .question-center #questionAnswerMedia img,
+  #questionScreen .question-center #questionAnswerMedia video{
+    max-height:48vh !important;
+  }
+}
+
 </style>
 </head>
 <body class="session-pending">
