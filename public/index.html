@@ -515,6 +515,95 @@ html[dir="rtl"] .game-card:nth-child(5)::before{background-image:url('/mafia-bg.
   }
 }
 
+
+/* Expanded answer view: keep the media and scoring controls in normal flow. */
+#questionScreen.stage-shell{
+  height:auto !important;
+  min-height:calc(100vh - 74px) !important;
+  flex:0 0 auto !important;
+  overflow:visible !important;
+}
+#questionScreen .question-layout{
+  height:auto !important;
+  min-height:calc(100vh - 170px) !important;
+  flex:0 0 auto !important;
+  overflow:visible !important;
+}
+#questionScreen .question-center.answer-with-media{
+  width:min(1500px,100%) !important;
+  max-width:1500px !important;
+  height:auto !important;
+  min-height:0 !important;
+  max-height:none !important;
+  flex:0 0 auto !important;
+  overflow:visible !important;
+  justify-content:flex-start !important;
+  gap:12px !important;
+  padding:clamp(14px,2vw,28px) !important;
+  margin:0 auto 22px !important;
+}
+#questionScreen .question-center.answer-with-media .question-category,
+#questionScreen .question-center.answer-with-media .question-points{
+  margin:0 0 3px !important;
+}
+#questionScreen .question-center.answer-with-media .question-text{
+  margin:3px 0 4px !important;
+}
+#questionScreen .question-center.answer-with-media .answer-result:not([hidden]){
+  margin:5px auto 2px !important;
+}
+#questionScreen .question-center.answer-with-media #questionAnswerMedia:not([hidden]){
+  display:block !important;
+  width:100% !important;
+  max-width:1360px !important;
+  height:auto !important;
+  max-height:none !important;
+  min-height:0 !important;
+  flex:0 0 auto !important;
+  overflow:visible !important;
+  margin:8px auto 12px !important;
+  padding:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
+}
+#questionScreen .question-center.answer-with-media #questionAnswerMedia img,
+#questionScreen .question-center.answer-with-media #questionAnswerMedia video{
+  display:block !important;
+  width:100% !important;
+  height:auto !important;
+  max-width:100% !important;
+  max-height:58vh !important;
+  object-fit:contain !important;
+  object-position:center !important;
+  margin:0 auto !important;
+  padding:0 !important;
+  background:transparent !important;
+}
+#questionScreen .question-center.answer-with-media #awardRow:not([hidden]){
+  width:min(1100px,100%) !important;
+  margin:10px auto 0 !important;
+  padding:0 !important;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+}
+#questionScreen .question-center.answer-with-media #noPoints:not([hidden]){
+  margin:9px auto 0 !important;
+}
+@media(max-width:760px){
+  #questionScreen .question-layout{min-height:0 !important}
+  #questionScreen .question-center.answer-with-media{
+    width:100% !important;
+    padding:12px 9px !important;
+    gap:9px !important;
+  }
+  #questionScreen .question-center.answer-with-media #questionAnswerMedia img,
+  #questionScreen .question-center.answer-with-media #questionAnswerMedia video{
+    max-height:50vh !important;
+  }
+  #questionScreen .question-center.answer-with-media #awardRow:not([hidden]){
+    grid-template-columns:1fr !important;
+  }
+}
+
 </style>
 </head>
 <body class="session-pending">
@@ -1020,8 +1109,8 @@ function renderGameHudAndBoard(){document.getElementById('turnBanner').textConte
 function teamCardHTML(name,index,showPowers=true){const current=index===gameState.turn;const p=gameState.power[index]||{call:false,double:false,steal:false};const callTip=t('callFriendTip'),doubleTip=t('doubleTip'),stealTip=t('stealTip');const powers=showPowers?`<div class="power-row">${powerButton(index,'call','',p.call,callTip)}${powerButton(index,'double','2×',p.double,doubleTip)}${powerButton(index,'steal','⇄',p.steal,stealTip)}</div>`:'';return `<article class="team-hud-card ${index===1?'blue':''} ${current?'current':''}"><div class="hud-team-name">${escapeHtml(name)}</div><div class="hud-score">${gameState.scores[index]}</div>${powers}</article>`}
 function powerButton(team,key,icon,used,tip){const labels={call:t('callFriend'),double:t('double'),steal:t('steal')};return `<button type="button" class="power-btn ${used?'used':''}" ${used?'disabled':''} onclick="usePower(${team},'${key}')" aria-label="${labels[key]}" title="${labels[key]} — ${tip}">${icon?`<span class="power-icon">${icon}</span>`:""}<span class="power-label">${labels[key]}</span><span class="tooltip">${tip}</span></button>`}
 function chooseTile(id){if(gameState.remotePaused){showToast(isArabic?'اللعبة متوقفة مؤقتاً':'The game is paused.');return}const tile=Object.values(gameState.tiles).flat().find(x=>x.id===id);if(!tile||tile.used)return;if(tile.owner!==gameState.turn&&!gameState.stealActive)return;if(gameState.callTimer){clearInterval(gameState.callTimer);gameState.callTimer=null;hideToast()}gameState.currentTile=tile;gameState.answerRevealed=false;if(gameState.stealActive){gameState.power[gameState.turn].steal=true;gameState.stealActive=false}tile.actualPoints=tile.points*(gameState.doubleNext?2:1);tile.multiplied=gameState.doubleNext;gameState.doubleNext=false;renderQuestionScreen();showStageScreen('questionScreen');publishRemoteState()}
-function renderQuestionScreen(){const tile=gameState.currentTile;if(!tile)return;const c=CATEGORIES.find(x=>x.id===tile.category);document.getElementById('questionTurn').textContent=gameState.teamNames[gameState.turn]+t('turn');document.getElementById('questionCategory').textContent=isArabic?c.ar:c.name;document.getElementById('questionPrompt').textContent=isArabic?tile.qAr:tile.q;document.getElementById('questionAnswer').textContent=isArabic?tile.aAr:tile.a;v17RenderMedia(document.getElementById('questionMedia'),tile.mediaType,tile.mediaUrl);document.getElementById('questionPointValue').textContent=tile.multiplied?tile.points+' × 2 = '+tile.actualPoints+' '+t('points'):tile.points+' '+t('points');const answerShown=!!gameState.answerRevealed;const questionMedia=document.getElementById('questionMedia');questionMedia.hidden=!!(answerShown&&tile.answerMediaUrl);const answerMedia=document.getElementById('questionAnswerMedia');v17RenderMedia(answerMedia,tile.answerMediaType||'none',tile.answerMediaUrl||'');if(!answerShown)answerMedia.hidden=true;document.getElementById('questionAnswer').hidden=!answerShown;document.getElementById('revealAnswerButton').hidden=answerShown;document.getElementById('awardRow').hidden=!answerShown;document.getElementById('noPoints').hidden=!answerShown;document.getElementById('awardOne').textContent=gameState.teamNames[0]+' '+t('award')+' +'+tile.actualPoints;document.getElementById('awardTwo').textContent=gameState.teamNames[1]+' '+t('award')+' +'+tile.actualPoints;document.getElementById('questionHud').innerHTML=gameState.teamNames.map((name,i)=>teamCardHTML(name,i,false)).join('')}
-function revealCurrentAnswer(){gameState.answerRevealed=true;saveZankoSession();document.getElementById('questionAnswer').hidden=false;document.getElementById('questionAnswerMedia').hidden=!(gameState.currentTile&&gameState.currentTile.answerMediaUrl);document.getElementById('questionMedia').hidden=!!(gameState.currentTile&&gameState.currentTile.answerMediaUrl);document.getElementById('revealAnswerButton').hidden=true;document.getElementById('awardRow').hidden=false;document.getElementById('noPoints').hidden=false;publishRemoteState()}
+function renderQuestionScreen(){const tile=gameState.currentTile;if(!tile)return;const c=CATEGORIES.find(x=>x.id===tile.category);document.getElementById('questionTurn').textContent=gameState.teamNames[gameState.turn]+t('turn');document.getElementById('questionCategory').textContent=isArabic?c.ar:c.name;document.getElementById('questionPrompt').textContent=isArabic?tile.qAr:tile.q;document.getElementById('questionAnswer').textContent=isArabic?tile.aAr:tile.a;v17RenderMedia(document.getElementById('questionMedia'),tile.mediaType,tile.mediaUrl);document.getElementById('questionPointValue').textContent=tile.multiplied?tile.points+' × 2 = '+tile.actualPoints+' '+t('points'):tile.points+' '+t('points');const answerShown=!!gameState.answerRevealed;const questionCenter=document.querySelector('#questionScreen .question-center');questionCenter.classList.toggle('answer-with-media',!!(answerShown&&tile.answerMediaUrl));const questionMedia=document.getElementById('questionMedia');questionMedia.hidden=!!(answerShown&&tile.answerMediaUrl);const answerMedia=document.getElementById('questionAnswerMedia');v17RenderMedia(answerMedia,tile.answerMediaType||'none',tile.answerMediaUrl||'');if(!answerShown)answerMedia.hidden=true;document.getElementById('questionAnswer').hidden=!answerShown;document.getElementById('revealAnswerButton').hidden=answerShown;document.getElementById('awardRow').hidden=!answerShown;document.getElementById('noPoints').hidden=!answerShown;document.getElementById('awardOne').textContent=gameState.teamNames[0]+' '+t('award')+' +'+tile.actualPoints;document.getElementById('awardTwo').textContent=gameState.teamNames[1]+' '+t('award')+' +'+tile.actualPoints;document.getElementById('questionHud').innerHTML=gameState.teamNames.map((name,i)=>teamCardHTML(name,i,false)).join('')}
+function revealCurrentAnswer(){gameState.answerRevealed=true;saveZankoSession();document.getElementById('questionAnswer').hidden=false;document.getElementById('questionAnswerMedia').hidden=!(gameState.currentTile&&gameState.currentTile.answerMediaUrl);document.getElementById('questionMedia').hidden=!!(gameState.currentTile&&gameState.currentTile.answerMediaUrl);document.querySelector('#questionScreen .question-center').classList.toggle('answer-with-media',!!(gameState.currentTile&&gameState.currentTile.answerMediaUrl));document.getElementById('revealAnswerButton').hidden=true;document.getElementById('awardRow').hidden=false;document.getElementById('noPoints').hidden=false;publishRemoteState()}
 function awardQuestion(team){finishQuestion(team)}
 function finishQuestion(winner){const tile=gameState.currentTile;if(!tile)return;gameState.answerRevealed=false;const storedTile=Object.values(gameState.tiles).flat().find(x=>x.id===tile.id);if(winner!==null)gameState.scores[winner]+=tile.actualPoints;if(storedTile)storedTile.used=true;tile.used=true;gameState.turn=1-gameState.turn;gameState.currentTile=null;gameState.doubleNext=false;gameState.stealActive=false;const remaining=Object.values(gameState.tiles).flat().filter(x=>!x.used).length;if(!remaining){showGameOver();return}renderGameHudAndBoard();showStageScreen('boardScreen');publishRemoteState()}
 function showGameOver(){publishRemoteState();const winner=gameState.scores[0]===gameState.scores[1]?(isArabic?'تعادل!':'It’s a tie!'):gameState.teamNames[gameState.scores[0]>gameState.scores[1]?0:1];document.getElementById('gameoverScreen').innerHTML=`<div class="stage-heading"><h1 style="color:#fff2da;font-family:Georgia,serif">${t('finish')}</h1></div><div class="turn-banner">${t('champion')}: ${escapeHtml(winner)}</div><div class="team-hud">${gameState.teamNames.map((n,i)=>`<article class="team-hud-card ${i===1?'blue':''}"><div class="hud-team-name">${escapeHtml(n)}</div><div class="hud-score">${gameState.scores[i]}</div></article>`).join('')}</div><div class="stage-action-row"><button class="primary" onclick="showHome()">${t('returnHome')}</button></div>`;showStageScreen('gameoverScreen')}
