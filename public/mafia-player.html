@@ -11,8 +11,8 @@ main{max-width:520px;margin:0 auto}.top{display:flex;justify-content:space-betwe
 .player-list{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.player-chip{border-radius:20px;background:#f2e0c4;padding:8px 11px;font-weight:800;font-size:13px}.player-chip.dead{opacity:.4;text-decoration:line-through}.timer{font:900 42px Georgia,serif;color:var(--red);font-variant-numeric:tabular-nums;margin:8px 0}.result-card{background:#fff;border:1px solid #e4c49a;border-radius:16px;padding:15px;margin:12px 0;font-size:18px;font-weight:900;color:var(--wine)}.role-reveal-row{display:flex;align-items:center;gap:10px;text-align:start;border-radius:13px;background:#fffaf2;padding:10px;margin:8px 0}.role-reveal-row .mini{font-size:24px;width:38px;text-align:center}.footer-note{text-align:center;color:#f7e2ca;font-size:12px;margin:14px 8px}
 @media(max-width:420px){.card{padding:17px}.role-icon{width:118px;height:118px;font-size:65px}.stage-text{font-size:21px}}
 
-.role-portrait{width:192px;height:192px;aspect-ratio:1;margin:0 auto 16px;border-radius:18px;border:3px solid #c99b62;background-color:#26080e;background-image:none;background-repeat:no-repeat;background-size:300% 400%;box-shadow:0 10px 26px #26080e55,inset 0 0 0 1px #fff4df66}
-@media(max-width:420px){.role-portrait{width:192px;height:192px;border-radius:18px}}
+.role-portrait{width:min(340px,82vw);height:min(340px,82vw);aspect-ratio:1;margin:0 auto 16px;border-radius:22px;border:3px solid #c99b62;background-color:#26080e;background-image:none;background-repeat:no-repeat;background-size:300% 400%;box-shadow:0 14px 34px #26080e55,inset 0 0 0 1px #fff4df66;image-rendering:auto}
+@media(max-width:420px){.role-portrait{width:min(300px,78vw);height:min(300px,78vw);border-radius:18px}}
 body.player-eliminated{background:#39060d!important;overflow:hidden!important;min-height:100vh}
 body.player-eliminated main{visibility:hidden!important}
 .eliminated-screen{position:fixed;inset:0;z-index:999999;display:grid;place-items:center;box-sizing:border-box;padding:28px;color:#fff3ed;text-align:center;background:radial-gradient(ellipse at 50% 35%,#b51d2c 0%,#790b19 42%,#33040b 100%)}
@@ -25,7 +25,10 @@ body.player-eliminated main{visibility:hidden!important}
 
 
 .death-notice-screen{position:fixed;inset:0;z-index:1000000;display:grid;place-items:center;box-sizing:border-box;padding:24px;background:rgba(72,76,83,.96);backdrop-filter:blur(8px);color:#252930;text-align:center;animation:deathNoticeIn .22s ease-out both}
-.death-notice-card{width:min(520px,100%);padding:clamp(28px,7vw,52px) 22px;border:1px solid #fff;border-radius:24px;background:linear-gradient(155deg,#f1f2f3,#d7d9dc);box-shadow:0 24px 90px #11182088,inset 0 0 0 1px #ffffff99}
+.death-notice-card{position:relative;width:min(520px,100%);padding:clamp(28px,7vw,52px) 22px;border:1px solid #fff;border-radius:24px;background:linear-gradient(155deg,#f1f2f3,#d7d9dc);box-shadow:0 24px 90px #11182088,inset 0 0 0 1px #ffffff99}
+.death-notice-close{position:absolute;top:12px;right:12px;width:40px;height:40px;border:0;border-radius:50%;background:#c4c7cb;color:#30353c;font:900 28px/1 Arial,sans-serif;cursor:pointer;display:grid;place-items:center;box-shadow:0 1px 4px #30353c30}
+.death-notice-close:hover{background:#aeb3b9}
+.death-notice-close:focus-visible{outline:3px solid #59636f;outline-offset:3px}
 .death-notice-kicker{font-size:11px;font-weight:1000;letter-spacing:4px;color:#747a83;margin-bottom:22px}
 .death-notice-icon{width:76px;height:76px;display:grid;place-items:center;margin:0 auto 20px;border-radius:50%;background:#bfc3c8;color:#343941;font-size:38px;box-shadow:inset 0 0 0 1px #fff}
 .death-notice-title{font:900 clamp(19px,4vw,25px)/1.2 Arial,sans-serif;letter-spacing:1px;color:#555c65;margin:0 0 16px}
@@ -52,6 +55,7 @@ body.player-eliminated main{visibility:hidden!important}
 
 <div id="deathNotice" class="death-notice-screen hidden" role="alert" aria-live="assertive" aria-atomic="true">
  <div class="death-notice-card">
+  <button type="button" class="death-notice-close" onclick="closeDeathNotice()" aria-label="Close notification" title="Close">×</button>
   <div class="death-notice-kicker">JALSA · MAFIA</div>
   <div class="death-notice-icon" aria-hidden="true">⚰</div>
   <h2 id="deathNoticeTitle" class="death-notice-title">A PLAYER HAS BEEN ELIMINATED</h2>
@@ -189,9 +193,10 @@ function showDeathNotice(s){
  deathNoticeTimer=setTimeout(()=>{
   $("deathNotice").classList.add("hidden");
   deathNoticeTimer=null;
- },3000);
+ },8500);
 }
 
+function closeDeathNotice(){if(deathNoticeTimer){clearTimeout(deathNoticeTimer);deathNoticeTimer=null}$("deathNotice").classList.add("hidden")}
 function buttonList(targets,action,buttonKey,includeSelf=false){
  return '<div class="target-list">'+(targets||[]).map(p=>'<button class="target" onclick="sendMafiaAction(\''+action+'\',\''+esc(p.id)+'\')">'+esc(p.name)+(p.id===playerId?(lang==="ar"?" (أنا)":" (you)"):"")+'</button>').join("")+'</div>';
 }
