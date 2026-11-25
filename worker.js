@@ -153,6 +153,35 @@ const GAME_AVAILABILITY = [
   { id: "mafia", name: "Mafia" }
 ];
 const subscriptionSchemaPromises = new WeakMap();
+const zankoExtendedSchemaPromises = new WeakMap();
+async function ensureZankoExtendedSchema(env) {
+  const db = env?.DB;
+  if (!db) throw new Error("JALSA database binding is not configured.");
+  let pending = zankoExtendedSchemaPromises.get(db);
+  if (!pending) {
+    pending = (async () => {
+      const [categoryInfo, questionInfo] = await Promise.all([
+        db.prepare("PRAGMA table_info(game_categories)").all(),
+        db.prepare("PRAGMA table_info(game_questions)").all()
+      ]);
+      const categoryColumns = new Set((categoryInfo.results || []).map(column => column.name));
+      const questionColumns = new Set((questionInfo.results || []).map(column => column.name));
+      const statements = [];
+      if (!categoryColumns.has("group_en")) statements.push(db.prepare("ALTER TABLE game_categories ADD COLUMN group_en TEXT NOT NULL DEFAULT ''"));
+      if (!categoryColumns.has("group_ar")) statements.push(db.prepare("ALTER TABLE game_categories ADD COLUMN group_ar TEXT NOT NULL DEFAULT ''"));
+      if (!questionColumns.has("answer_media_type")) statements.push(db.prepare("ALTER TABLE game_questions ADD COLUMN answer_media_type TEXT NOT NULL DEFAULT 'none'"));
+      if (!questionColumns.has("answer_media_url")) statements.push(db.prepare("ALTER TABLE game_questions ADD COLUMN answer_media_url TEXT"));
+      if (statements.length) await db.batch(statements);
+      await db.batch([
+        db.prepare("UPDATE game_categories SET group_en=CASE WHEN id IN ('cartoon','disney') THEN 'Movies' WHEN id IN ('biology','physics','math') THEN 'Science' WHEN id='music' THEN 'Music' ELSE 'Other' END WHERE COALESCE(group_en,'')=''"),
+        db.prepare("UPDATE game_categories SET group_ar=CASE WHEN id IN ('cartoon','disney') THEN 'أفلام' WHEN id IN ('biology','physics','math') THEN 'العلوم' WHEN id='music' THEN 'الموسيقى' ELSE 'أخرى' END WHERE COALESCE(group_ar,'')=''")
+      ]);
+    })();
+    zankoExtendedSchemaPromises.set(db, pending);
+  }
+  try { await pending; }
+  catch (error) { zankoExtendedSchemaPromises.delete(db); throw error; }
+}
 async function ensureSubscriptionSchema(env) {
   const db = env?.DB;
   if (!db) throw new Error("JALSA database binding is not configured.");
@@ -1616,8 +1645,8 @@ async function deleteStoredMedia(env, value) {
   // A media file may be reused by more than one question or category.
   // Only remove the R2 object after every database reference has been removed.
   const references = await env.DB.prepare(
-    "SELECT (SELECT COUNT(*) FROM game_questions WHERE media_url = ?) + (SELECT COUNT(*) FROM game_categories WHERE image_url = ?) AS total"
-  ).bind(String(value), String(value)).first();
+    "SELECT (SELECT COUNT(*) FROM game_questions WHERE media_url = ?) + (SELECT COUNT(*) FROM game_questions WHERE answer_media_url = ?) + (SELECT COUNT(*) FROM game_categories WHERE image_url = ?) AS total"
+  ).bind(String(value), String(value), String(value)).first();
   if (!references || Number(references.total || 0) > 0) return;
   const key = String(value).slice("/api/media/".length);
   await env.MEDIA.delete(key);
@@ -1884,22 +1913,25 @@ async function deleteAdminUser(request, env, id) {
 }
 async function getGameContent(request, env) {
   if (!await getSessionUser(request, env)) return json({ error: "Please sign in to play." }, 401);
+  await ensureZankoExtendedSchema(env);
   const [cats, questions] = await Promise.all([
-    env.DB.prepare("SELECT id, name_en, name_ar, image_url, icon, sort_order FROM game_categories ORDER BY sort_order, name_en").all(),
+    env.DB.prepare("SELECT id, name_en, name_ar, image_url, icon, group_en, group_ar, sort_order FROM game_categories ORDER BY sort_order, name_en").all(),
     env.DB.prepare("SELECT * FROM game_questions ORDER BY created_at, id").all()
   ]);
   return json({ categories: cats.results || [], questions: questions.results || [] });
 }
 async function getAdminContent(request, env) {
   if (!await requireAdmin(request, env)) return json({ error: "Administrator access required." }, 403);
+  await ensureZankoExtendedSchema(env);
   const [cats, questions] = await Promise.all([
-    env.DB.prepare("SELECT id, name_en, name_ar, image_url, icon, sort_order FROM game_categories ORDER BY sort_order, name_en").all(),
+    env.DB.prepare("SELECT id, name_en, name_ar, image_url, icon, group_en, group_ar, sort_order FROM game_categories ORDER BY sort_order, name_en").all(),
     env.DB.prepare("SELECT * FROM game_questions ORDER BY game_type, category_id, difficulty, created_at DESC").all()
   ]);
   return json({ categories: cats.results || [], questions: questions.results || [] });
 }
 async function seedGameContent(request, env) {
   if (!await requireAdmin(request, env)) return json({ error: "Administrator access required." }, 403);
+  await ensureZankoExtendedSchema(env);
   const body = await readBody(request), categories = Array.isArray(body.categories) ? body.categories.slice(0, 30) : [], questions = Array.isArray(body.questions) ? body.questions.slice(0, 400) : [];
   const existing = await env.DB.prepare("SELECT COUNT(*) AS count FROM game_questions").first();
   if (Number(existing?.count || 0) > 0) return json({ ok: true, seeded: false });
@@ -1907,50 +1939,55 @@ async function seedGameContent(request, env) {
   const now = new Date().toISOString(), statements = [];
   for (let i = 0; i < categories.length; i++) {
     const c = categories[i]; if (!/^[a-z0-9_-]{2,48}$/.test(c.id || "") || !cleanText(c.name_en,80)) continue;
-    statements.push(env.DB.prepare("INSERT OR IGNORE INTO game_categories (id,name_en,name_ar,image_url,icon,sort_order,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)")
-      .bind(c.id, cleanText(c.name_en,80), cleanText(c.name_ar,80), cleanText(c.image_url,500) || null, cleanText(c.icon,12) || "🎯", i, now, now));
+    statements.push(env.DB.prepare("INSERT OR IGNORE INTO game_categories (id,name_en,name_ar,image_url,icon,group_en,group_ar,sort_order,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)")
+      .bind(c.id, cleanText(c.name_en,80), cleanText(c.name_ar,80), cleanText(c.image_url,500) || null, cleanText(c.icon,12) || "🎯", cleanText(c.group_en,80) || "Other", cleanText(c.group_ar,80) || "أخرى", i, now, now));
   }
   for (const q of questions) {
     const game = q.game_type === "price" ? "price" : "zanko", difficulty = ["easy","medium","hard"].includes(q.difficulty) ? q.difficulty : "medium";
     const mt = q.media_type || "none", mu = cleanText(q.media_url,1000);
     if (game === "zanko" && !categories.some(c => c.id === q.category_id)) continue;
     if (!validMedia(mt, mu)) continue;
-    statements.push(env.DB.prepare("INSERT OR IGNORE INTO game_questions (id,game_type,category_id,difficulty,question_en,question_ar,answer_en,answer_ar,media_type,media_url,product_name_en,product_name_ar,product_emoji,price_value,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+    const answerMediaType = game === "zanko" ? (q.answer_media_type || "none") : "none";
+    const answerMediaUrl = game === "zanko" ? cleanText(q.answer_media_url,1000) : "";
+    if (!["none","image","video"].includes(answerMediaType) || (answerMediaType !== "none" && !validMedia(answerMediaType, answerMediaUrl))) continue;
+    statements.push(env.DB.prepare("INSERT OR IGNORE INTO game_questions (id,game_type,category_id,difficulty,question_en,question_ar,answer_en,answer_ar,media_type,media_url,answer_media_type,answer_media_url,product_name_en,product_name_ar,product_emoji,price_value,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
       .bind(cleanText(q.id,80) || crypto.randomUUID(), game, game === "zanko" ? q.category_id : null, difficulty,
         cleanText(q.question_en,1000), cleanText(q.question_ar,1000), cleanText(q.answer_en,1000), cleanText(q.answer_ar,1000),
-        mt, mu || null, cleanText(q.product_name_en,160) || null, cleanText(q.product_name_ar,160) || null, cleanText(q.product_emoji,12) || null,
+        mt, mu || null, answerMediaType, answerMediaUrl || null, cleanText(q.product_name_en,160) || null, cleanText(q.product_name_ar,160) || null, cleanText(q.product_emoji,12) || null,
         q.price_value == null ? null : Number(q.price_value), now, now));
   }
-  for (let i = 0; i < statements.length; i += 50) {
-    await env.DB.batch(statements.slice(i, i + 50));
-  }
+  for (let i = 0; i < statements.length; i += 50) await env.DB.batch(statements.slice(i, i + 50));
   return json({ ok: true, seeded: true, inserted: statements.length });
 }
 function cleanCategory(body, id) {
   const nameEn = cleanText(body.name_en,80), nameAr = cleanText(body.name_ar,80), imageUrl = cleanText(body.image_url,500);
   if (nameEn.length < 2 || nameAr.length < 2) return { error: "Enter category names in English and Arabic." };
-  return { id: id || cleanText(body.id,48) || crypto.randomUUID(), name_en: nameEn, name_ar: nameAr, image_url: imageUrl, icon: cleanText(body.icon,12) || "🎯" };
+  return { id: id || cleanText(body.id,48) || crypto.randomUUID(), name_en: nameEn, name_ar: nameAr, image_url: imageUrl, icon: cleanText(body.icon,12) || "🎯", group_en: cleanText(body.group_en,80) || "Other", group_ar: cleanText(body.group_ar,80) || "أخرى" };
 }
 async function createCategory(request, env) {
   if (!await requireAdmin(request, env)) return json({ error: "Administrator access required." }, 403);
-  const body = await readBody(request), c = cleanCategory(body), id = c.id.toLowerCase().replace(/[^a-z0-9_-]/g,"-"), now = new Date().toISOString();
+  const body = await readBody(request), c = cleanCategory(body);
   if (c.error) return json({ error: c.error }, 400);
-  await env.DB.prepare("INSERT INTO game_categories (id,name_en,name_ar,image_url,icon,sort_order,created_at,updated_at) VALUES (?,?,?,?,?,(SELECT COALESCE(MAX(sort_order),-1)+1 FROM game_categories),?,?)")
-    .bind(id,c.name_en,c.name_ar,c.image_url || null,c.icon,now,now).run();
+  const id = c.id.toLowerCase().replace(/[^a-z0-9_-]/g,"-"), now = new Date().toISOString();
+  await ensureZankoExtendedSchema(env);
+  await env.DB.prepare("INSERT INTO game_categories (id,name_en,name_ar,image_url,icon,group_en,group_ar,sort_order,created_at,updated_at) VALUES (?,?,?,?,?,?,?,(SELECT COALESCE(MAX(sort_order),-1)+1 FROM game_categories),?,?)")
+    .bind(id,c.name_en,c.name_ar,c.image_url || null,c.icon,c.group_en,c.group_ar,now,now).run();
   return json({ ok: true, id });
 }
 async function updateCategory(request, env, id) {
   if (!await requireAdmin(request, env)) return json({ error: "Administrator access required." }, 403);
+  await ensureZankoExtendedSchema(env);
   const body = await readBody(request), c = cleanCategory(body,id);
   if (c.error) return json({ error: c.error },400);
   const previous = await env.DB.prepare("SELECT image_url FROM game_categories WHERE id=? LIMIT 1").bind(id).first();
-  await env.DB.prepare("UPDATE game_categories SET name_en=?,name_ar=?,image_url=?,icon=?,updated_at=? WHERE id=?")
-    .bind(c.name_en,c.name_ar,c.image_url || null,c.icon,new Date().toISOString(),id).run();
+  await env.DB.prepare("UPDATE game_categories SET name_en=?,name_ar=?,image_url=?,icon=?,group_en=?,group_ar=?,updated_at=? WHERE id=?")
+    .bind(c.name_en,c.name_ar,c.image_url || null,c.icon,c.group_en,c.group_ar,new Date().toISOString(),id).run();
   if (previous?.image_url && previous.image_url !== c.image_url) await deleteStoredMedia(env, previous.image_url);
   return json({ok:true});
 }
 async function deleteCategory(request, env, id) {
   if (!await requireAdmin(request, env)) return json({ error: "Administrator access required." }, 403);
+  await ensureZankoExtendedSchema(env);
   const previous = await env.DB.prepare("SELECT image_url FROM game_categories WHERE id=? LIMIT 1").bind(id).first();
   await env.DB.prepare("DELETE FROM game_categories WHERE id=?").bind(id).run();
   if (previous?.image_url) await deleteStoredMedia(env, previous.image_url);
@@ -1962,44 +1999,49 @@ function cleanQuestion(body, id) {
   if (!validMedia(mediaType,mediaUrl)) return {error:"Choose a valid media type and an HTTPS media URL."};
   if (game === "zanko") {
     const q=cleanText(body.question_en,1000), a=cleanText(body.answer_en,1000);
+    const answerMediaType=body.answer_media_type||"none",answerMediaUrl=cleanText(body.answer_media_url,1000);
     if (!body.category_id || q.length<3 || !a.length) return {error:"Choose a category and enter the English question and answer."};
-    return {id:id || crypto.randomUUID(),game_type:game,category_id:cleanText(body.category_id,48),difficulty,question_en:q,question_ar:cleanText(body.question_ar,1000),answer_en:a,answer_ar:cleanText(body.answer_ar,1000),media_type:mediaType,media_url:mediaUrl || null,product_name_en:null,product_name_ar:null,product_emoji:null,price_value:null};
+    if (!["none","image","video"].includes(answerMediaType) || (answerMediaType!=="none" && !validMedia(answerMediaType,answerMediaUrl))) return {error:"Choose a valid image or video for the answer."};
+    return {id:id || crypto.randomUUID(),game_type:game,category_id:cleanText(body.category_id,48),difficulty,question_en:q,question_ar:cleanText(body.question_ar,1000),answer_en:a,answer_ar:cleanText(body.answer_ar,1000),media_type:mediaType,media_url:mediaUrl || null,answer_media_type:answerMediaType,answer_media_url:answerMediaType==="none"?null:answerMediaUrl,product_name_en:null,product_name_ar:null,product_emoji:null,price_value:null};
   }
   const name=cleanText(body.product_name_en,160), price=Number(body.price_value);
   if (name.length<2 || !Number.isFinite(price) || price<=0) return {error:"Enter a product name and a valid price above zero in USD."};
   if (mediaType === "none" || !mediaUrl) return {error:"Add a real product photo or another media file before saving."};
-  return {id:id || crypto.randomUUID(),game_type:game,category_id:null,difficulty,question_en:"",question_ar:"",answer_en:"",answer_ar:"",media_type:mediaType,media_url:mediaUrl,product_name_en:name,product_name_ar:cleanText(body.product_name_ar,160),product_emoji:null,price_value:price};
+  return {id:id || crypto.randomUUID(),game_type:game,category_id:null,difficulty,question_en:"",question_ar:"",answer_en:"",answer_ar:"",media_type:mediaType,media_url:mediaUrl,answer_media_type:"none",answer_media_url:null,product_name_en:name,product_name_ar:cleanText(body.product_name_ar,160),product_emoji:null,price_value:price};
 }
 async function createQuestion(request, env) {
   if (!await requireAdmin(request, env)) return json({error:"Administrator access required."},403);
+  await ensureZankoExtendedSchema(env);
   const body=await readBody(request),q=cleanQuestion(body);
   if(q.error)return json({error:q.error},400);
   if(q.game_type==="zanko" && !await env.DB.prepare("SELECT id FROM game_categories WHERE id=? LIMIT 1").bind(q.category_id).first())return json({error:"Choose an existing category."},400);
   const now=new Date().toISOString();
-  await env.DB.prepare("INSERT INTO game_questions (id,game_type,category_id,difficulty,question_en,question_ar,answer_en,answer_ar,media_type,media_url,product_name_en,product_name_ar,product_emoji,price_value,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
-    .bind(q.id,q.game_type,q.category_id,q.difficulty,q.question_en,q.question_ar,q.answer_en,q.answer_ar,q.media_type,q.media_url,q.product_name_en,q.product_name_ar,q.product_emoji,q.price_value,now,now).run();
+  await env.DB.prepare("INSERT INTO game_questions (id,game_type,category_id,difficulty,question_en,question_ar,answer_en,answer_ar,media_type,media_url,answer_media_type,answer_media_url,product_name_en,product_name_ar,product_emoji,price_value,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+    .bind(q.id,q.game_type,q.category_id,q.difficulty,q.question_en,q.question_ar,q.answer_en,q.answer_ar,q.media_type,q.media_url,q.answer_media_type,q.answer_media_url,q.product_name_en,q.product_name_ar,q.product_emoji,q.price_value,now,now).run();
   return json({ok:true,id:q.id});
 }
 async function updateQuestion(request, env, id) {
   if (!await requireAdmin(request, env)) return json({error:"Administrator access required."},403);
+  await ensureZankoExtendedSchema(env);
   const body=await readBody(request),q=cleanQuestion(body,id);
   if(q.error)return json({error:q.error},400);
   if(q.game_type==="zanko" && !await env.DB.prepare("SELECT id FROM game_categories WHERE id=? LIMIT 1").bind(q.category_id).first())return json({error:"Choose an existing category."},400);
-  const previous = await env.DB.prepare("SELECT media_url FROM game_questions WHERE id=? LIMIT 1").bind(id).first();
-  await env.DB.prepare("UPDATE game_questions SET game_type=?,category_id=?,difficulty=?,question_en=?,question_ar=?,answer_en=?,answer_ar=?,media_type=?,media_url=?,product_name_en=?,product_name_ar=?,product_emoji=?,price_value=?,updated_at=? WHERE id=?")
-    .bind(q.game_type,q.category_id,q.difficulty,q.question_en,q.question_ar,q.answer_en,q.answer_ar,q.media_type,q.media_url,q.product_name_en,q.product_name_ar,q.product_emoji,q.price_value,new Date().toISOString(),id).run();
+  const previous = await env.DB.prepare("SELECT media_url,answer_media_url FROM game_questions WHERE id=? LIMIT 1").bind(id).first();
+  await env.DB.prepare("UPDATE game_questions SET game_type=?,category_id=?,difficulty=?,question_en=?,question_ar=?,answer_en=?,answer_ar=?,media_type=?,media_url=?,answer_media_type=?,answer_media_url=?,product_name_en=?,product_name_ar=?,product_emoji=?,price_value=?,updated_at=? WHERE id=?")
+    .bind(q.game_type,q.category_id,q.difficulty,q.question_en,q.question_ar,q.answer_en,q.answer_ar,q.media_type,q.media_url,q.answer_media_type,q.answer_media_url,q.product_name_en,q.product_name_ar,q.product_emoji,q.price_value,new Date().toISOString(),id).run();
   if (previous?.media_url && previous.media_url !== q.media_url) await deleteStoredMedia(env, previous.media_url);
+  if (previous?.answer_media_url && previous.answer_media_url !== q.answer_media_url) await deleteStoredMedia(env, previous.answer_media_url);
   return json({ok:true});
 }
 async function deleteQuestion(request, env, id) {
   if (!await requireAdmin(request, env)) return json({error:"Administrator access required."},403);
-  const previous = await env.DB.prepare("SELECT media_url FROM game_questions WHERE id=? LIMIT 1").bind(id).first();
+  await ensureZankoExtendedSchema(env);
+  const previous = await env.DB.prepare("SELECT media_url,answer_media_url FROM game_questions WHERE id=? LIMIT 1").bind(id).first();
   await env.DB.prepare("DELETE FROM game_questions WHERE id=?").bind(id).run();
   if (previous?.media_url) await deleteStoredMedia(env, previous.media_url);
+  if (previous?.answer_media_url) await deleteStoredMedia(env, previous.answer_media_url);
   return json({ok:true});
 }
-
-
 
 /* JALSA Mafia: private-role, QR multiplayer game */
 async function ensureMafiaSchema(env) {
