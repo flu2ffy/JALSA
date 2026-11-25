@@ -605,66 +605,155 @@ html[dir="rtl"] .game-card:nth-child(5)::before{background-image:url('/mafia-bg.
 }
 
 
-/* Compact answer window: retain the media size, remove oversized empty space. */
+
+/* Stable Zanko question card: compact frame without collapsing its contents. */
 #questionScreen.stage-shell{
-  width:min(1240px,calc(100vw - 40px)) !important;
+  box-sizing:border-box;
+  width:min(1540px,100%);
+  max-width:1540px;
+  height:auto !important;
+  min-height:calc(100vh - 74px) !important;
+  flex:1 0 auto !important;
+  overflow:visible;
+  padding:12px clamp(12px,2vw,28px) 24px !important;
+}
+#questionScreen .question-layout{
+  box-sizing:border-box;
+  width:100%;
+  height:auto !important;
+  min-height:calc(100vh - 190px) !important;
+  flex:0 0 auto !important;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+#questionScreen .question-center{
+  box-sizing:border-box;
+  width:min(1120px,100%) !important;
+  max-width:1120px !important;
+  height:auto !important;
+  min-height:440px !important;
+  max-height:none !important;
+  flex:0 0 auto !important;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center !important;
+  gap:9px !important;
+  padding:clamp(18px,2vw,28px) !important;
+  margin:6px auto 22px !important;
+  overflow:visible !important;
+  background:linear-gradient(145deg,#fff7e9,#f6e0bf);
+  border:5px double #c68e52;
+  border-radius:28px;
+  box-shadow:0 20px 55px #21090c70;
+}
+#questionScreen .question-center:not(.answer-with-media) .question-category{
+  margin:0 0 3px !important;
+}
+#questionScreen .question-center:not(.answer-with-media) .question-points{
+  margin:0 0 5px !important;
+}
+#questionScreen .question-center:not(.answer-with-media) .question-text{
+  margin:4px 0 8px !important;
+}
+#questionScreen .question-center:not(.answer-with-media) .reveal-button:not([hidden]){
+  margin:8px auto 0 !important;
+}
+#questionScreen .question-center #questionAnswerMedia[hidden],
+#questionScreen .question-center #questionMedia[hidden]{
+  display:none !important;
+}
+
+/* Revealed-answer state: same card, just enough room for a readable image and controls. */
+#questionScreen .question-center.answer-with-media{
+  width:min(1240px,100%) !important;
   max-width:1240px !important;
   min-height:0 !important;
   height:auto !important;
-  flex:0 0 auto !important;
-  padding:14px clamp(12px,1.5vw,22px) 18px !important;
-}
-#questionScreen .question-layout{
-  width:100% !important;
-  height:auto !important;
-  min-height:0 !important;
-  flex:0 0 auto !important;
-  gap:6px !important;
-}
-#questionScreen .question-center.answer-with-media{
-  width:min(1200px,100%) !important;
-  max-width:1200px !important;
-  min-height:0 !important;
-  height:auto !important;
   max-height:none !important;
   flex:0 0 auto !important;
-  padding:14px clamp(12px,1.5vw,22px) 18px !important;
-  margin:0 auto 12px !important;
-  gap:8px !important;
+  justify-content:flex-start !important;
+  gap:9px !important;
+  padding:20px clamp(14px,2vw,26px) 22px !important;
+  margin:6px auto 22px !important;
+}
+#questionScreen .question-center.answer-with-media .question-category,
+#questionScreen .question-center.answer-with-media .question-points{
+  margin:0 0 3px !important;
+}
+#questionScreen .question-center.answer-with-media .question-text{
+  margin:3px 0 4px !important;
+}
+#questionScreen .question-center.answer-with-media .answer-result:not([hidden]){
+  margin:5px auto 2px !important;
 }
 #questionScreen .question-center.answer-with-media #questionAnswerMedia:not([hidden]){
+  display:block !important;
   width:100% !important;
-  max-width:920px !important;
+  max-width:980px !important;
   height:auto !important;
   max-height:none !important;
+  min-height:0 !important;
+  flex:0 0 auto !important;
+  overflow:visible !important;
   margin:6px auto 8px !important;
+  padding:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
 }
 #questionScreen .question-center.answer-with-media #questionAnswerMedia img,
 #questionScreen .question-center.answer-with-media #questionAnswerMedia video{
+  display:block !important;
   width:auto !important;
   height:auto !important;
   max-width:100% !important;
-  max-height:58vh !important;
+  max-height:54vh !important;
   object-fit:contain !important;
+  object-position:center !important;
+  margin:0 auto !important;
+  padding:0 !important;
+  background:transparent !important;
+  border-radius:14px;
 }
 #questionScreen .question-center.answer-with-media #awardRow:not([hidden]){
-  width:min(920px,100%) !important;
-  margin:6px auto 0 !important;
+  width:min(1000px,100%) !important;
+  margin:8px auto 0 !important;
+  padding:0 !important;
+  grid-template-columns:repeat(2,minmax(0,1fr));
 }
 #questionScreen .question-center.answer-with-media #noPoints:not([hidden]){
-  margin:6px auto 0 !important;
+  margin:7px auto 0 !important;
 }
 @media(max-width:760px){
   #questionScreen.stage-shell{
     width:100% !important;
+    min-height:calc(100vh - 64px) !important;
     padding:8px 8px 14px !important;
   }
-  #questionScreen .question-center.answer-with-media{
+  #questionScreen .question-layout{
+    min-height:0 !important;
+  }
+  #questionScreen .question-center{
     width:100% !important;
-    padding:10px 9px 14px !important;
+    min-height:360px !important;
+    padding:14px 10px !important;
+    gap:7px !important;
+  }
+  #questionScreen .question-center.answer-with-media{
+    min-height:0 !important;
+    padding:12px 9px 14px !important;
   }
   #questionScreen .question-center.answer-with-media #questionAnswerMedia{
+    width:100% !important;
     max-width:100% !important;
+  }
+  #questionScreen .question-center.answer-with-media #questionAnswerMedia img,
+  #questionScreen .question-center.answer-with-media #questionAnswerMedia video{
+    max-height:48vh !important;
+  }
+  #questionScreen .question-center.answer-with-media #awardRow:not([hidden]){
+    grid-template-columns:1fr !important;
   }
 }
 
