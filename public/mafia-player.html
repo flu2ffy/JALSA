@@ -188,7 +188,7 @@ function renderState(s){
    if(s.ready){text=t("waitingReady");detail=t("readyCount")+": "+s.readyCount+" / "+s.players.length}
    else if(meta){
     const portrait=roleSpriteUrl
-     ?'<div class="role-portrait" role="img" aria-label="'+esc(t(meta.name))+'" style="background-image:url('+JSON.stringify(roleSpriteUrl)+');background-position:'+rolePortraitPosition(s.role,playerId)+'"></div>'
+     ?'<div class="role-portrait" role="img" aria-label="'+esc(t(meta.name))+'" style="background-image:url(\''+roleSpriteUrl+'\');background-position:'+rolePortraitPosition(s.role,playerId)+'"></div>'
      :'<div class="role-icon">'+meta.icon+'</div>';
     area='<div class="role-card '+meta.cls+'">'+portrait+'<h2 class="role-title">'+t(meta.name)+'</h2><p class="muted">'+t(meta.desc)+'</p></div><p class="muted">'+t("roleReady")+'</p><button class="btn gold" onclick="sendMafiaAction(\'ready\')">'+t("ready")+'</button>';
    }
