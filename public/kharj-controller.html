@@ -127,7 +127,7 @@ function render(s){if(!s)return;$("pageTitle").textContent=lang==="ar"?"خارج
   $("askComplete").classList.toggle("hidden",!hasTarget);
   $("nextAsker").classList.toggle("hidden",!hasTarget);
   $("nextAsker").textContent=tr("nextAsker");
-  $("startVote").classList.toggle("hidden",(s.askRound||1)<5);
+  $("startVote").classList.toggle("hidden",!hasTarget||(s.askRound||1)<5);
   return;
  }
  if(s.stage==="voting"){
