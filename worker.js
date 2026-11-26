@@ -47,7 +47,8 @@ export default {
       const protectedGameId = contentGameId || (url.pathname === "/api/remote/create" ? "zanko"
         : url.pathname === "/api/insight/create" ? "insight"
         : url.pathname === "/api/imposter/create" ? "imposter"
-        : url.pathname === "/api/mafia/create" ? "mafia" : null);
+        : url.pathname === "/api/mafia/create" ? "mafia"
+        : url.pathname === "/api/kharj/create" ? "kharj" : null);
       if (protectedGameId) {
         const denied = await requireSubscriptionAccess(request, env, protectedGameId);
         if (denied) return denied;
@@ -55,8 +56,8 @@ export default {
       if (url.pathname === "/api/game-availability" && request.method === "GET") return await getGameAvailability(env);
       if (url.pathname === "/api/admin/game-availability" && request.method === "GET") return await getAdminGameAvailability(request, env);
       if (url.pathname.startsWith("/api/admin/game-availability/") && request.method === "PATCH") return await updateGameAvailability(request, env, decodeURIComponent(url.pathname.split("/").pop()));
-      if (url.pathname.startsWith("/api/insight/") || url.pathname.startsWith("/api/imposter/") || url.pathname.startsWith("/api/mafia/")) {
-        const gameId = url.pathname.startsWith("/api/insight/") ? "insight" : url.pathname.startsWith("/api/imposter/") ? "imposter" : "mafia";
+      if (url.pathname.startsWith("/api/insight/") || url.pathname.startsWith("/api/imposter/") || url.pathname.startsWith("/api/mafia/") || url.pathname.startsWith("/api/kharj/")) {
+        const gameId = url.pathname.startsWith("/api/insight/") ? "insight" : url.pathname.startsWith("/api/imposter/") ? "imposter" : url.pathname.startsWith("/api/mafia/") ? "mafia" : "kharj";
         const availability = await readGameAvailability(env, gameId);
         if (!availability.enabled) return json({ error: "This game is temporarily unavailable. Please check back later." }, 423);
       }
@@ -115,6 +116,10 @@ export default {
       if (url.pathname === "/api/mafia/player-state" && request.method === "GET") return await getMafiaPlayerState(request, env, url);
       if (url.pathname === "/api/mafia/host-action" && request.method === "POST") return await mafiaHostAction(request, env);
       if (url.pathname === "/api/mafia/player-action" && request.method === "POST") return await mafiaPlayerAction(request, env);
+      if (url.pathname === "/api/kharj/create" && request.method === "POST") return await createKharjRoom(request, env);
+      if (url.pathname === "/api/kharj/host-state" && request.method === "GET") return await getKharjHostState(request, env, url);
+      if (url.pathname === "/api/kharj/controller-state" && request.method === "GET") return await getKharjControllerState(request, env, url);
+      if (url.pathname === "/api/kharj/controller-action" && request.method === "POST") return await kharjControllerAction(request, env);
       const adminParts = url.pathname.split("/");
       if (adminParts.length === 5 && adminParts[1] === "api" && adminParts[2] === "admin") {
         const itemId = decodeURIComponent(adminParts[4]);
@@ -150,7 +155,8 @@ const GAME_AVAILABILITY = [
   { id: "price", name: "Price Game" },
   { id: "imposter", name: "Imposter" },
   { id: "insight", name: "INSIGHT" },
-  { id: "mafia", name: "Mafia" }
+  { id: "mafia", name: "Mafia" },
+  { id: "kharj", name: "Kharj Al Jalsa" }
 ];
 const subscriptionSchemaPromises = new WeakMap();
 const zankoExtendedSchemaPromises = new WeakMap();
@@ -205,7 +211,7 @@ async function ensureSubscriptionSchema(env) {
         db.prepare("CREATE INDEX IF NOT EXISTS idx_user_subscriptions_status_expiry ON user_subscriptions(status, expires_at)"),
         db.prepare(`CREATE TABLE IF NOT EXISTS free_game_sessions (
           user_id TEXT PRIMARY KEY NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          game_id TEXT NOT NULL CHECK (game_id IN ('zanko','price','imposter','insight','mafia')),
+          game_id TEXT NOT NULL CHECK (game_id IN ('zanko','price','imposter','insight','mafia','kharj')),
           session_id TEXT NOT NULL,
           started_at TEXT NOT NULL
         )`),
@@ -239,6 +245,15 @@ async function ensureSubscriptionSchema(env) {
         db.prepare("CREATE INDEX IF NOT EXISTS idx_paddle_subscriptions_status_end ON paddle_subscriptions(status, current_period_end)"),
         db.prepare("CREATE TABLE IF NOT EXISTS paddle_webhook_events (event_id TEXT PRIMARY KEY NOT NULL, received_at TEXT NOT NULL)")
       ]);
+      const freeGameTable = await db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='free_game_sessions' LIMIT 1").first();
+      if (freeGameTable?.sql && !freeGameTable.sql.includes("'kharj'")) {
+        await db.batch([
+          db.prepare("ALTER TABLE free_game_sessions RENAME TO free_game_sessions_legacy"),
+          db.prepare("CREATE TABLE free_game_sessions (user_id TEXT PRIMARY KEY NOT NULL REFERENCES users(id) ON DELETE CASCADE, game_id TEXT NOT NULL CHECK (game_id IN ('zanko','price','imposter','insight','mafia','kharj')), session_id TEXT NOT NULL, started_at TEXT NOT NULL)"),
+          db.prepare("INSERT INTO free_game_sessions (user_id, game_id, session_id, started_at) SELECT user_id, game_id, session_id, started_at FROM free_game_sessions_legacy"),
+          db.prepare("DROP TABLE free_game_sessions_legacy")
+        ]);
+      }
     })();
     subscriptionSchemaPromises.set(db, pending);
   }
@@ -336,7 +351,7 @@ async function subscriptionAccessForUser(user, env) {
   };
 }
 const FREE_GAME_SESSION_MAX_AGE_MS = 6 * 60 * 60 * 1000;
-const VALID_FREE_GAME_IDS = new Set(["zanko", "price", "imposter", "insight", "mafia"]);
+const VALID_FREE_GAME_IDS = new Set(["zanko", "price", "imposter", "insight", "mafia", "kharj"]);
 async function freeGameSessionForUser(userId, env) {
   await ensureSubscriptionSchema(env);
   return await env.DB.prepare("SELECT game_id, session_id, started_at FROM free_game_sessions WHERE user_id=? LIMIT 1").bind(userId).first();
@@ -2041,6 +2056,191 @@ async function deleteQuestion(request, env, id) {
   if (previous?.media_url) await deleteStoredMedia(env, previous.media_url);
   if (previous?.answer_media_url) await deleteStoredMedia(env, previous.answer_media_url);
   return json({ok:true});
+}
+
+
+/* JALSA Kharj Al Jalsa: one-phone pass-and-play outsider game */
+const KHARJ_CATEGORIES = [
+  {id:"animals",en:"Animals",ar:"الحيوانات",icon:"🐾"},
+  {id:"foods",en:"Foods",ar:"الأطعمة",icon:"🍔"},
+  {id:"electronics",en:"Electronics",ar:"الإلكترونيات",icon:"📱"},
+  {id:"english-celebrities",en:"English Celebrities",ar:"مشاهير عالميون",icon:"⭐"},
+  {id:"arabic-celebrities",en:"Arabic Celebrities",ar:"مشاهير عرب",icon:"🌟"},
+  {id:"countries",en:"Countries",ar:"الدول",icon:"🌍"},
+  {id:"fruit-vegetables",en:"Fruits & Vegetables",ar:"الفواكه والخضروات",icon:"🍓"},
+  {id:"sports",en:"Sports",ar:"الرياضة",icon:"⚽"},
+  {id:"hobbies",en:"Hobbies",ar:"الهوايات",icon:"🎨"},
+  {id:"jobs",en:"Jobs",ar:"الوظائف",icon:"🧑‍🔧"}
+];
+const KHARJ_WORD_BANK = {
+ animals:[["Lion","أسد"],["Elephant","فيل"],["Giraffe","زرافة"],["Dolphin","دلفين"],["Penguin","بطريق"],["Camel","جمل"],["Tiger","نمر"],["Wolf","ذئب"],["Panda","باندا"],["Kangaroo","كنغر"],["Octopus","أخطبوط"],["Crocodile","تمساح"],["Eagle","نسر"],["Owl","بومة"],["Rabbit","أرنب"],["Horse","حصان"],["Fox","ثعلب"],["Whale","حوت"],["Flamingo","فلامنغو"],["Cheetah","فهد"]],
+ foods:[["Pizza","بيتزا"],["Sushi","سوشي"],["Burger","برغر"],["Shawarma","شاورما"],["Falafel","فلافل"],["Pancakes","بان كيك"],["Pasta","معكرونة"],["Tacos","تاكو"],["Hummus","حمص"],["Biryani","برياني"],["Lasagna","لازانيا"],["Croissant","كرواسون"],["Fried chicken","دجاج مقلي"],["Ramen","رامن"],["Kebab","كباب"],["Ice cream","آيس كريم"],["Donuts","دونات"],["Mansaf","منسف"],["Kabsa","كبسة"],["Mac and cheese","ماك آند تشيز"]],
+ electronics:[["iPhone","آيفون"],["PlayStation 5","بلايستيشن 5"],["Nintendo Switch 2","نينتندو سويتش 2"],["MacBook","ماك بوك"],["AirPods","إيربودز"],["Smartwatch","ساعة ذكية"],["Digital camera","كاميرا رقمية"],["Laptop","لابتوب"],["Drone","درون"],["VR headset","نظارة واقع افتراضي"],["Tablet","جهاز لوحي"],["Smart TV","تلفزيون ذكي"],["Gaming PC","كمبيوتر ألعاب"],["Keyboard","لوحة مفاتيح"],["Computer mouse","فأرة كمبيوتر"],["Microphone","ميكروفون"],["Power bank","شاحن متنقل"],["Projector","جهاز عرض"],["Robot vacuum","مكنسة روبوت"],["Headphones","سماعات"]],
+ "english-celebrities":[["Ariana Grande","أريانا غراندي"],["Taylor Swift","تايلور سويفت"],["The Weeknd","ذا ويكند"],["Billie Eilish","بيلي آيليش"],["Rihanna","ريهانا"],["Beyoncé","بيونسيه"],["Drake","دريك"],["Justin Bieber","جاستن بيبر"],["Selena Gomez","سيلينا غوميز"],["Zendaya","زندايا"],["Tom Holland","توم هولاند"],["Leonardo DiCaprio","ليوناردو دي كابريو"],["Dwayne Johnson","دوين جونسون"],["Kim Kardashian","كيم كارداشيان"],["Ed Sheeran","إد شيران"],["Lady Gaga","ليدي غاغا"],["Harry Styles","هاري ستايلز"],["Cristiano Ronaldo","كريستيانو رونالدو"],["Lionel Messi","ليونيل ميسي"],["Ice Spice","آيس سبايس"]],
+ "arabic-celebrities":[["Amr Diab","عمرو دياب"],["Nancy Ajram","نانسي عجرم"],["Mohamed Ramadan","محمد رمضان"],["Tamer Hosny","تامر حسني"],["Elissa","إليسا"],["Fairuz","فيروز"],["Kadim Al Sahir","كاظم الساهر"],["Assala","أصالة"],["Balqees","بلقيس"],["Hussain Al Jassmi","حسين الجسمي"],["Ahmed Helmy","أحمد حلمي"],["Adel Imam","عادل إمام"],["Mona Zaki","منى زكي"],["Yasmine Sabri","ياسمين صبري"],["Wael Kfoury","وائل كفوري"],["Ragheb Alama","راغب علامة"],["Saad Lamjarred","سعد لمجرد"],["Cyrine Abdelnour","سيرين عبد النور"],["Majida El Roumi","ماجدة الرومي"],["Nassif Zeytoun","ناصيف زيتون"]],
+ countries:[["Jordan","الأردن"],["United Arab Emirates","الإمارات العربية المتحدة"],["Palestine","فلسطين"],["Saudi Arabia","السعودية"],["Egypt","مصر"],["Turkey","تركيا"],["Japan","اليابان"],["South Korea","كوريا الجنوبية"],["Italy","إيطاليا"],["France","فرنسا"],["Brazil","البرازيل"],["Canada","كندا"],["Australia","أستراليا"],["Spain","إسبانيا"],["Germany","ألمانيا"],["Greece","اليونان"],["Morocco","المغرب"],["Lebanon","لبنان"],["Qatar","قطر"],["United States","الولايات المتحدة"]],
+ "fruit-vegetables":[["Apple","تفاح"],["Banana","موز"],["Watermelon","بطيخ"],["Mango","مانجو"],["Pineapple","أناناس"],["Strawberry","فراولة"],["Grapes","عنب"],["Kiwi","كيوي"],["Peach","خوخ"],["Avocado","أفوكادو"],["Cucumber","خيار"],["Carrot","جزر"],["Potato","بطاطا"],["Tomato","طماطم"],["Broccoli","بروكلي"],["Cauliflower","قرنبيط"],["Eggplant","باذنجان"],["Bell pepper","فلفل حلو"],["Corn","ذرة"],["Pumpkin","يقطين"]],
+ sports:[["Football","كرة القدم"],["Basketball","كرة السلة"],["Tennis","التنس"],["Swimming","السباحة"],["Boxing","الملاكمة"],["Volleyball","الكرة الطائرة"],["Cricket","الكريكيت"],["Formula 1","فورمولا 1"],["Gymnastics","الجمباز"],["Badminton","الريشة الطائرة"],["Golf","الغولف"],["Cycling","ركوب الدراجات"],["Wrestling","المصارعة"],["Skiing","التزلج"],["Surfing","ركوب الأمواج"],["Table tennis","تنس الطاولة"],["Rugby","الرجبي"],["Ice hockey","هوكي الجليد"],["Taekwondo","التايكوندو"],["Horse riding","ركوب الخيل"]],
+ hobbies:[["Photography","التصوير"],["Gaming","ألعاب الفيديو"],["Painting","الرسم"],["Reading","القراءة"],["Cooking","الطبخ"],["Gardening","البستنة"],["Dancing","الرقص"],["Singing","الغناء"],["Fishing","الصيد"],["Hiking","المشي الجبلي"],["Baking","الخبز"],["Knitting","الحياكة"],["Coin collecting","جمع العملات"],["Playing piano","عزف البيانو"],["Writing","الكتابة"],["Skateboarding","التزلج على اللوح"],["Pottery","صناعة الفخار"],["Birdwatching","مراقبة الطيور"],["Swimming","السباحة"],["Origami","الأوريغامي"]],
+ jobs:[["Doctor","طبيب"],["Teacher","معلم"],["Firefighter","رجل إطفاء"],["Police officer","شرطي"],["Chef","طاهٍ"],["Pilot","طيار"],["Dentist","طبيب أسنان"],["Engineer","مهندس"],["Architect","مهندس معماري"],["Photographer","مصور"],["Actor","ممثل"],["Singer","مغنٍ"],["Lawyer","محامٍ"],["Nurse","ممرض"],["Mechanic","ميكانيكي"],["Farmer","مزارع"],["Astronaut","رائد فضاء"],["Journalist","صحفي"],["Programmer","مبرمج"],["Footballer","لاعب كرة قدم"]]
+};
+async function ensureKharjSchema(env){
+ await env.DB.prepare("CREATE TABLE IF NOT EXISTS kharj_rooms (room_id TEXT PRIMARY KEY, token_hash TEXT NOT NULL, host_user_id TEXT NOT NULL, state_json TEXT NOT NULL, created_at TEXT NOT NULL, expires_at TEXT NOT NULL, ended_at TEXT)").run();
+ await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_kharj_rooms_host ON kharj_rooms(host_user_id,created_at)").run();
+}
+function kharjShuffle(items){
+ const a=[...items];
+ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}
+ return a;
+}
+function kharjCategory(id){return KHARJ_CATEGORIES.find(c=>c.id===id)||null}
+function kharjNormalizeGuess(value){
+ return String(value||"").normalize("NFKD").replace(/[\u0300-\u036f]/g,"").toLocaleLowerCase().replace(/[.,!?؛،:'"’‘()\-_/]/g,"").replace(/\s+/g," ").trim();
+}
+function kharjChooseSecret(state){
+ const pool=[];
+ for(const categoryId of state.categories||[]){
+  const words=KHARJ_WORD_BANK[categoryId]||[];
+  if(!kharjCategory(categoryId))continue;
+  for(let i=0;i<words.length;i++)pool.push({id:categoryId+"-"+i,categoryId,wordEn:words[i][0],wordAr:words[i][1]});
+ }
+ const unused=pool.filter(item=>!(state.usedWordIds||[]).includes(item.id));
+ return kharjShuffle(unused.length?unused:pool)[0]||null;
+}
+function kharjStartRound(state){
+ const secret=kharjChooseSecret(state);
+ if(!secret)throw new Error("No words are available for the selected categories.");
+ state.secret=secret;state.usedWordIds=[...(state.usedWordIds||[]),secret.id].slice(-250);
+ state.outsiderId=kharjShuffle(state.players)[0].id;
+ state.stage="revealing";state.revealIndex=0;state.revealed=false;state.votes={};state.voteIndex=0;state.voteSummary=null;state.guess="";state.outcome=null;state.caughtPlayerId=null;state.round=(state.round||0)+1;
+}
+async function createKharjRoom(request,env){
+ const user=await getSessionUser(request,env);
+ if(!user)return json({error:"Please sign in to host Kharj Al Jalsa."},401);
+ await ensureKharjSchema(env);
+ const roomId=toBase64Url(randomBytes(18)),key=toBase64Url(randomBytes(32)),now=new Date(),expires=new Date(now.getTime()+3*60*60*1000).toISOString();
+ const state={stage:"setup",language:"en",players:[],categories:[],round:0,usedWordIds:[],secret:null,outsiderId:null,revealIndex:0,revealed:false,votes:{},voteIndex:0,voteSummary:null,outcome:null};
+ await env.DB.prepare("INSERT INTO kharj_rooms (room_id,token_hash,host_user_id,state_json,created_at,expires_at) VALUES (?,?,?,?,?,?)").bind(roomId,await sha256Hex(key),user.id,JSON.stringify(state),now.toISOString(),expires).run();
+ return json({roomId,key,expiresAt:expires});
+}
+async function kharjRoomByKey(body,env){
+ const roomId=String(body.roomId||""),key=String(body.key||"");
+ if(!/^[A-Za-z0-9_-]{20,40}$/.test(roomId)||key.length<40||key.length>60)return null;
+ await ensureKharjSchema(env);
+ const row=await env.DB.prepare("SELECT * FROM kharj_rooms WHERE room_id=? LIMIT 1").bind(roomId).first();
+ if(!row||row.ended_at||row.expires_at<=new Date().toISOString())return null;
+ if(!constantTimeEqual(row.token_hash,await sha256Hex(key)))return null;
+ let state={};try{state=JSON.parse(row.state_json||"{}")}catch{return null}
+ return {...row,state};
+}
+async function saveKharjState(env,room,state){
+ const next=JSON.stringify(state);
+ const result=await env.DB.prepare("UPDATE kharj_rooms SET state_json=? WHERE room_id=? AND state_json=? AND ended_at IS NULL").bind(next,room.room_id,room.state_json).run();
+ if(Number(result.meta?.changes||0)>0){room.state=state;room.state_json=next;return true}
+ return false;
+}
+async function getKharjHostState(request,env,url){
+ const user=await getSessionUser(request,env);
+ if(!user)return json({error:"Please sign in again."},401);
+ await ensureKharjSchema(env);
+ const row=await env.DB.prepare("SELECT * FROM kharj_rooms WHERE room_id=? AND host_user_id=? LIMIT 1").bind(String(url.searchParams.get("roomId")||""),user.id).first();
+ if(!row||row.ended_at||row.expires_at<=new Date().toISOString())return json({error:"Game session not found or expired."},404);
+ let state={};try{state=JSON.parse(row.state_json||"{}")}catch{return json({error:"Game state is unreadable."},500)}
+ const publicState={
+  stage:state.stage,round:state.round||0,players:(state.players||[]).map(p=>({id:p.id,name:p.name})),
+  categories:(state.categories||[]).map(kharjCategory).filter(Boolean).map(c=>({id:c.id,nameEn:c.en,nameAr:c.ar,icon:c.icon})),
+  revealIndex:state.revealIndex||0,voteIndex:state.voteIndex||0,voteCount:Object.keys(state.votes||{}).length,
+  outcome:state.stage==="results"?{winner:state.outcome?.winner,wordEn:state.secret?.wordEn,wordAr:state.secret?.wordAr,category:state.secret?.categoryId,outsiderName:state.players.find(p=>p.id===state.outsiderId)?.name||"",voteSummary:state.voteSummary||[]}:null
+ };
+ return json({state:publicState});
+}
+async function getKharjControllerState(request,env,url){
+ const room=await kharjRoomByKey({roomId:url.searchParams.get("roomId"),key:url.searchParams.get("key")},env);
+ if(!room)return json({error:"This Kharj Al Jalsa QR is invalid or expired."},404);
+ const s=room.state,lang=url.searchParams.get("lang")==="ar"?"ar":"en";
+ const player=s.players?.[s.revealIndex]||null;
+ let reveal=null;
+ if(s.stage==="revealing"&&s.revealed&&player&&s.secret){
+  const outsider=player.id===s.outsiderId;
+  reveal={role:outsider?"outsider":"player",categoryId:s.secret.categoryId,category:kharjCategory(s.secret.categoryId)?.[lang]||s.secret.categoryId,word:outsider?null:(lang==="ar"?s.secret.wordAr:s.secret.wordEn)};
+ }
+ const voter=s.players?.[s.voteIndex]||null;
+ const state={
+  stage:s.stage,round:s.round||0,language:lang,
+  players:(s.players||[]).map(p=>({id:p.id,name:p.name})),
+  categories:(s.categories||[]).map(kharjCategory).filter(Boolean).map(c=>({id:c.id,name:lang==="ar"?c.ar:c.en,icon:c.icon})),
+  revealIndex:s.revealIndex||0,currentPlayer:s.stage==="revealing"&&player?{id:player.id,name:player.name}:null,
+  revealed:!!s.revealed,reveal,
+  voter:s.stage==="voting"&&voter?{id:voter.id,name:voter.name}:null,
+  candidates:s.stage==="voting"&&voter?(s.players||[]).filter(p=>p.id!==voter.id).map(p=>({id:p.id,name:p.name})):[],
+  voteIndex:s.voteIndex||0,voteCount:Object.keys(s.votes||{}).length,
+  outsiderName:s.stage==="final-guess"?(s.players.find(p=>p.id===s.outsiderId)?.name||""):"",
+  result:s.stage==="results"?{
+   winner:s.outcome?.winner,word:lang==="ar"?s.secret?.wordAr:s.secret?.wordEn,category:kharjCategory(s.secret?.categoryId)?.[lang]||"",
+   outsiderName:s.players.find(p=>p.id===s.outsiderId)?.name||"",
+   voteSummary:s.voteSummary||[],guess:s.guess||""
+  }:null
+ };
+ return json({state});
+}
+async function kharjControllerAction(request,env){
+ const body=await readBody(request),room=await kharjRoomByKey(body,env);
+ if(!room)return json({error:"This game session has expired."},404);
+ const state=room.state;
+ if(body.action==="configure"){
+  if(state.stage!=="setup")return json({error:"You can only change players and categories before the round starts."},409);
+  const rawNames=Array.isArray(body.names)?body.names:[];
+  const names=rawNames.map(value=>String(value||"").trim()).filter(Boolean);
+  if(names.length<3)return json({error:"Add at least 3 players."},400);
+  if(names.length>24)return json({error:"This game supports up to 24 players."},400);
+  if(names.some(n=>n.length<2||n.length>32))return json({error:"Each player name must contain 2 to 32 characters."},400);
+  if(new Set(names.map(n=>n.toLocaleLowerCase())).size!==names.length)return json({error:"Player names must be unique."},409);
+  const categories=Array.isArray(body.categories)?[...new Set(body.categories.map(String))].filter(id=>!!kharjCategory(id)):[];
+  if(!categories.length)return json({error:"Choose at least one category."},400);
+  state.players=names.map(name=>({id:toBase64Url(randomBytes(12)),name}));
+  state.categories=categories;state.language=body.language==="ar"?"ar":"en";state.stage="setup-ready";
+ }else if(body.action==="start"){
+  if(!["setup-ready","results"].includes(state.stage))return json({error:"Finish setup before starting a round."},409);
+  if((state.players||[]).length<3||!(state.categories||[]).length)return json({error:"Add at least 3 players and choose categories first."},400);
+  try{kharjStartRound(state)}catch(error){return json({error:error.message},400)}
+ }else if(body.action==="reveal"){
+  if(state.stage!=="revealing"||state.revealed)return json({error:"This card is not ready to reveal."},409);
+  state.revealed=true;
+ }else if(body.action==="next-player"){
+  if(state.stage!=="revealing"||!state.revealed)return json({error:"Reveal the current card before passing the phone."},409);
+  state.revealIndex++;state.revealed=false;
+  if(state.revealIndex>=state.players.length)state.stage="discussion";
+ }else if(body.action==="start-vote"){
+  if(state.stage!=="discussion")return json({error:"The discussion phase is not open."},409);
+  state.stage="voting";state.voteIndex=0;state.votes={};
+ }else if(body.action==="vote"){
+  if(state.stage!=="voting")return json({error:"Voting is not open."},409);
+  const voter=state.players[state.voteIndex],targetId=String(body.targetId||"");
+  if(!voter||!state.players.some(p=>p.id===targetId&&p.id!==voter.id))return json({error:"Choose another player."},400);
+  state.votes[voter.id]=targetId;state.voteIndex++;
+  if(state.voteIndex>=state.players.length){
+   const counts={};Object.values(state.votes).forEach(id=>counts[id]=(counts[id]||0)+1);
+   const ranked=Object.entries(counts).sort((a,b)=>b[1]-a[1]),top=ranked[0]?.[1]||0,winners=ranked.filter(x=>x[1]===top).map(x=>x[0]);
+   state.voteSummary=state.players.map(p=>({name:p.name,votes:counts[p.id]||0}));
+   state.caughtPlayerId=winners.length===1?winners[0]:null;
+   if(state.caughtPlayerId===state.outsiderId){state.stage="final-guess"}
+   else {state.stage="results";state.outcome={winner:"outsider"}}
+  }
+ }else if(body.action==="guess"){
+  if(state.stage!=="final-guess")return json({error:"The final guess is not open."},409);
+  const guess=String(body.guess||"").trim().slice(0,100);
+  if(!guess)return json({error:"Enter your guess."},400);
+  state.guess=guess;
+  const normalized=kharjNormalizeGuess(guess);
+  const correct=[state.secret?.wordEn,state.secret?.wordAr].some(word=>kharjNormalizeGuess(word)===normalized);
+  state.outcome={winner:correct?"outsider":"group",guessCorrect:correct};state.stage="results";
+ }else if(body.action==="play-again"){
+  if(state.stage!=="results")return json({error:"Finish the current round first."},409);
+  try{kharjStartRound(state)}catch(error){return json({error:error.message},400)}
+ }else if(body.action==="end"){state.stage="ended"}
+ else return json({error:"Unknown Kharj Al Jalsa action."},400);
+ if(!await saveKharjState(env,room,state))return json({error:"The game just updated. Please try again."},409);
+ return json({ok:true});
 }
 
 /* JALSA Mafia: private-role, QR multiplayer game */
