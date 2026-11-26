@@ -1075,14 +1075,16 @@ async function imposterHostAction(request,env){
  const room=await env.DB.prepare("SELECT * FROM imposter_rooms WHERE room_id=? AND host_user_id=? LIMIT 1").bind(String(body.roomId||""),user.id).first();
  if(!room||room.ended_at)return json({error:"Game session not found."},404);
  let state={};try{state=JSON.parse(room.state_json||"{}")}catch{}
- if(body.action==="start"){
-  if(state.stage!=="lobby"||state.players.length<3)return json({error:"At least 3 players are needed."},400);
+ if(body.action==="start"||body.action==="restart"){
+  const restarting=body.action==="restart";
+  if(restarting&&state.stage!=="results")return json({error:"A new game can only start after the results."},409);
+  if(!restarting&&(state.stage!=="lobby"||state.players.length<3))return json({error:"At least 3 players are needed."},400);
   const words=await env.DB.prepare("SELECT category,word_en,word_ar FROM imposter_words").all();
   if(!words.results?.length)return json({error:"No words are available."},400);
   const secret=imposterShuffle(words.results)[0],imposter=imposterShuffle(state.players)[0];
   state.stage="playing";state.secret={category:secret.category,word:secret.word_en,wordAr:secret.word_ar||secret.word_en};
   state.roles={};state.players.forEach(p=>state.roles[p.id]=p.id===imposter.id?"imposter":"player");
-  state.scores={};state.roundPoints={};state.players.forEach(p=>{state.scores[p.id]=0;state.roundPoints[p.id]=0});
+  const previousScores=state.scores||{};state.scores={};state.roundPoints={};state.players.forEach(p=>{state.scores[p.id]=restarting?Number(previousScores[p.id]||0):0;state.roundPoints[p.id]=0});
   state.speakerQueue=imposterShuffle(state.players.map(p=>p.id));state.currentSpeakerId=state.speakerQueue.shift()||null;
   state.turnIndex=1;state.turnsCompleted=0;state.ready=[];state.votes={};state.guesserId=null;state.wordOptions=[];state.result=null;
  }else if(body.action==="end"){state.stage="ended"}
