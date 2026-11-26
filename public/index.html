@@ -1952,7 +1952,7 @@ function renderKharjWords(){
  const categoryName=id=>{const c=kharjCategories.find(x=>x.id===id);return c?(isArabic?c.ar:c.en):id};
  const rows=kharjWords.filter(w=>(categoryName(w.category_id)+" "+w.word_en+" "+(w.word_ar||"")).toLocaleLowerCase().includes(term));
  if(!rows.length){holder.textContent=v17T("noKharjWords");return}
- holder.innerHTML=rows.map(w=>"<div class='v17-mini-row'><div><strong>"+escapeHtml(w.word_en)+"</strong><div class='v17-muted'>"+escapeHtml(categoryName(w.category_id))+(w.word_ar?" · "+escapeHtml(w.word_ar):"")+"</div></div><span class='v17-table-actions'><button class='v17-small-button' onclick=\"editKharjWord('"+w.id+"')\\">"+v17T("edit")+"</button><button class='v17-small-button danger' onclick=\"removeKharjWord('"+w.id+"')\\">"+v17T("delete")+"</button></span></div>").join("");
+ holder.innerHTML=rows.map(w=>"<div class='v17-mini-row'><div><strong>"+escapeHtml(w.word_en)+"</strong><div class='v17-muted'>"+escapeHtml(categoryName(w.category_id))+(w.word_ar?" · "+escapeHtml(w.word_ar):"")+"</div></div><span class='v17-table-actions'><button class='v17-small-button' onclick=\"editKharjWord('"+w.id+"')\">"+v17T("edit")+"</button><button class='v17-small-button danger' onclick=\"removeKharjWord('"+w.id+"')\">"+v17T("delete")+"</button></span></div>").join("");
 }
 function resetKharjWordForm(){
  const form=document.getElementById("kharjWordForm");form.reset();document.getElementById("kharjWordId").value="";
