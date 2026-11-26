@@ -937,7 +937,7 @@ async function createImposterRoom(request,env){
  const words=await env.DB.prepare("SELECT COUNT(*) AS count FROM imposter_words").first();
  if(!Number(words?.count||0))return json({error:"The Imposter word list is empty. Ask an admin to add words first."},400);
  const roomId=toBase64Url(randomBytes(18)),key=toBase64Url(randomBytes(32)),now=new Date(),expires=new Date(now.getTime()+3*60*60*1000).toISOString();
- const state={stage:"lobby",players:[],turnIndex:0,turnsCompleted:0,currentPair:null,pairConfirmations:[],ready:[],votes:{},roles:{},secret:null,result:null};
+ const state={stage:"lobby",players:[],turnIndex:0,turnsCompleted:0,currentSpeakerId:null,speakerQueue:[],ready:[],votes:{},roles:{},secret:null,scores:{},roundPoints:{},guesserId:null,wordOptions:[],result:null};
  await env.DB.prepare("INSERT INTO imposter_rooms (room_id,token_hash,host_user_id,state_json,created_at,expires_at) VALUES (?,?,?,?,?,?)").bind(roomId,await sha256Hex(key),user.id,JSON.stringify(state),now.toISOString(),expires).run();
  return json({roomId,key,expiresAt:expires});
 }
@@ -1004,71 +1004,156 @@ async function getImposterHostState(request,env,url){
  let state={};try{state=JSON.parse(room.state_json||"{}")}catch{return json({error:"Game state is unreadable."},500)}
  return json({state:imposterPublicState(state)});
 }
+
+function imposterChooseNextSpeaker(state,previousId=null){
+ const players=state.players||[];
+ let queue=Array.isArray(state.speakerQueue)?state.speakerQueue.filter(id=>players.some(p=>p.id===id)):[];
+ if(!queue.length){
+  queue=imposterShuffle(players.map(p=>p.id));
+  if(queue.length>1&&queue[0]===previousId){const swap=queue[0];queue[0]=queue[1];queue[1]=swap}
+ }
+ state.currentSpeakerId=queue.shift()||null;
+ state.speakerQueue=queue;
+}
 function imposterPublicState(state){
- const pair=state.currentPair||null;
- return {stage:state.stage,players:state.players.map(p=>({id:p.id,name:p.name})),turnIndex:state.turnIndex||0,turnsCompleted:state.turnsCompleted||0,currentPair:pair?{askerName:state.players.find(p=>p.id===pair.askerId)?.name||"Player",targetName:state.players.find(p=>p.id===pair.targetId)?.name||"Player"}:null,confirmedCount:(state.pairConfirmations||[]).length,readyCount:(state.ready||[]).length,voteCount:Object.keys(state.votes||{}).length,result:state.stage==="results"?state.result:null};
+ const speaker=(state.players||[]).find(p=>p.id===state.currentSpeakerId)||null;
+ const guesser=(state.players||[]).find(p=>p.id===state.guesserId)||null;
+ return {stage:state.stage,players:(state.players||[]).map(p=>({id:p.id,name:p.name})),
+  turnIndex:state.turnIndex||0,turnsCompleted:state.turnsCompleted||0,
+  currentSpeakerName:speaker?.name||"",readyCount:(state.ready||[]).length,
+  voteCount:Object.keys(state.votes||{}).length,guesserName:guesser?.name||"",
+  result:state.stage==="results"?state.result:null};
 }
 async function getImposterPlayerState(request,env,url){
- const room=await imposterRoomByKey({roomId:url.searchParams.get("roomId"),key:url.searchParams.get("key")},env);if(!room)return json({error:"This game session has expired."},404);
- const playerId=url.searchParams.get("playerId")||"",player=room.state.players.find(p=>p.id===playerId);if(!player)return json({error:"Player not found. Scan the QR again."},404);
- const state=room.state,pair=state.currentPair||null;
- return json({state:{stage:state.stage,player:{id:player.id,name:player.name},players:state.players.map(p=>({id:p.id,name:p.name})),turnIndex:state.turnIndex||0,turnsCompleted:state.turnsCompleted||0,currentPair:pair?{askerName:state.players.find(p=>p.id===pair.askerId)?.name||"Player",targetName:state.players.find(p=>p.id===pair.targetId)?.name||"Player",isParticipant:playerId===pair.askerId||playerId===pair.targetId}:null,confirmed:(state.pairConfirmations||[]).includes(playerId),confirmedCount:(state.pairConfirmations||[]).length,role:state.stage==="lobby"?null:(state.roles[playerId]||"player"),word:state.stage==="lobby"||state.roles[playerId]==="imposter"?null:state.secret?.word,wordAr:state.stage==="lobby"||state.roles[playerId]==="imposter"?null:(state.secret?.wordAr||state.secret?.word),category:state.stage==="lobby"||state.roles[playerId]==="imposter"?null:state.secret?.category,ready:(state.ready||[]).includes(playerId),readyCount:(state.ready||[]).length,voted:Object.prototype.hasOwnProperty.call(state.votes||{},playerId),voteOptions:state.stage==="voting"?state.players.filter(p=>p.id!==playerId).map(p=>({id:p.id,name:p.name})):[],result:state.stage==="results"?state.result:null}});
+ const room=await imposterRoomByKey({roomId:url.searchParams.get("roomId"),key:url.searchParams.get("key")},env);
+ if(!room)return json({error:"This game session has expired."},404);
+ const playerId=url.searchParams.get("playerId")||"",player=room.state.players.find(p=>p.id===playerId);
+ if(!player)return json({error:"Player not found. Scan the QR again."},404);
+ const state=room.state,speaker=(state.players||[]).find(p=>p.id===state.currentSpeakerId)||null;
+ const guesser=(state.players||[]).find(p=>p.id===state.guesserId)||null;
+ const isGuesser=state.stage==="guessing"&&state.guesserId===playerId;
+ return json({state:{
+  stage:state.stage,player:{id:player.id,name:player.name},
+  players:(state.players||[]).map(p=>({id:p.id,name:p.name})),
+  turnIndex:state.turnIndex||0,turnsCompleted:state.turnsCompleted||0,
+  currentSpeaker:speaker?{name:speaker.name,isYou:speaker.id===playerId}:null,
+  role:state.stage==="lobby"?null:(state.roles[playerId]||"player"),
+  word:state.stage==="lobby"||state.roles[playerId]==="imposter"?null:state.secret?.word,
+  wordAr:state.stage==="lobby"||state.roles[playerId]==="imposter"?null:(state.secret?.wordAr||state.secret?.word),
+  category:state.stage==="lobby"||state.roles[playerId]==="imposter"?null:state.secret?.category,
+  ready:(state.ready||[]).includes(playerId),readyCount:(state.ready||[]).length,
+  voted:Object.prototype.hasOwnProperty.call(state.votes||{},playerId),
+  voteOptions:state.stage==="voting"?(state.players||[]).filter(p=>p.id!==playerId).map(p=>({id:p.id,name:p.name})):[],
+  isGuesser,guesserName:guesser?.name||"",
+  wordOptions:isGuesser?(state.wordOptions||[]).map(o=>({word:o.word,wordAr:o.wordAr||o.word})):[],
+  result:state.stage==="results"?state.result:null
+ }});
+}
+async function imposterPrepareWordOptions(env,state){
+ const secret=state.secret||{},secretKey=String(secret.word||"").trim().toLocaleLowerCase();
+ const chosen=[],seen=new Set([secretKey]);
+ const addRows=rows=>{
+  for(const row of rows||[]){
+   const word=String(row.word_en||"").trim(),key=word.toLocaleLowerCase();
+   if(word.length<2||seen.has(key))continue;
+   seen.add(key);chosen.push({word,wordAr:String(row.word_ar||word)});
+   if(chosen.length>=4)break;
+  }
+ };
+ const sameCategory=await env.DB.prepare("SELECT word_en,word_ar FROM imposter_words WHERE category=? AND lower(word_en)<>lower(?) ORDER BY random() LIMIT 12").bind(secret.category,secret.word).all();
+ addRows(sameCategory.results);
+ if(chosen.length<4){
+  const more=await env.DB.prepare("SELECT word_en,word_ar FROM imposter_words WHERE lower(word_en)<>lower(?) ORDER BY random() LIMIT 30").bind(secret.word).all();
+  addRows(more.results);
+ }
+ state.wordOptions=imposterShuffle([{word:secret.word,wordAr:secret.wordAr||secret.word},...chosen]);
 }
 async function imposterHostAction(request,env){
- const user=await getSessionUser(request,env);if(!user)return json({error:"Please sign in again."},401);
- const body=await readBody(request),room=await env.DB.prepare("SELECT * FROM imposter_rooms WHERE room_id=? AND host_user_id=? LIMIT 1").bind(String(body.roomId||""),user.id).first();
+ const user=await getSessionUser(request,env);
+ if(!user)return json({error:"Please sign in again."},401);
+ const body=await readBody(request);
+ const room=await env.DB.prepare("SELECT * FROM imposter_rooms WHERE room_id=? AND host_user_id=? LIMIT 1").bind(String(body.roomId||""),user.id).first();
  if(!room||room.ended_at)return json({error:"Game session not found."},404);
  let state={};try{state=JSON.parse(room.state_json||"{}")}catch{}
  if(body.action==="start"){
   if(state.stage!=="lobby"||state.players.length<3)return json({error:"At least 3 players are needed."},400);
-  const words=await env.DB.prepare("SELECT category,word_en,word_ar FROM imposter_words").all();if(!words.results?.length)return json({error:"No words are available."},400);
+  const words=await env.DB.prepare("SELECT category,word_en,word_ar FROM imposter_words").all();
+  if(!words.results?.length)return json({error:"No words are available."},400);
   const secret=imposterShuffle(words.results)[0],imposter=imposterShuffle(state.players)[0];
-  const order=imposterShuffle(state.players),asker=order[0],target=order[1];
-  state.stage="playing";state.secret={category:secret.category,word:secret.word_en,wordAr:secret.word_ar||secret.word_en};state.roles={};state.players.forEach(p=>state.roles[p.id]=p.id===imposter.id?"imposter":"player");
-  state.currentPair={askerId:asker.id,targetId:target.id};state.turnIndex=1;state.turnsCompleted=0;state.pairConfirmations=[];state.ready=[];state.votes={};state.result=null;
+  state.stage="playing";state.secret={category:secret.category,word:secret.word_en,wordAr:secret.word_ar||secret.word_en};
+  state.roles={};state.players.forEach(p=>state.roles[p.id]=p.id===imposter.id?"imposter":"player");
+  state.scores={};state.roundPoints={};state.players.forEach(p=>{state.scores[p.id]=0;state.roundPoints[p.id]=0});
+  state.speakerQueue=imposterShuffle(state.players.map(p=>p.id));state.currentSpeakerId=state.speakerQueue.shift()||null;
+  state.turnIndex=1;state.turnsCompleted=0;state.ready=[];state.votes={};state.guesserId=null;state.wordOptions=[];state.result=null;
  }else if(body.action==="end"){state.stage="ended"}
  else return json({error:"Unknown host action."},400);
  await env.DB.prepare("UPDATE imposter_rooms SET state_json=?,ended_at=? WHERE room_id=?").bind(JSON.stringify(state),body.action==="end"?new Date().toISOString():null,room.room_id).run();
  return json({ok:true});
 }
 async function imposterPlayerAction(request,env){
- const body=await readBody(request),room=await imposterRoomByKey(body,env);if(!room)return json({error:"This game session has expired."},404);
- const playerId=String(body.playerId||"");if(!room.state.players.some(p=>p.id===playerId))return json({error:"Player not found."},404);
+ const body=await readBody(request),room=await imposterRoomByKey(body,env);
+ if(!room)return json({error:"This game session has expired."},404);
+ const playerId=String(body.playerId||"");
+ if(!room.state.players.some(p=>p.id===playerId))return json({error:"Player not found."},404);
  const state=room.state;
  if(body.action==="next"){
-  if(state.stage!=="playing"||!state.currentPair)return json({error:"There is no active question."},409);
-  const pair=state.currentPair;if(playerId!==pair.askerId&&playerId!==pair.targetId)return json({error:"Only the two players in this question can move to the next one."},403);
-  state.pairConfirmations=Array.isArray(state.pairConfirmations)?state.pairConfirmations:[];
-  if(!state.pairConfirmations.includes(playerId))state.pairConfirmations.push(playerId);
-  if(state.pairConfirmations.includes(pair.askerId)&&state.pairConfirmations.includes(pair.targetId)){
-   state.turnsCompleted=(state.turnsCompleted||0)+1;state.turnIndex=(state.turnIndex||0)+1;state.pairConfirmations=[];
-   if(state.ready?.length===state.players.length){state.stage="voting";state.currentPair=null}
-   else{
-    const candidates=state.players.filter(p=>p.id!==pair.askerId&&p.id!==pair.targetId);
-    const asker=candidates.length?imposterShuffle(candidates)[0]:state.players.find(p=>p.id===pair.targetId);
-    const remaining=state.players.filter(p=>p.id!==asker.id);
-    const target=imposterShuffle(remaining)[0];
-    state.currentPair={askerId:asker.id,targetId:target.id};
-   }
-  }
+  if(state.stage!=="playing"||!state.currentSpeakerId)return json({error:"There is no active word turn."},409);
+  if(playerId!==state.currentSpeakerId)return json({error:"Only the selected player can press Next."},403);
+  const previous=state.currentSpeakerId;
+  state.turnsCompleted=(state.turnsCompleted||0)+1;state.turnIndex=(state.turnIndex||0)+1;
+  imposterChooseNextSpeaker(state,previous);
+  if((state.ready||[]).length===(state.players||[]).length){state.stage="voting";state.currentSpeakerId=null}
  }else if(body.action==="ready"){
-  if(state.stage!=="playing"||(state.turnIndex||0)<4)return json({error:"Ready to vote becomes available in question 4."},409);
+  if(state.stage!=="playing"||(state.turnsCompleted||0)<4)return json({error:"Ready to vote is available after four word turns."},409);
   state.ready=Array.isArray(state.ready)?state.ready:[];
   if(!state.ready.includes(playerId))state.ready.push(playerId);
-  if(state.ready.length===state.players.length){state.stage="voting";state.currentPair=null;state.pairConfirmations=[]}
+  if(state.ready.length===state.players.length){state.stage="voting";state.currentSpeakerId=null}
  }else if(body.action==="vote"){
   if(state.stage!=="voting")return json({error:"Voting is not open."},409);
-  const targetId=String(body.targetId||"");if(targetId===playerId||!state.players.some(p=>p.id===targetId))return json({error:"Choose another player."},400);
+  if(Object.prototype.hasOwnProperty.call(state.votes||{},playerId))return json({error:"You have already voted."},409);
+  const targetId=String(body.targetId||"");
+  if(targetId===playerId||!state.players.some(p=>p.id===targetId))return json({error:"Choose another player."},400);
   state.votes=state.votes||{};state.votes[playerId]=targetId;
   if(Object.keys(state.votes).length===state.players.length){
    const counts={};Object.values(state.votes).forEach(id=>counts[id]=(counts[id]||0)+1);
-   const ranked=Object.entries(counts).sort((a,b)=>b[1]-a[1]),top=ranked[0]?.[1]||0,winners=ranked.filter(x=>x[1]===top).map(x=>x[0]);
+   const ranked=Object.entries(counts).sort((a,b)=>b[1]-a[1]),top=ranked[0]?.[1]||0;
+   const winners=ranked.filter(x=>x[1]===top).map(x=>x[0]);
    const imposterId=Object.keys(state.roles).find(id=>state.roles[id]==="imposter");
-   state.result={votes:counts,imposterId,imposterName:state.players.find(p=>p.id===imposterId)?.name||"",mostVotedIds:winners};
-   state.stage="results";
+   state.scores=state.scores||{};state.roundPoints=state.roundPoints||{};
+   for(const player of state.players){state.scores[player.id]=Number(state.scores[player.id]||0);state.roundPoints[player.id]=Number(state.roundPoints[player.id]||0)}
+   for(const [voterId,target] of Object.entries(state.votes)){
+    if(target===imposterId){state.scores[voterId]+=100;state.roundPoints[voterId]+=100}
+   }
+   state.guesserId=imposterShuffle(winners)[0]||imposterId||null;
+   if(!state.guesserId)return json({error:"The game could not select a player for the word challenge."},500);
+   await imposterPrepareWordOptions(env,state);
+   state.stage="guessing";
   }
+ }else if(body.action==="guess-word"){
+  if(state.stage!=="guessing")return json({error:"The word challenge is not open."},409);
+  if(playerId!==state.guesserId)return json({error:"Only the most-voted player can choose the word."},403);
+  if(state.result)return json({error:"The word has already been chosen."},409);
+  const index=Number(body.optionIndex),option=Number.isInteger(index)?(state.wordOptions||[])[index]:null;
+  if(!option)return json({error:"Choose one of the available words."},400);
+  const normalize=value=>String(value||"").trim().toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu,"");
+  const correct=normalize(option.word)===normalize(state.secret?.word);
+  state.scores=state.scores||{};state.roundPoints=state.roundPoints||{};
+  state.scores[playerId]=Number(state.scores[playerId]||0);state.roundPoints[playerId]=Number(state.roundPoints[playerId]||0);
+  if(correct){state.scores[playerId]+=100;state.roundPoints[playerId]+=100}
+  const guesser=state.players.find(p=>p.id===state.guesserId),imposterId=Object.keys(state.roles).find(id=>state.roles[id]==="imposter");
+  const counts={};Object.values(state.votes||{}).forEach(id=>counts[id]=(counts[id]||0)+1);
+  const displayScores=state.players.map(p=>({id:p.id,name:p.name,score:Number(state.scores[p.id]||0),earned:Number(state.roundPoints[p.id]||0)})).sort((a,b)=>b.score-a.score||a.name.localeCompare(b.name));
+  state.result={
+   imposterId,imposterName:state.players.find(p=>p.id===imposterId)?.name||"",
+   secretWord:state.secret?.word||"",secretWordAr:state.secret?.wordAr||state.secret?.word||"",
+   guesserId:state.guesserId,guesserName:guesser?.name||"",
+   guessWord:option.word,guessWordAr:option.wordAr||option.word,guessCorrect:correct,
+   votes:counts,scores:displayScores
+  };
+  state.stage="results";
  }else return json({error:"Unknown player action."},400);
- if(!await saveImposterState(env,room,state))return json({error:"The game just updated. Please tap again."},409);return json({ok:true});
+ if(!await saveImposterState(env,room,state))return json({error:"The game just updated. Please tap again."},409);
+ return json({ok:true});
 }
 async function createRemoteRoom(request, env) {
   const user=await getSessionUser(request,env);if(!user)return json({error:"Sign in on the JALSA game screen first."},401);
