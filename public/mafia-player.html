@@ -57,7 +57,7 @@ body.player-eliminated main{visibility:hidden!important}
  <div class="death-notice-card">
   <button type="button" class="death-notice-close" onclick="closeDeathNotice()" aria-label="Close notification" title="Close">×</button>
   <div class="death-notice-kicker">JALSA · MAFIA</div>
-  <div class="death-notice-icon" aria-hidden="true">⚰</div>
+  <div class="death-notice-icon" aria-hidden="true">×</div>
   <h2 id="deathNoticeTitle" class="death-notice-title">A PLAYER HAS BEEN ELIMINATED</h2>
   <div id="deathNoticeName" class="death-notice-name"></div>
   <p id="deathNoticeMessage" class="death-notice-message">has been eliminated.</p>
@@ -214,7 +214,7 @@ function renderState(s){
  $("playerList").innerHTML=s.players.map(p=>'<span class="player-chip '+(p.alive?"":"dead")+'">'+esc(p.name)+(p.alive?"":" · "+t("dead"))+'</span>').join("");
  let title="",text="",detail="",area="";
  if(stage==="lobby"){title=t("waitingHost");text=t("waitingHost");}
- else if(stage==="hide"){title=t("hide");text="🙈";detail=t("hide");}
+ else if(stage==="hide"){title=t("hide");text="";detail=t("hide");}
  else if(stage==="roles"){
    title=t("roles");
    if(s.ready){text=t("waitingReady");detail=t("readyCount")+": "+s.readyCount+" / "+s.players.length}
@@ -223,18 +223,18 @@ function renderState(s){
     area='<div class="role-card '+meta.cls+'">'+portrait+'<h2 class="role-title">'+t(meta.name)+'</h2><p class="muted">'+t(meta.desc)+'</p></div><p class="muted">'+t("roleReady")+'</p><button class="btn gold" onclick="sendMafiaAction(\'ready\')">'+t("ready")+'</button>';
    }
  }
- else if(stage==="nightIntro"){title=t("everyoneClose");text="🌙";detail=t("citizenEyes")}
- else if(stage==="mafiaOpen"){title=t("mafiaOpen");if(s.player.alive&&s.role==="mafia"&&s.canAct){detail=t("mafiaPrompt");area=buttonList(s.targets,"kill","kill")}else{text="🤫";detail=t("citizenEyes")}}
- else if(stage==="mafiaClose"){title=t("mafiaClose");text="🙈"}
- else if(stage==="doctorOpen"){title=t("doctorOpen");if(s.player.alive&&s.role==="doctor"&&s.canAct){detail=t("doctorPrompt");area=buttonList(s.targets,"save","save")}else{text="🤫";detail=t("citizenEyes")}}
- else if(stage==="doctorClose"){title=t("doctorClose");text="🙈"}
- else if(stage==="investigatorOpen"){title=t("investigatorOpen");if(s.player.alive&&s.role==="investigator"&&s.canAct){detail=t("investigatorPrompt");area=buttonList(s.targets,"investigate","investigate")}else{text="🤫";detail=t("citizenEyes")}}
- else if(stage==="investigatorClose"){title=t("investigatorClose");text="🙈";if(s.investigationResult)area='<div class="result-card">'+t("yourInvestigation")+': <strong>'+t(s.investigationResult.result==="mafia"?"mafiaResult":"citizenResult")+'</strong><br><small>'+esc(s.investigationResult.targetName)+'</small></div>'}
- else if(stage==="nightResult"){title=t("nightResult");if(s.nightOutcome?.eliminatedName){text="💀";detail=esc(s.nightOutcome.eliminatedName)+t("eliminated")}else if(s.nightOutcome?.saved){text="🛡️";detail=t("saved")}else{text="🌙";detail=t("noElimination")}if(s.investigationResult)area='<div class="result-card">'+t("yourInvestigation")+': <strong>'+t(s.investigationResult.result==="mafia"?"mafiaResult":"citizenResult")+'</strong><br><small>'+esc(s.investigationResult.targetName)+'</small></div>'}
+ else if(stage==="nightIntro"){title=t("everyoneClose");text="";detail=t("citizenEyes")}
+ else if(stage==="mafiaOpen"){title=t("mafiaOpen");if(s.player.alive&&s.role==="mafia"&&s.canAct){detail=t("mafiaPrompt");area=buttonList(s.targets,"kill","kill")}else{text="";detail=t("citizenEyes")}}
+ else if(stage==="mafiaClose"){title=t("mafiaClose");text=""}
+ else if(stage==="doctorOpen"){title=t("doctorOpen");if(s.player.alive&&s.role==="doctor"&&s.canAct){detail=t("doctorPrompt");area=buttonList(s.targets,"save","save")}else{text="";detail=t("citizenEyes")}}
+ else if(stage==="doctorClose"){title=t("doctorClose");text=""}
+ else if(stage==="investigatorOpen"){title=t("investigatorOpen");if(s.player.alive&&s.role==="investigator"&&s.canAct){detail=t("investigatorPrompt");area=buttonList(s.targets,"investigate","investigate")}else{text="";detail=t("citizenEyes")}}
+ else if(stage==="investigatorClose"){title=t("investigatorClose");text="";if(s.investigationResult)area='<div class="result-card">'+t("yourInvestigation")+': <strong>'+t(s.investigationResult.result==="mafia"?"mafiaResult":"citizenResult")+'</strong><br><small>'+esc(s.investigationResult.targetName)+'</small></div>'}
+ else if(stage==="nightResult"){title=t("nightResult");if(s.nightOutcome?.eliminatedName){text="";detail=esc(s.nightOutcome.eliminatedName)+t("eliminated")}else if(s.nightOutcome?.saved){text="";detail=t("saved")}else{text="";detail=t("noElimination")}if(s.investigationResult)area='<div class="result-card">'+t("yourInvestigation")+': <strong>'+t(s.investigationResult.result==="mafia"?"mafiaResult":"citizenResult")+'</strong><br><small>'+esc(s.investigationResult.targetName)+'</small></div>'}
  else if(stage==="discussion"){title=t("discussion");detail=t("votePrompt");if(s.hasVoted){text="✓";detail=t("voteWaiting")+" ("+(s.voteCount||0)+"/"+(s.aliveCount||0)+")"}else if(s.player.alive){area=buttonList(s.targets,"vote","vote")+'<button class="target skip" onclick="sendMafiaAction(\'vote\',\'skip\')">'+t("skip")+'</button>'}else{detail=t("youEliminated")}}
- else if(stage==="voteResult"){title=t("voteResult");if(s.voteOutcome?.eliminatedName){text="⚖️";detail=esc(s.voteOutcome.eliminatedName)+t("voteOut")}else if(s.voteOutcome?.timedOut){text="⌛";detail=t("timeout")}else{text="🤝";detail=t("noVoteOut")}}
- else if(stage==="finished"){title=s.winner==="mafia"?t("mafiaWins"):t("townWins");text="🏆";detail=t("roles");area=(s.players||[]).map(p=>{const r=s.revealedRoles?.[p.id]||"citizen",m=roleMeta(r);return '<div class="role-reveal-row"><span class="mini">'+m.icon+'</span><div><strong>'+esc(p.name)+'</strong><div class="muted">'+t(m.name)+'</div></div></div>'}).join("")}
- else if(stage==="ended"){title=t("end");text="🏁";detail=t("end")}
+ else if(stage==="voteResult"){title=t("voteResult");if(s.voteOutcome?.eliminatedName){text="";detail=esc(s.voteOutcome.eliminatedName)+t("voteOut")}else if(s.voteOutcome?.timedOut){text="";detail=t("timeout")}else{text="";detail=t("noVoteOut")}}
+ else if(stage==="finished"){title=s.winner==="mafia"?t("mafiaWins"):t("townWins");text="";detail=t("roles");area=(s.players||[]).map(p=>{const r=s.revealedRoles?.[p.id]||"citizen",m=roleMeta(r);return '<div class="role-reveal-row"><span class="mini">'+m.icon+'</span><div><strong>'+esc(p.name)+'</strong><div class="muted">'+t(m.name)+'</div></div></div>'}).join("")}
+ else if(stage==="ended"){title=t("end");text="";detail=t("end")}
  $("stageTitle").textContent=title;
  $("stageText").textContent=text;
  $("stageDetail").textContent=detail;
