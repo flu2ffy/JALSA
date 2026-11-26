@@ -2112,14 +2112,22 @@ function kharjStartRound(state){
  if(!secret)throw new Error("No words are available for the selected categories.");
  state.secret=secret;state.usedWordIds=[...(state.usedWordIds||[]),secret.id].slice(-250);
  state.outsiderId=kharjShuffle(state.players)[0].id;
- state.stage="revealing";state.revealIndex=0;state.revealed=false;state.votes={};state.voteIndex=0;state.voteSummary=null;state.guess="";state.outcome=null;state.caughtPlayerId=null;state.round=(state.round||0)+1;
+ state.stage="revealing";state.revealIndex=0;state.revealed=false;state.askRound=0;state.askerId=null;state.askTargetId=null;state.lastQuestion=null;state.votes={};state.voteIndex=0;state.voteSummary=null;state.guess="";state.outcome=null;state.caughtPlayerId=null;state.round=(state.round||0)+1;
+}
+function kharjBeginDiscussion(state){
+ state.stage="discussion";state.askRound=1;state.askerId=kharjShuffle(state.players)[0]?.id||null;state.askTargetId=null;state.lastQuestion=null;
+}
+function kharjNextAsker(state){
+ const previous=state.askerId,pool=(state.players||[]).filter(p=>p.id!==previous);
+ state.askerId=kharjShuffle(pool.length?pool:state.players)[0]?.id||null;
+ state.askTargetId=null;state.askRound=(state.askRound||1)+1;
 }
 async function createKharjRoom(request,env){
  const user=await getSessionUser(request,env);
  if(!user)return json({error:"Please sign in to host Kharj Al Jalsa."},401);
  await ensureKharjSchema(env);
  const roomId=toBase64Url(randomBytes(18)),key=toBase64Url(randomBytes(32)),now=new Date(),expires=new Date(now.getTime()+3*60*60*1000).toISOString();
- const state={stage:"setup",language:"en",players:[],categories:[],round:0,usedWordIds:[],secret:null,outsiderId:null,revealIndex:0,revealed:false,votes:{},voteIndex:0,voteSummary:null,outcome:null};
+ const state={stage:"setup",language:"en",players:[],categories:[],round:0,usedWordIds:[],secret:null,outsiderId:null,revealIndex:0,revealed:false,askRound:0,askerId:null,askTargetId:null,lastQuestion:null,votes:{},voteIndex:0,voteSummary:null,outcome:null};
  await env.DB.prepare("INSERT INTO kharj_rooms (room_id,token_hash,host_user_id,state_json,created_at,expires_at) VALUES (?,?,?,?,?,?)").bind(roomId,await sha256Hex(key),user.id,JSON.stringify(state),now.toISOString(),expires).run();
  return json({roomId,key,expiresAt:expires});
 }
@@ -2149,7 +2157,7 @@ async function getKharjHostState(request,env,url){
  const publicState={
   stage:state.stage,round:state.round||0,players:(state.players||[]).map(p=>({id:p.id,name:p.name})),
   categories:(state.categories||[]).map(kharjCategory).filter(Boolean).map(c=>({id:c.id,nameEn:c.en,nameAr:c.ar,icon:c.icon})),
-  revealIndex:state.revealIndex||0,voteIndex:state.voteIndex||0,voteCount:Object.keys(state.votes||{}).length,
+  revealIndex:state.revealIndex||0,askRound:state.askRound||0,askerName:(state.players||[]).find(p=>p.id===state.askerId)?.name||"",askTargetName:(state.players||[]).find(p=>p.id===state.askTargetId)?.name||"",voteIndex:state.voteIndex||0,voteCount:Object.keys(state.votes||{}).length,
   outcome:state.stage==="results"?{winner:state.outcome?.winner,wordEn:state.secret?.wordEn,wordAr:state.secret?.wordAr,category:state.secret?.categoryId,outsiderName:state.players.find(p=>p.id===state.outsiderId)?.name||"",voteSummary:state.voteSummary||[]}:null
  };
  return json({state:publicState});
@@ -2166,6 +2174,9 @@ function kharjControllerPublicState(s,lang){
    word:outsider?null:(lang==="ar"?(s.secret.wordAr||s.secret.wordEn):(s.secret.wordEn||s.secret.wordAr))
   };
  }
+ const asker=s.stage==="discussion"?(s.players||[]).find(p=>p.id===s.askerId)||null:null;
+ const askTarget=s.stage==="discussion"&&s.askTargetId?(s.players||[]).find(p=>p.id===s.askTargetId)||null:null;
+ const askCandidates=s.stage==="discussion"&&!s.askTargetId?(s.players||[]).filter(p=>p.id!==s.askerId):[];
  const voter=s.players?.[s.voteIndex]||null;
  return {
   stage:s.stage,round:s.round||0,language:lang,
@@ -2173,6 +2184,10 @@ function kharjControllerPublicState(s,lang){
   categories:(s.categories||[]).map(kharjCategory).filter(Boolean).map(c=>({id:c.id,name:lang==="ar"?c.ar:c.en,icon:c.icon})),
   revealIndex:s.revealIndex||0,currentPlayer:s.stage==="revealing"&&player?{id:player.id,name:player.name}:null,
   revealed:s.revealed===true,reveal,
+  askRound:s.askRound||1,
+  asker:asker?{id:asker.id,name:asker.name}:null,
+  askTarget:askTarget?{id:askTarget.id,name:askTarget.name}:null,
+  askCandidates:askCandidates.map(p=>({id:p.id,name:p.name})),
   voter:s.stage==="voting"&&voter?{id:voter.id,name:voter.name}:null,
   candidates:s.stage==="voting"&&voter?(s.players||[]).filter(p=>p.id!==voter.id).map(p=>({id:p.id,name:p.name})):[],
   voteIndex:s.voteIndex||0,voteCount:Object.keys(s.votes||{}).length,
@@ -2217,9 +2232,18 @@ async function kharjControllerAction(request,env){
  }else if(body.action==="next-player"){
   if(state.stage!=="revealing"||!state.revealed)return json({error:"Reveal the current card before passing the phone."},409);
   state.revealIndex++;state.revealed=false;
-  if(state.revealIndex>=state.players.length)state.stage="discussion";
+  if(state.revealIndex>=state.players.length)kharjBeginDiscussion(state);
+ }else if(body.action==="choose-target"){
+  if(state.stage!=="discussion"||state.askTargetId)return json({error:"The current question turn is not ready for a player selection."},409);
+  const targetId=String(body.targetId||"");
+  if(!state.askerId||!state.players.some(p=>p.id===targetId&&p.id!==state.askerId))return json({error:"Choose another player to question."},400);
+  state.askTargetId=targetId;state.lastQuestion={askerId:state.askerId,targetId};
+ }else if(body.action==="next-asker"){
+  if(state.stage!=="discussion"||!state.askTargetId)return json({error:"Choose someone to question before continuing."},409);
+  kharjNextAsker(state);
  }else if(body.action==="start-vote"){
   if(state.stage!=="discussion")return json({error:"The discussion phase is not open."},409);
+  if((state.askRound||0)<5)return json({error:"Complete five question rounds before voting."},409);
   state.stage="voting";state.voteIndex=0;state.votes={};
  }else if(body.action==="vote"){
   if(state.stage!=="voting")return json({error:"Voting is not open."},409);
