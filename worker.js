@@ -2061,16 +2061,16 @@ async function deleteQuestion(request, env, id) {
 
 /* JALSA Kharj Al Jalsa: one-phone pass-and-play outsider game */
 const KHARJ_CATEGORIES = [
-  {id:"animals",en:"Animals",ar:"الحيوانات",icon:"🐾"},
-  {id:"foods",en:"Foods",ar:"الأطعمة",icon:"🍔"},
-  {id:"electronics",en:"Electronics",ar:"الإلكترونيات",icon:"📱"},
-  {id:"english-celebrities",en:"English Celebrities",ar:"مشاهير عالميون",icon:"⭐"},
-  {id:"arabic-celebrities",en:"Arabic Celebrities",ar:"مشاهير عرب",icon:"🌟"},
-  {id:"countries",en:"Countries",ar:"الدول",icon:"🌍"},
-  {id:"fruit-vegetables",en:"Fruits & Vegetables",ar:"الفواكه والخضروات",icon:"🍓"},
-  {id:"sports",en:"Sports",ar:"الرياضة",icon:"⚽"},
-  {id:"hobbies",en:"Hobbies",ar:"الهوايات",icon:"🎨"},
-  {id:"jobs",en:"Jobs",ar:"الوظائف",icon:"🧑‍🔧"}
+  {id:"animals",en:"Animals",ar:"الحيوانات"},
+  {id:"foods",en:"Foods",ar:"الأطعمة"},
+  {id:"electronics",en:"Electronics",ar:"الإلكترونيات"},
+  {id:"english-celebrities",en:"English Celebrities",ar:"مشاهير عالميون"},
+  {id:"arabic-celebrities",en:"Arabic Celebrities",ar:"مشاهير عرب"},
+  {id:"countries",en:"Countries",ar:"الدول"},
+  {id:"fruit-vegetables",en:"Fruits & Vegetables",ar:"الفواكه والخضروات"},
+  {id:"sports",en:"Sports",ar:"الرياضة"},
+  {id:"hobbies",en:"Hobbies",ar:"الهوايات"},
+  {id:"jobs",en:"Jobs",ar:"الوظائف"}
 ];
 const KHARJ_WORD_BANK = {
  animals:[["Lion","أسد"],["Elephant","فيل"],["Giraffe","زرافة"],["Dolphin","دلفين"],["Penguin","بطريق"],["Camel","جمل"],["Tiger","نمر"],["Wolf","ذئب"],["Panda","باندا"],["Kangaroo","كنغر"],["Octopus","أخطبوط"],["Crocodile","تمساح"],["Eagle","نسر"],["Owl","بومة"],["Rabbit","أرنب"],["Horse","حصان"],["Fox","ثعلب"],["Whale","حوت"],["Flamingo","فلامنغو"],["Cheetah","فهد"]],
@@ -2112,22 +2112,26 @@ function kharjStartRound(state){
  if(!secret)throw new Error("No words are available for the selected categories.");
  state.secret=secret;state.usedWordIds=[...(state.usedWordIds||[]),secret.id].slice(-250);
  state.outsiderId=kharjShuffle(state.players)[0].id;
- state.stage="revealing";state.revealIndex=0;state.revealed=false;state.askRound=0;state.askerId=null;state.askTargetId=null;state.lastQuestion=null;state.votes={};state.voteIndex=0;state.voteSummary=null;state.guess="";state.outcome=null;state.caughtPlayerId=null;state.round=(state.round||0)+1;
+ state.stage="revealing";state.revealIndex=0;state.revealed=false;state.askRound=0;state.askerId=null;state.askTargetId=null;state.specialPick=false;state.lastQuestion=null;state.votes={};state.voteIndex=0;state.voteSummary=null;state.guess="";state.outcome=null;state.caughtPlayerId=null;state.round=(state.round||0)+1;
 }
 function kharjBeginDiscussion(state){
- state.stage="discussion";state.askRound=1;state.askerId=kharjShuffle(state.players)[0]?.id||null;state.askTargetId=null;state.lastQuestion=null;
+ state.stage="discussion";state.askRound=1;state.askerId=kharjShuffle(state.players)[0]?.id||null;state.askTargetId=kharjShuffle((state.players||[]).filter(p=>p.id!==state.askerId))[0]?.id||null;state.specialPick=false;state.lastQuestion=state.askerId&&state.askTargetId?{askerId:state.askerId,targetId:state.askTargetId}:null;
 }
 function kharjNextAsker(state){
- const previous=state.askerId,pool=(state.players||[]).filter(p=>p.id!==previous);
- state.askerId=kharjShuffle(pool.length?pool:state.players)[0]?.id||null;
- state.askTargetId=null;state.askRound=(state.askRound||1)+1;
+ const players=state.players||[],previous=state.askerId,pool=players.filter(p=>p.id!==previous);
+ state.askerId=kharjShuffle(pool.length?pool:players)[0]?.id||null;
+ state.askRound=(state.askRound||1)+1;
+ state.specialPick=state.askRound===6;
+ if(state.specialPick){state.askTargetId=null;state.lastQuestion=null;return}
+ state.askTargetId=kharjShuffle(players.filter(p=>p.id!==state.askerId))[0]?.id||null;
+ state.lastQuestion=state.askerId&&state.askTargetId?{askerId:state.askerId,targetId:state.askTargetId}:null;
 }
 async function createKharjRoom(request,env){
  const user=await getSessionUser(request,env);
  if(!user)return json({error:"Please sign in to host Kharj Al Jalsa."},401);
  await ensureKharjSchema(env);
  const roomId=toBase64Url(randomBytes(18)),key=toBase64Url(randomBytes(32)),now=new Date(),expires=new Date(now.getTime()+3*60*60*1000).toISOString();
- const state={stage:"setup",language:"en",players:[],categories:[],round:0,usedWordIds:[],secret:null,outsiderId:null,revealIndex:0,revealed:false,askRound:0,askerId:null,askTargetId:null,lastQuestion:null,votes:{},voteIndex:0,voteSummary:null,outcome:null};
+ const state={stage:"setup",language:"en",players:[],categories:[],round:0,usedWordIds:[],secret:null,outsiderId:null,revealIndex:0,revealed:false,askRound:0,askerId:null,askTargetId:null,specialPick:false,lastQuestion:null,votes:{},voteIndex:0,voteSummary:null,outcome:null};
  await env.DB.prepare("INSERT INTO kharj_rooms (room_id,token_hash,host_user_id,state_json,created_at,expires_at) VALUES (?,?,?,?,?,?)").bind(roomId,await sha256Hex(key),user.id,JSON.stringify(state),now.toISOString(),expires).run();
  return json({roomId,key,expiresAt:expires});
 }
@@ -2156,8 +2160,8 @@ async function getKharjHostState(request,env,url){
  let state={};try{state=JSON.parse(row.state_json||"{}")}catch{return json({error:"Game state is unreadable."},500)}
  const publicState={
   stage:state.stage,round:state.round||0,players:(state.players||[]).map(p=>({id:p.id,name:p.name})),
-  categories:(state.categories||[]).map(kharjCategory).filter(Boolean).map(c=>({id:c.id,nameEn:c.en,nameAr:c.ar,icon:c.icon})),
-  revealIndex:state.revealIndex||0,askRound:state.askRound||0,askerName:(state.players||[]).find(p=>p.id===state.askerId)?.name||"",askTargetName:(state.players||[]).find(p=>p.id===state.askTargetId)?.name||"",voteIndex:state.voteIndex||0,voteCount:Object.keys(state.votes||{}).length,
+  categories:(state.categories||[]).map(kharjCategory).filter(Boolean).map(c=>({id:c.id,nameEn:c.en,nameAr:c.ar})),
+  revealIndex:state.revealIndex||0,askRound:state.askRound||0,specialPick:state.specialPick===true,askerName:(state.players||[]).find(p=>p.id===state.askerId)?.name||"",askTargetName:(state.players||[]).find(p=>p.id===state.askTargetId)?.name||"",voteIndex:state.voteIndex||0,voteCount:Object.keys(state.votes||{}).length,
   outcome:state.stage==="results"?{winner:state.outcome?.winner,wordEn:state.secret?.wordEn,wordAr:state.secret?.wordAr,category:state.secret?.categoryId,outsiderName:state.players.find(p=>p.id===state.outsiderId)?.name||"",voteSummary:state.voteSummary||[]}:null
  };
  return json({state:publicState});
@@ -2176,15 +2180,15 @@ function kharjControllerPublicState(s,lang){
  }
  const asker=s.stage==="discussion"?(s.players||[]).find(p=>p.id===s.askerId)||null:null;
  const askTarget=s.stage==="discussion"&&s.askTargetId?(s.players||[]).find(p=>p.id===s.askTargetId)||null:null;
- const askCandidates=s.stage==="discussion"&&!s.askTargetId?(s.players||[]).filter(p=>p.id!==s.askerId):[];
+ const askCandidates=s.stage==="discussion"&&s.specialPick===true&&!s.askTargetId?(s.players||[]).filter(p=>p.id!==s.askerId):[];
  const voter=s.players?.[s.voteIndex]||null;
  return {
   stage:s.stage,round:s.round||0,language:lang,
   players:(s.players||[]).map(p=>({id:p.id,name:p.name})),
-  categories:(s.categories||[]).map(kharjCategory).filter(Boolean).map(c=>({id:c.id,name:lang==="ar"?c.ar:c.en,icon:c.icon})),
+  categories:(s.categories||[]).map(kharjCategory).filter(Boolean).map(c=>({id:c.id,name:lang==="ar"?c.ar:c.en})),
   revealIndex:s.revealIndex||0,currentPlayer:s.stage==="revealing"&&player?{id:player.id,name:player.name}:null,
   revealed:s.revealed===true,reveal,
-  askRound:s.askRound||1,
+  askRound:s.askRound||1,specialPick:s.specialPick===true,
   asker:asker?{id:asker.id,name:asker.name}:null,
   askTarget:askTarget?{id:askTarget.id,name:askTarget.name}:null,
   askCandidates:askCandidates.map(p=>({id:p.id,name:p.name})),
@@ -2234,7 +2238,7 @@ async function kharjControllerAction(request,env){
   state.revealIndex++;state.revealed=false;
   if(state.revealIndex>=state.players.length)kharjBeginDiscussion(state);
  }else if(body.action==="choose-target"){
-  if(state.stage!=="discussion"||state.askTargetId)return json({error:"The current question turn is not ready for a player selection."},409);
+  if(state.stage!=="discussion"||state.specialPick!==true||state.askTargetId)return json({error:"Player selection is only available on the special turn after five rounds."},409);
   const targetId=String(body.targetId||"");
   if(!state.askerId||!state.players.some(p=>p.id===targetId&&p.id!==state.askerId))return json({error:"Choose another player to question."},400);
   state.askTargetId=targetId;state.lastQuestion={askerId:state.askerId,targetId};
