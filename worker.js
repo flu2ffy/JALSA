@@ -2204,12 +2204,12 @@ async function kharjControllerAction(request,env){
   if(names.some(n=>n.length<2||n.length>32))return json({error:"Each player name must contain 2 to 32 characters."},400);
   if(new Set(names.map(n=>n.toLocaleLowerCase())).size!==names.length)return json({error:"Player names must be unique."},409);
   const categories=Array.isArray(body.categories)?[...new Set(body.categories.map(String))].filter(id=>!!kharjCategory(id)):[];
-  if(!categories.length)return json({error:"Choose at least one category."},400);
+  if(categories.length!==1)return json({error:"Choose exactly one category."},400);
   state.players=names.map(name=>({id:toBase64Url(randomBytes(12)),name}));
   state.categories=categories;state.language=body.language==="ar"?"ar":"en";state.stage="setup-ready";
  }else if(body.action==="start"){
   if(!["setup-ready","results"].includes(state.stage))return json({error:"Finish setup before starting a round."},409);
-  if((state.players||[]).length<3||!(state.categories||[]).length)return json({error:"Add at least 3 players and choose categories first."},400);
+  if((state.players||[]).length<3||(state.categories||[]).length!==1)return json({error:"Add at least 3 players and choose exactly one category first."},400);
   try{kharjStartRound(state)}catch(error){return json({error:error.message},400)}
  }else if(body.action==="reveal"){
   if(state.stage!=="revealing"||state.revealed)return json({error:"This card is not ready to reveal."},409);
