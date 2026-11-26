@@ -11,7 +11,7 @@ main{max-width:520px;margin:0 auto}.top{display:flex;justify-content:space-betwe
 .player-list{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.player-chip{border-radius:20px;background:#f2e0c4;padding:8px 11px;font-weight:800;font-size:13px}.player-chip.dead{opacity:.4;text-decoration:line-through}.timer{font:900 42px Georgia,serif;color:var(--red);font-variant-numeric:tabular-nums;margin:8px 0}.result-card{background:#fff;border:1px solid #e4c49a;border-radius:16px;padding:15px;margin:12px 0;font-size:18px;font-weight:900;color:var(--wine)}.role-reveal-row{display:flex;align-items:center;gap:10px;text-align:start;border-radius:13px;background:#fffaf2;padding:10px;margin:8px 0}.role-reveal-row .mini{font-size:24px;width:38px;text-align:center}.footer-note{text-align:center;color:#f7e2ca;font-size:12px;margin:14px 8px}
 @media(max-width:420px){.card{padding:17px}.role-icon{width:118px;height:118px;font-size:65px}.stage-text{font-size:21px}}
 
-.role-portrait{width:min(340px,82vw);height:min(340px,82vw);aspect-ratio:1;margin:0 auto 16px;border-radius:22px;border:3px solid #c99b62;background-color:#26080e;background-image:none;background-repeat:no-repeat;background-size:300% 400%;box-shadow:0 14px 34px #26080e55,inset 0 0 0 1px #fff4df66;image-rendering:auto}
+.role-portrait{display:block;width:min(340px,82vw);height:min(340px,82vw);aspect-ratio:1;object-fit:cover;object-position:center;margin:0 auto 16px;border-radius:22px;border:3px solid #c99b62;background:#26080e;box-shadow:0 14px 34px #26080e55,inset 0 0 0 1px #fff4df66}
 @media(max-width:420px){.role-portrait{width:min(300px,78vw);height:min(300px,78vw);border-radius:18px}}
 body.player-eliminated{background:#39060d!important;overflow:hidden!important;min-height:100vh}
 body.player-eliminated main{visibility:hidden!important}
@@ -136,36 +136,24 @@ else if(playerId){showGame();startPolling()}
 let currentState=null;
 async function poll(){if(!playerId)return;try{const d=await api("player-state?roomId="+encodeURIComponent(roomId)+"&key="+encodeURIComponent(key)+"&playerId="+encodeURIComponent(playerId));const nextLang=d.state.language==="ar"?"ar":"en";if(nextLang!==lang){lang=nextLang;localStorage.setItem("jalsa_language",lang);lastRenderKey="";resetNarrationForLanguageChange();applyLang()}currentState=d.state;renderState(currentState);playNarrationEvents(currentState)}catch(e){$("playerStatus").textContent=e.message||t("error")}}
 
-const ROLE_SPRITE_PARTS=["part01.txt","part02.txt","part03.txt","part04.txt","part05.txt","part06.txt","part07.txt","part08.txt","part09.txt","part10.txt","part11.txt","part12.txt"];
-let roleSpriteUrl="",roleSpritePromise=null,roleSpriteLoadStarted=false;
-async function loadRoleSprite(){
- if(roleSpriteUrl)return roleSpriteUrl;
- if(!roleSpritePromise){
-  roleSpritePromise=(async()=>{
-   const chunks=await Promise.all(ROLE_SPRITE_PARTS.map(async part=>{
-    const response=await fetch("/mafia-role-data/"+part,{cache:"force-cache"});
-    if(!response.ok)throw new Error("Could not load Mafia character artwork: "+part);
-    return response.text();
-   }));
-   const binary=atob(chunks.join(""));
-   const bytes=new Uint8Array(binary.length);
-   for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
-   roleSpriteUrl=URL.createObjectURL(new Blob([bytes],{type:"image/webp"}));
-   return roleSpriteUrl;
-  })().catch(error=>{roleSpritePromise=null;throw error});
- }
- return roleSpritePromise;
-}
-function rolePortraitPosition(role,identity){
- if(role==="mafia")return "0% 0%";
- if(role==="doctor")return "50% 0%";
- if(role==="investigator")return "100% 0%";
- const citizens=[[0,33.333333],[50,33.333333],[100,33.333333],[0,66.666667],[50,66.666667],[100,66.666667],[0,100],[50,100],[100,100]];
+const CITIZEN_ROLE_PORTRAITS=[
+ "citizen-female-01.webp",
+ "citizen-male-01.webp",
+ "citizen-male-02.webp",
+ "citizen-male-03.webp",
+ "citizen-female-02.webp",
+ "child-citizen.webp",
+ "elderly-man.webp",
+ "elderly-woman.webp",
+ "citizen-male-04.webp"
+];
+function rolePortraitFile(role,identity){
+ const namedRoles={mafia:"mafia.webp",doctor:"doctor.webp",investigator:"investigator.webp"};
+ if(namedRoles[role])return namedRoles[role];
  const value=String(identity||playerId||"citizen");
  let hash=2166136261;
  for(let i=0;i<value.length;i++){hash^=value.charCodeAt(i);hash=Math.imul(hash,16777619)}
- const cell=citizens[(hash>>>0)%citizens.length];
- return cell[0]+"% "+cell[1]+"%";
+ return CITIZEN_ROLE_PORTRAITS[(hash>>>0)%CITIZEN_ROLE_PORTRAITS.length];
 }
 
 function roleMeta(role){const items={
@@ -218,14 +206,7 @@ function renderState(s){
  showGame();
  const stage=s.stage,meta=s.role?roleMeta(s.role):null;
   showDeathNotice(s);
- if(stage==="roles"&&meta&&!s.ready&&!roleSpriteUrl&&!roleSpriteLoadStarted){
-  roleSpriteLoadStarted=true;
-  loadRoleSprite().then(()=>{
-   roleSpriteLoadStarted=false;
-   if(currentState&&currentState.stage==="roles"&&!currentState.ready){lastRenderKey="";renderState(currentState)}
-  }).catch(error=>{roleSpriteLoadStarted=false;console.warn(error)});
- }
- const renderKey=[stage,s.stageSeq,s.readyCount,s.ready,s.hasVoted,s.voteCount,s.player.alive,lang,s.investigationResult?s.investigationResult.result:"",s.players.map(p=>p.id+(p.alive?"1":"0")).join(",")].join("|");
+  const renderKey=[stage,s.stageSeq,s.readyCount,s.ready,s.hasVoted,s.voteCount,s.player.alive,lang,s.investigationResult?s.investigationResult.result:"",s.players.map(p=>p.id+(p.alive?"1":"0")).join(",")].join("|");
  if(renderKey===lastRenderKey){updateTimer(s);return}
  lastRenderKey=renderKey;
  $("roundLabel").textContent="MAFIA · "+t("round")+" "+s.round;
@@ -238,9 +219,7 @@ function renderState(s){
    title=t("roles");
    if(s.ready){text=t("waitingReady");detail=t("readyCount")+": "+s.readyCount+" / "+s.players.length}
    else if(meta){
-    const portrait=roleSpriteUrl
-     ?'<div class="role-portrait" role="img" aria-label="'+esc(t(meta.name))+'" style="background-image:url(\''+roleSpriteUrl+'\');background-position:'+rolePortraitPosition(s.role,playerId)+'"></div>'
-     :'<div class="role-icon">'+meta.icon+'</div>';
+    const portrait='<img class="role-portrait" src="/mafia-role-data/'+rolePortraitFile(s.role,playerId)+'" alt="'+esc(t(meta.name))+'" decoding="async">';
     area='<div class="role-card '+meta.cls+'">'+portrait+'<h2 class="role-title">'+t(meta.name)+'</h2><p class="muted">'+t(meta.desc)+'</p></div><p class="muted">'+t("roleReady")+'</p><button class="btn gold" onclick="sendMafiaAction(\'ready\')">'+t("ready")+'</button>';
    }
  }
