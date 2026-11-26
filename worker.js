@@ -104,6 +104,8 @@ export default {
       if (url.pathname === "/api/admin/feedback" && request.method === "GET") return await listFeedback(request, env);
       if (url.pathname === "/api/admin/imposter-words" && request.method === "GET") return await listImposterWords(request, env);
       if (url.pathname === "/api/admin/imposter-words" && request.method === "POST") return await saveImposterWord(request, env);
+      if (url.pathname === "/api/admin/kharj-words" && request.method === "GET") return await listKharjWords(request, env);
+      if (url.pathname === "/api/admin/kharj-words" && request.method === "POST") return await saveKharjWord(request, env);
       if (url.pathname === "/api/imposter/create" && request.method === "POST") return await createImposterRoom(request, env);
       if (url.pathname === "/api/imposter/join" && request.method === "POST") return await joinImposterRoom(request, env);
       if (url.pathname === "/api/imposter/host-state" && request.method === "GET") return await getImposterHostState(request, env, url);
@@ -136,6 +138,8 @@ export default {
         if (adminParts[3] === "faq-questions" && request.method === "DELETE") return await deleteFaqQuestion(request, env, itemId);
         if (adminParts[3] === "imposter-words" && request.method === "PATCH") return await updateImposterWord(request, env, itemId);
         if (adminParts[3] === "imposter-words" && request.method === "DELETE") return await deleteImposterWord(request, env, itemId);
+        if (adminParts[3] === "kharj-words" && request.method === "PATCH") return await updateKharjWord(request, env, itemId);
+        if (adminParts[3] === "kharj-words" && request.method === "DELETE") return await deleteKharjWord(request, env, itemId);
       }
       return json({ error: "Not found." }, 404);
     } catch (error) {
@@ -984,6 +988,40 @@ async function deleteImposterWord(request,env,id){
  if(!await requireAdmin(request,env))return json({error:"Administrator access required."},403);
  await env.DB.prepare("DELETE FROM imposter_words WHERE id=?").bind(id).run();return json({ok:true});
 }
+
+async function listKharjWords(request,env){
+ if(!await requireAdmin(request,env))return json({error:"Administrator access required."},403);
+ await ensureKharjSchema(env);
+ const rows=await env.DB.prepare("SELECT id,category_id,word_en,word_ar,created_at FROM kharj_words ORDER BY category_id,word_en").all();
+ return json({words:rows.results||[],categories:KHARJ_CATEGORIES});
+}
+function cleanKharjWord(body){
+ const categoryId=cleanText(body.category_id,60),wordEn=cleanText(body.word_en,100),wordAr=cleanText(body.word_ar,100);
+ if(!kharjCategory(categoryId))return {error:"Choose a valid Kharj category."};
+ if(wordEn.length<2)return {error:"Enter an English word with at least 2 characters."};
+ return {category_id:categoryId,word_en:wordEn,word_ar:wordAr};
+}
+async function saveKharjWord(request,env){
+ if(!await requireAdmin(request,env))return json({error:"Administrator access required."},403);
+ await ensureKharjSchema(env);
+ const body=await readBody(request),word=cleanKharjWord(body);if(word.error)return json({error:word.error},400);
+ const id=crypto.randomUUID(),now=new Date().toISOString();
+ await env.DB.prepare("INSERT INTO kharj_words (id,category_id,word_en,word_ar,created_at,updated_at) VALUES (?,?,?,?,?,?)").bind(id,word.category_id,word.word_en,word.word_ar||null,now,now).run();
+ return json({ok:true,id});
+}
+async function updateKharjWord(request,env,id){
+ if(!await requireAdmin(request,env))return json({error:"Administrator access required."},403);
+ await ensureKharjSchema(env);
+ const body=await readBody(request),word=cleanKharjWord(body);if(word.error)return json({error:word.error},400);
+ await env.DB.prepare("UPDATE kharj_words SET category_id=?,word_en=?,word_ar=?,updated_at=? WHERE id=?").bind(word.category_id,word.word_en,word.word_ar||null,new Date().toISOString(),id).run();
+ return json({ok:true});
+}
+async function deleteKharjWord(request,env,id){
+ if(!await requireAdmin(request,env))return json({error:"Administrator access required."},403);
+ await ensureKharjSchema(env);
+ await env.DB.prepare("DELETE FROM kharj_words WHERE id=?").bind(id).run();return json({ok:true});
+}
+
 async function imposterRoomByKey(body,env){
  const roomId=String(body.roomId||""),key=String(body.key||"");
  if(!/^[A-Za-z0-9_-]{20,40}$/.test(roomId)||key.length<40||key.length>60)return null;
@@ -2174,6 +2212,21 @@ const KHARJ_WORD_BANK = {
 async function ensureKharjSchema(env){
  await env.DB.prepare("CREATE TABLE IF NOT EXISTS kharj_rooms (room_id TEXT PRIMARY KEY, token_hash TEXT NOT NULL, host_user_id TEXT NOT NULL, state_json TEXT NOT NULL, created_at TEXT NOT NULL, expires_at TEXT NOT NULL, ended_at TEXT)").run();
  await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_kharj_rooms_host ON kharj_rooms(host_user_id,created_at)").run();
+ await env.DB.prepare("CREATE TABLE IF NOT EXISTS kharj_words (id TEXT PRIMARY KEY, category_id TEXT NOT NULL, word_en TEXT NOT NULL, word_ar TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)").run();
+ await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_kharj_words_category ON kharj_words(category_id,word_en)").run();
+ await env.DB.prepare("CREATE TABLE IF NOT EXISTS kharj_word_seed (id INTEGER PRIMARY KEY CHECK(id=1), seeded_at TEXT NOT NULL)").run();
+ const seeded=await env.DB.prepare("SELECT id FROM kharj_word_seed WHERE id=1").first();
+ if(!seeded){
+  const now=new Date().toISOString(),statements=[];
+  for(const category of KHARJ_CATEGORIES){
+   const words=KHARJ_WORD_BANK[category.id]||[];
+   words.forEach((word,index)=>statements.push(
+    env.DB.prepare("INSERT OR IGNORE INTO kharj_words (id,category_id,word_en,word_ar,created_at,updated_at) VALUES (?,?,?,?,?,?)").bind("seed_"+category.id+"_"+(index+1),category.id,word[0],word[1]||null,now,now)
+   ));
+  }
+  for(let i=0;i<statements.length;i+=50)await env.DB.batch(statements.slice(i,i+50));
+  await env.DB.prepare("INSERT OR IGNORE INTO kharj_word_seed (id,seeded_at) VALUES (1,?)").bind(now).run();
+ }
 }
 function kharjShuffle(items){
  const a=[...items];
@@ -2184,19 +2237,16 @@ function kharjCategory(id){return KHARJ_CATEGORIES.find(c=>c.id===id)||null}
 function kharjNormalizeGuess(value){
  return String(value||"").normalize("NFKD").replace(/[\u0300-\u036f]/g,"").toLocaleLowerCase().replace(/[.,!?؛،:'"’‘()\-_/]/g,"").replace(/\s+/g," ").trim();
 }
-function kharjChooseSecret(state){
- const pool=[];
- for(const categoryId of state.categories||[]){
-  const words=KHARJ_WORD_BANK[categoryId]||[];
-  if(!kharjCategory(categoryId))continue;
-  for(let i=0;i<words.length;i++)pool.push({id:categoryId+"-"+i,categoryId,wordEn:words[i][0],wordAr:words[i][1]});
- }
+async function kharjChooseSecret(state,env){
+ const rows=await env.DB.prepare("SELECT id,category_id,word_en,word_ar FROM kharj_words ORDER BY category_id,word_en").all();
+ const categories=new Set(state.categories||[]);
+ const pool=(rows.results||[]).filter(row=>categories.has(row.category_id)).map(row=>({id:row.id,categoryId:row.category_id,wordEn:row.word_en,wordAr:row.word_ar||row.word_en}));
  const unused=pool.filter(item=>!(state.usedWordIds||[]).includes(item.id));
  return kharjShuffle(unused.length?unused:pool)[0]||null;
 }
-function kharjStartRound(state){
- const secret=kharjChooseSecret(state);
- if(!secret)throw new Error("No words are available for the selected categories.");
+async function kharjStartRound(state,env){
+ const secret=await kharjChooseSecret(state,env);
+ if(!secret)throw new Error("No words are available for the selected category. Add words in Dashboard → Game editor → Kharj editor.");
  state.secret=secret;state.usedWordIds=[...(state.usedWordIds||[]),secret.id].slice(-250);
  state.outsiderId=kharjShuffle(state.players)[0].id;
  state.stage="revealing";state.revealIndex=0;state.revealed=false;state.askRound=0;state.askerId=null;state.askTargetId=null;state.specialPick=false;state.lastQuestion=null;state.votes={};state.voteIndex=0;state.voteSummary=null;state.guess="";state.outcome=null;state.caughtPlayerId=null;state.round=(state.round||0)+1;
@@ -2208,7 +2258,7 @@ function kharjNextAsker(state){
  const players=state.players||[],previous=state.askerId,pool=players.filter(p=>p.id!==previous);
  state.askerId=kharjShuffle(pool.length?pool:players)[0]?.id||null;
  state.askRound=(state.askRound||1)+1;
- state.specialPick=state.askRound===6;
+ state.specialPick=state.askRound>=6;
  if(state.specialPick){state.askTargetId=null;state.lastQuestion=null;return}
  state.askTargetId=kharjShuffle(players.filter(p=>p.id!==state.askerId))[0]?.id||null;
  state.lastQuestion=state.askerId&&state.askTargetId?{askerId:state.askerId,targetId:state.askTargetId}:null;
@@ -2267,7 +2317,7 @@ function kharjControllerPublicState(s,lang){
  }
  const asker=s.stage==="discussion"?(s.players||[]).find(p=>p.id===s.askerId)||null:null;
  const askTarget=s.stage==="discussion"&&s.askTargetId?(s.players||[]).find(p=>p.id===s.askTargetId)||null:null;
- const askCandidates=s.stage==="discussion"&&s.specialPick===true&&!s.askTargetId?(s.players||[]).filter(p=>p.id!==s.askerId):[];
+ const askCandidates=s.stage==="discussion"&&(s.askRound||0)>=6&&!s.askTargetId?(s.players||[]).filter(p=>p.id!==s.askerId):[];
  const voter=s.players?.[s.voteIndex]||null;
  return {
   stage:s.stage,round:s.round||0,language:lang,
@@ -2316,7 +2366,7 @@ async function kharjControllerAction(request,env){
  }else if(body.action==="start"){
   if(!["setup-ready","results"].includes(state.stage))return json({error:"Finish setup before starting a round."},409);
   if((state.players||[]).length<3||(state.categories||[]).length!==1)return json({error:"Add at least 3 players and choose exactly one category first."},400);
-  try{kharjStartRound(state)}catch(error){return json({error:error.message},400)}
+  try{await kharjStartRound(state,env)}catch(error){return json({error:error.message},400)}
  }else if(body.action==="reveal"){
   if(state.stage!=="revealing"||state.revealed)return json({error:"This card is not ready to reveal."},409);
   state.revealed=true;
@@ -2325,7 +2375,7 @@ async function kharjControllerAction(request,env){
   state.revealIndex++;state.revealed=false;
   if(state.revealIndex>=state.players.length)kharjBeginDiscussion(state);
  }else if(body.action==="choose-target"){
-  if(state.stage!=="discussion"||state.specialPick!==true||state.askTargetId)return json({error:"Player selection is only available on the special turn after five rounds."},409);
+  if(state.stage!=="discussion"||(state.askRound||0)<6||state.askTargetId)return json({error:"Player selection is available on every question after the first five rounds."},409);
   const targetId=String(body.targetId||"");
   if(!state.askerId||!state.players.some(p=>p.id===targetId&&p.id!==state.askerId))return json({error:"Choose another player to question."},400);
   state.askTargetId=targetId;state.lastQuestion={askerId:state.askerId,targetId};
@@ -2359,7 +2409,7 @@ async function kharjControllerAction(request,env){
   state.outcome={winner:correct?"outsider":"group",guessCorrect:correct};state.stage="results";
  }else if(body.action==="play-again"){
   if(state.stage!=="results")return json({error:"Finish the current round first."},409);
-  try{kharjStartRound(state)}catch(error){return json({error:error.message},400)}
+  try{await kharjStartRound(state,env)}catch(error){return json({error:error.message},400)}
  }else if(body.action==="end"){state.stage="ended"}
  else return json({error:"Unknown Kharj Al Jalsa action."},400);
  if(!await saveKharjState(env,room,state))return json({error:"The game just updated. Please try again."},409);
