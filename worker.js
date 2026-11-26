@@ -2154,34 +2154,42 @@ async function getKharjHostState(request,env,url){
  };
  return json({state:publicState});
 }
-async function getKharjControllerState(request,env,url){
- const room=await kharjRoomByKey({roomId:url.searchParams.get("roomId"),key:url.searchParams.get("key")},env);
- if(!room)return json({error:"This Kharj Al Jalsa QR is invalid or expired."},404);
- const s=room.state,lang=url.searchParams.get("lang")==="ar"?"ar":"en";
+function kharjControllerPublicState(s,lang){
  const player=s.players?.[s.revealIndex]||null;
  let reveal=null;
- if(s.stage==="revealing"&&s.revealed&&player&&s.secret){
-  const outsider=player.id===s.outsiderId;
-  reveal={role:outsider?"outsider":"player",categoryId:s.secret.categoryId,category:kharjCategory(s.secret.categoryId)?.[lang]||s.secret.categoryId,word:outsider?null:(lang==="ar"?s.secret.wordAr:s.secret.wordEn)};
+ if(s.stage==="revealing"&&s.revealed===true&&player&&s.secret){
+  const outsider=player.id===s.outsiderId,category=kharjCategory(s.secret.categoryId);
+  reveal={
+   role:outsider?"outsider":"player",
+   categoryId:s.secret.categoryId,
+   category:category?.[lang]||s.secret.categoryId,
+   word:outsider?null:(lang==="ar"?(s.secret.wordAr||s.secret.wordEn):(s.secret.wordEn||s.secret.wordAr))
+  };
  }
  const voter=s.players?.[s.voteIndex]||null;
- const state={
+ return {
   stage:s.stage,round:s.round||0,language:lang,
   players:(s.players||[]).map(p=>({id:p.id,name:p.name})),
   categories:(s.categories||[]).map(kharjCategory).filter(Boolean).map(c=>({id:c.id,name:lang==="ar"?c.ar:c.en,icon:c.icon})),
   revealIndex:s.revealIndex||0,currentPlayer:s.stage==="revealing"&&player?{id:player.id,name:player.name}:null,
-  revealed:!!s.revealed,reveal,
+  revealed:s.revealed===true,reveal,
   voter:s.stage==="voting"&&voter?{id:voter.id,name:voter.name}:null,
   candidates:s.stage==="voting"&&voter?(s.players||[]).filter(p=>p.id!==voter.id).map(p=>({id:p.id,name:p.name})):[],
   voteIndex:s.voteIndex||0,voteCount:Object.keys(s.votes||{}).length,
   outsiderName:s.stage==="final-guess"?(s.players.find(p=>p.id===s.outsiderId)?.name||""):"",
   result:s.stage==="results"?{
-   winner:s.outcome?.winner,word:lang==="ar"?s.secret?.wordAr:s.secret?.wordEn,category:kharjCategory(s.secret?.categoryId)?.[lang]||"",
+   winner:s.outcome?.winner,word:lang==="ar"?(s.secret?.wordAr||s.secret?.wordEn):s.secret?.wordEn,
+   category:kharjCategory(s.secret?.categoryId)?.[lang]||"",
    outsiderName:s.players.find(p=>p.id===s.outsiderId)?.name||"",
    voteSummary:s.voteSummary||[],guess:s.guess||""
   }:null
  };
- return json({state});
+}
+async function getKharjControllerState(request,env,url){
+ const room=await kharjRoomByKey({roomId:url.searchParams.get("roomId"),key:url.searchParams.get("key")},env);
+ if(!room)return json({error:"This Kharj Al Jalsa QR is invalid or expired."},404);
+ const lang=url.searchParams.get("lang")==="ar"?"ar":"en";
+ return json({state:kharjControllerPublicState(room.state,lang)});
 }
 async function kharjControllerAction(request,env){
  const body=await readBody(request),room=await kharjRoomByKey(body,env);
@@ -2240,7 +2248,8 @@ async function kharjControllerAction(request,env){
  }else if(body.action==="end"){state.stage="ended"}
  else return json({error:"Unknown Kharj Al Jalsa action."},400);
  if(!await saveKharjState(env,room,state))return json({error:"The game just updated. Please try again."},409);
- return json({ok:true});
+ const responseLanguage=body.lang==="ar"?"ar":(state.language==="ar"?"ar":"en");
+ return json({ok:true,state:kharjControllerPublicState(state,responseLanguage)});
 }
 
 /* JALSA Mafia: private-role, QR multiplayer game */
