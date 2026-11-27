@@ -2263,12 +2263,27 @@ async function kharjChooseSecret(state,env){
  const unused=pool.filter(item=>!(state.usedWordIds||[]).includes(item.id));
  return kharjShuffle(unused.length?unused:pool)[0]||null;
 }
+async function kharjPrepareWordOptions(state,env){
+ const rows=await env.DB.prepare("SELECT id,word_en,word_ar FROM kharj_words WHERE category_id=? AND id<>? ORDER BY word_en")
+  .bind(state.secret.categoryId,state.secret.id).all();
+ const seen=new Set();
+ const distractors=(rows.results||[]).filter(row=>{
+  const normalized=kharjNormalizeGuess(row.word_en);
+  if(!normalized||seen.has(normalized))return false;
+  seen.add(normalized);return true;
+ }).map(row=>({id:row.id,wordEn:row.word_en,wordAr:row.word_ar||row.word_en}));
+ if(distractors.length<3)throw new Error("This category needs at least 3 other words for the outsider's final choice.");
+ const correct={id:state.secret.id,wordEn:state.secret.wordEn,wordAr:state.secret.wordAr||state.secret.wordEn};
+ state.wordOptions=kharjShuffle([correct,...kharjShuffle(distractors).slice(0,3)]);
+}
 async function kharjStartRound(state,env){
  const secret=await kharjChooseSecret(state,env);
  if(!secret)throw new Error("No words are available for the selected category. Add words in Dashboard → Game editor → Kharj editor.");
  state.secret=secret;state.usedWordIds=[...(state.usedWordIds||[]),secret.id].slice(-250);
  state.outsiderId=kharjShuffle(state.players)[0].id;
- state.stage="revealing";state.revealIndex=0;state.revealed=false;state.askRound=0;state.askerId=null;state.askTargetId=null;state.specialPick=false;state.lastQuestion=null;state.votes={};state.voteIndex=0;state.voteSummary=null;state.guess="";state.outcome=null;state.caughtPlayerId=null;state.round=(state.round||0)+1;
+ state.scores=state.scores||{};state.roundPoints={};
+ for(const player of state.players){state.scores[player.id]=Number(state.scores[player.id]||0);state.roundPoints[player.id]=0}
+ state.wordOptions=[];state.stage="revealing";state.revealIndex=0;state.revealed=false;state.askRound=0;state.askerId=null;state.askTargetId=null;state.specialPick=false;state.lastQuestion=null;state.votes={};state.voteIndex=0;state.voteSummary=null;state.guess="";state.outcome=null;state.caughtPlayerId=null;state.round=(state.round||0)+1;
 }
 function kharjBeginDiscussion(state){
  state.stage="discussion";state.askRound=1;state.askerId=kharjShuffle(state.players)[0]?.id||null;state.askTargetId=kharjShuffle((state.players||[]).filter(p=>p.id!==state.askerId))[0]?.id||null;state.specialPick=false;state.lastQuestion=state.askerId&&state.askTargetId?{askerId:state.askerId,targetId:state.askTargetId}:null;
@@ -2315,10 +2330,10 @@ async function getKharjHostState(request,env,url){
  if(!row||row.ended_at||row.expires_at<=new Date().toISOString())return json({error:"Game session not found or expired."},404);
  let state={};try{state=JSON.parse(row.state_json||"{}")}catch{return json({error:"Game state is unreadable."},500)}
  const publicState={
-  stage:state.stage,round:state.round||0,players:(state.players||[]).map(p=>({id:p.id,name:p.name})),
+  stage:state.stage,round:state.round||0,players:(state.players||[]).map(p=>({id:p.id,name:p.name,score:Number(state.scores?.[p.id]||0),roundPoints:Number(state.roundPoints?.[p.id]||0)})),
   categories:(state.categories||[]).map(kharjCategory).filter(Boolean).map(c=>({id:c.id,nameEn:c.en,nameAr:c.ar})),
   revealIndex:state.revealIndex||0,askRound:state.askRound||0,specialPick:state.specialPick===true,askerName:(state.players||[]).find(p=>p.id===state.askerId)?.name||"",askTargetName:(state.players||[]).find(p=>p.id===state.askTargetId)?.name||"",voteIndex:state.voteIndex||0,voteCount:Object.keys(state.votes||{}).length,
-  outcome:state.stage==="results"?{winner:state.outcome?.winner,wordEn:state.secret?.wordEn,wordAr:state.secret?.wordAr,category:state.secret?.categoryId,outsiderName:state.players.find(p=>p.id===state.outsiderId)?.name||"",voteSummary:state.voteSummary||[]}:null
+  outcome:state.stage==="results"?{winner:state.outcome?.winner,wordEn:state.secret?.wordEn,wordAr:state.secret?.wordAr,category:state.secret?.categoryId,outsiderName:state.players.find(p=>p.id===state.outsiderId)?.name||"",voteSummary:state.voteSummary||[],guess:state.guess||"",guessCorrect:!!state.outcome?.guessCorrect}:null
  };
  return json({state:publicState});
 }
@@ -2352,11 +2367,12 @@ function kharjControllerPublicState(s,lang){
   candidates:s.stage==="voting"&&voter?(s.players||[]).filter(p=>p.id!==voter.id).map(p=>({id:p.id,name:p.name})):[],
   voteIndex:s.voteIndex||0,voteCount:Object.keys(s.votes||{}).length,
   outsiderName:s.stage==="final-guess"?(s.players.find(p=>p.id===s.outsiderId)?.name||""):"",
+  guessOptions:s.stage==="final-guess"?(s.wordOptions||[]).map(item=>({id:item.id,word:lang==="ar"?(item.wordAr||item.wordEn):item.wordEn})):[],
   result:s.stage==="results"?{
    winner:s.outcome?.winner,word:lang==="ar"?(s.secret?.wordAr||s.secret?.wordEn):s.secret?.wordEn,
    category:kharjCategory(s.secret?.categoryId)?.[lang]||"",
    outsiderName:s.players.find(p=>p.id===s.outsiderId)?.name||"",
-   voteSummary:s.voteSummary||[],guess:s.guess||""
+   voteSummary:s.voteSummary||[],guess:s.guess||"",guessCorrect:!!s.outcome?.guessCorrect
   }:null
  };
 }
@@ -2381,6 +2397,7 @@ async function kharjControllerAction(request,env){
   const categories=Array.isArray(body.categories)?[...new Set(body.categories.map(String))].filter(id=>!!kharjCategory(id)):[];
   if(categories.length!==1)return json({error:"Choose exactly one category."},400);
   state.players=names.map(name=>({id:toBase64Url(randomBytes(12)),name}));
+  state.scores={};state.roundPoints={};for(const player of state.players){state.scores[player.id]=0;state.roundPoints[player.id]=0}
   state.categories=categories;state.language=body.language==="ar"?"ar":"en";state.stage="setup-ready";
  }else if(body.action==="start"){
   if(!["setup-ready","results"].includes(state.stage))return json({error:"Finish setup before starting a round."},409);
@@ -2413,19 +2430,33 @@ async function kharjControllerAction(request,env){
   if(state.voteIndex>=state.players.length){
    const counts={};Object.values(state.votes).forEach(id=>counts[id]=(counts[id]||0)+1);
    const ranked=Object.entries(counts).sort((a,b)=>b[1]-a[1]),top=ranked[0]?.[1]||0,winners=ranked.filter(x=>x[1]===top).map(x=>x[0]);
-   state.voteSummary=state.players.map(p=>({name:p.name,votes:counts[p.id]||0}));
+   state.scores=state.scores||{};state.roundPoints={};
+   for(const player of state.players){
+    const points=state.votes[player.id]===state.outsiderId?100:0;
+    state.scores[player.id]=Number(state.scores[player.id]||0)+points;
+    state.roundPoints[player.id]=points;
+   }
+   state.voteSummary=state.players.map(p=>({id:p.id,name:p.name,votes:counts[p.id]||0,points:state.roundPoints[p.id],score:state.scores[p.id]}));
    state.caughtPlayerId=winners.length===1?winners[0]:null;
-   if(state.caughtPlayerId===state.outsiderId){state.stage="final-guess"}
-   else {state.stage="results";state.outcome={winner:"outsider"}}
+   if(state.caughtPlayerId===state.outsiderId){
+    try{await kharjPrepareWordOptions(state,env)}catch(error){return json({error:error.message},400)}
+    state.stage="final-guess";
+   }else {state.stage="results";state.outcome={winner:"outsider",guessCorrect:false}}
   }
  }else if(body.action==="guess"){
-  if(state.stage!=="final-guess")return json({error:"The final guess is not open."},409);
-  const guess=String(body.guess||"").trim().slice(0,100);
-  if(!guess)return json({error:"Enter your guess."},400);
-  state.guess=guess;
-  const normalized=kharjNormalizeGuess(guess);
-  const correct=[state.secret?.wordEn,state.secret?.wordAr].some(word=>kharjNormalizeGuess(word)===normalized);
-  state.outcome={winner:correct?"outsider":"group",guessCorrect:correct};state.stage="results";
+  if(state.stage!=="final-guess")return json({error:"The final word choice is not open."},409);
+  const optionId=String(body.optionId||"");
+  const option=(state.wordOptions||[]).find(item=>item.id===optionId);
+  if(!option)return json({error:"Choose one of the four available words."},400);
+  const correct=option.id===state.secret?.id;
+  if(correct){
+   state.scores=state.scores||{};state.roundPoints=state.roundPoints||{};
+   state.scores[state.outsiderId]=Number(state.scores[state.outsiderId]||0)+100;
+   state.roundPoints[state.outsiderId]=Number(state.roundPoints[state.outsiderId]||0)+100;
+  }
+  state.guess=option.wordEn;
+  state.outcome={winner:correct?"outsider":"group",guessCorrect:correct};
+  state.stage="results";
  }else if(body.action==="play-again"){
   if(state.stage!=="results")return json({error:"Finish the current round first."},409);
   try{await kharjStartRound(state,env)}catch(error){return json({error:error.message},400)}
