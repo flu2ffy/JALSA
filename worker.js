@@ -2330,7 +2330,7 @@ async function getKharjHostState(request,env,url){
  if(!row||row.ended_at||row.expires_at<=new Date().toISOString())return json({error:"Game session not found or expired."},404);
  let state={};try{state=JSON.parse(row.state_json||"{}")}catch{return json({error:"Game state is unreadable."},500)}
  const publicState={
-  stage:state.stage,round:state.round||0,players:(state.players||[]).map(p=>({id:p.id,name:p.name,score:Number(state.scores?.[p.id]||0),roundPoints:Number(state.roundPoints?.[p.id]||0)})),
+  stage:state.stage,round:state.round||0,outsiderCaught:state.outsiderCaught===true,players:(state.players||[]).map(p=>({id:p.id,name:p.name,score:Number(state.scores?.[p.id]||0),roundPoints:Number(state.roundPoints?.[p.id]||0)})),
   categories:(state.categories||[]).map(kharjCategory).filter(Boolean).map(c=>({id:c.id,nameEn:c.en,nameAr:c.ar})),
   revealIndex:state.revealIndex||0,askRound:state.askRound||0,specialPick:state.specialPick===true,askerName:(state.players||[]).find(p=>p.id===state.askerId)?.name||"",askTargetName:(state.players||[]).find(p=>p.id===state.askTargetId)?.name||"",voteIndex:state.voteIndex||0,voteCount:Object.keys(state.votes||{}).length,
   outcome:state.stage==="results"?{winner:state.outcome?.winner,wordEn:state.secret?.wordEn,wordAr:state.secret?.wordAr,category:state.secret?.categoryId,outsiderName:state.players.find(p=>p.id===state.outsiderId)?.name||"",voteSummary:state.voteSummary||[],guess:state.guess||"",guessCorrect:!!state.outcome?.guessCorrect}:null
@@ -2438,10 +2438,10 @@ async function kharjControllerAction(request,env){
    }
    state.voteSummary=state.players.map(p=>({id:p.id,name:p.name,votes:counts[p.id]||0,points:state.roundPoints[p.id],score:state.scores[p.id]}));
    state.caughtPlayerId=winners.length===1?winners[0]:null;
-   if(state.caughtPlayerId===state.outsiderId){
-    try{await kharjPrepareWordOptions(state,env)}catch(error){return json({error:error.message},400)}
-    state.stage="final-guess";
-   }else {state.stage="results";state.outcome={winner:"outsider",guessCorrect:false}}
+   state.outsiderCaught=state.caughtPlayerId===state.outsiderId;
+   // Always give the outsider the phone-based four-word challenge after voting finishes.
+   try{await kharjPrepareWordOptions(state,env)}catch(error){return json({error:error.message},400)}
+   state.stage="final-guess";
   }
  }else if(body.action==="guess"){
   if(state.stage!=="final-guess")return json({error:"The final word choice is not open."},409);
@@ -2455,7 +2455,9 @@ async function kharjControllerAction(request,env){
    state.roundPoints[state.outsiderId]=Number(state.roundPoints[state.outsiderId]||0)+100;
   }
   state.guess=option.wordEn;
-  state.outcome={winner:correct?"outsider":"group",guessCorrect:correct};
+  // If the group missed the outsider, the outsider already wins; the word challenge is still played for +100.
+  const outsiderWins=state.outsiderCaught!==true||correct;
+  state.outcome={winner:outsiderWins?"outsider":"group",guessCorrect:correct,outsiderCaught:state.outsiderCaught===true};
   state.stage="results";
  }else if(body.action==="play-again"){
   if(state.stage!=="results")return json({error:"Finish the current round first."},409);
