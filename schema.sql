@@ -62,6 +62,8 @@ CREATE TABLE IF NOT EXISTS game_categories (
   name_ar TEXT NOT NULL,
   image_url TEXT,
   icon TEXT NOT NULL DEFAULT '🎯',
+  group_en TEXT NOT NULL DEFAULT '',
+  group_ar TEXT NOT NULL DEFAULT '',
   sort_order INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
@@ -79,6 +81,8 @@ CREATE TABLE IF NOT EXISTS game_questions (
   answer_ar TEXT NOT NULL DEFAULT '',
   media_type TEXT NOT NULL DEFAULT 'none' CHECK (media_type IN ('none', 'image', 'video', 'audio')),
   media_url TEXT,
+  answer_media_type TEXT NOT NULL DEFAULT 'none',
+  answer_media_url TEXT,
   product_name_en TEXT,
   product_name_ar TEXT,
   product_emoji TEXT,

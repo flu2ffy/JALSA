@@ -47,7 +47,8 @@ export default {
       const protectedGameId = contentGameId || (url.pathname === "/api/remote/create" ? "zanko"
         : url.pathname === "/api/insight/create" ? "insight"
         : url.pathname === "/api/imposter/create" ? "imposter"
-        : url.pathname === "/api/mafia/create" ? "mafia" : null);
+        : url.pathname === "/api/mafia/create" ? "mafia"
+        : url.pathname === "/api/kharj/create" ? "kharj" : null);
       if (protectedGameId) {
         const denied = await requireSubscriptionAccess(request, env, protectedGameId);
         if (denied) return denied;
@@ -55,8 +56,8 @@ export default {
       if (url.pathname === "/api/game-availability" && request.method === "GET") return await getGameAvailability(env);
       if (url.pathname === "/api/admin/game-availability" && request.method === "GET") return await getAdminGameAvailability(request, env);
       if (url.pathname.startsWith("/api/admin/game-availability/") && request.method === "PATCH") return await updateGameAvailability(request, env, decodeURIComponent(url.pathname.split("/").pop()));
-      if (url.pathname.startsWith("/api/insight/") || url.pathname.startsWith("/api/imposter/") || url.pathname.startsWith("/api/mafia/")) {
-        const gameId = url.pathname.startsWith("/api/insight/") ? "insight" : url.pathname.startsWith("/api/imposter/") ? "imposter" : "mafia";
+      if (url.pathname.startsWith("/api/insight/") || url.pathname.startsWith("/api/imposter/") || url.pathname.startsWith("/api/mafia/") || url.pathname.startsWith("/api/kharj/")) {
+        const gameId = url.pathname.startsWith("/api/insight/") ? "insight" : url.pathname.startsWith("/api/imposter/") ? "imposter" : url.pathname.startsWith("/api/mafia/") ? "mafia" : "kharj";
         const availability = await readGameAvailability(env, gameId);
         if (!availability.enabled) return json({ error: "This game is temporarily unavailable. Please check back later." }, 423);
       }
@@ -103,6 +104,8 @@ export default {
       if (url.pathname === "/api/admin/feedback" && request.method === "GET") return await listFeedback(request, env);
       if (url.pathname === "/api/admin/imposter-words" && request.method === "GET") return await listImposterWords(request, env);
       if (url.pathname === "/api/admin/imposter-words" && request.method === "POST") return await saveImposterWord(request, env);
+      if (url.pathname === "/api/admin/kharj-words" && request.method === "GET") return await listKharjWords(request, env);
+      if (url.pathname === "/api/admin/kharj-words" && request.method === "POST") return await saveKharjWord(request, env);
       if (url.pathname === "/api/imposter/create" && request.method === "POST") return await createImposterRoom(request, env);
       if (url.pathname === "/api/imposter/join" && request.method === "POST") return await joinImposterRoom(request, env);
       if (url.pathname === "/api/imposter/host-state" && request.method === "GET") return await getImposterHostState(request, env, url);
@@ -115,6 +118,10 @@ export default {
       if (url.pathname === "/api/mafia/player-state" && request.method === "GET") return await getMafiaPlayerState(request, env, url);
       if (url.pathname === "/api/mafia/host-action" && request.method === "POST") return await mafiaHostAction(request, env);
       if (url.pathname === "/api/mafia/player-action" && request.method === "POST") return await mafiaPlayerAction(request, env);
+      if (url.pathname === "/api/kharj/create" && request.method === "POST") return await createKharjRoom(request, env);
+      if (url.pathname === "/api/kharj/host-state" && request.method === "GET") return await getKharjHostState(request, env, url);
+      if (url.pathname === "/api/kharj/controller-state" && request.method === "GET") return await getKharjControllerState(request, env, url);
+      if (url.pathname === "/api/kharj/controller-action" && request.method === "POST") return await kharjControllerAction(request, env);
       const adminParts = url.pathname.split("/");
       if (adminParts.length === 5 && adminParts[1] === "api" && adminParts[2] === "admin") {
         const itemId = decodeURIComponent(adminParts[4]);
@@ -131,6 +138,8 @@ export default {
         if (adminParts[3] === "faq-questions" && request.method === "DELETE") return await deleteFaqQuestion(request, env, itemId);
         if (adminParts[3] === "imposter-words" && request.method === "PATCH") return await updateImposterWord(request, env, itemId);
         if (adminParts[3] === "imposter-words" && request.method === "DELETE") return await deleteImposterWord(request, env, itemId);
+        if (adminParts[3] === "kharj-words" && request.method === "PATCH") return await updateKharjWord(request, env, itemId);
+        if (adminParts[3] === "kharj-words" && request.method === "DELETE") return await deleteKharjWord(request, env, itemId);
       }
       return json({ error: "Not found." }, 404);
     } catch (error) {
@@ -150,9 +159,39 @@ const GAME_AVAILABILITY = [
   { id: "price", name: "Price Game" },
   { id: "imposter", name: "Imposter" },
   { id: "insight", name: "INSIGHT" },
-  { id: "mafia", name: "Mafia" }
+  { id: "mafia", name: "Mafia" },
+  { id: "kharj", name: "Kharj Al Jalsa" }
 ];
 const subscriptionSchemaPromises = new WeakMap();
+const zankoExtendedSchemaPromises = new WeakMap();
+async function ensureZankoExtendedSchema(env) {
+  const db = env?.DB;
+  if (!db) throw new Error("JALSA database binding is not configured.");
+  let pending = zankoExtendedSchemaPromises.get(db);
+  if (!pending) {
+    pending = (async () => {
+      const [categoryInfo, questionInfo] = await Promise.all([
+        db.prepare("PRAGMA table_info(game_categories)").all(),
+        db.prepare("PRAGMA table_info(game_questions)").all()
+      ]);
+      const categoryColumns = new Set((categoryInfo.results || []).map(column => column.name));
+      const questionColumns = new Set((questionInfo.results || []).map(column => column.name));
+      const statements = [];
+      if (!categoryColumns.has("group_en")) statements.push(db.prepare("ALTER TABLE game_categories ADD COLUMN group_en TEXT NOT NULL DEFAULT ''"));
+      if (!categoryColumns.has("group_ar")) statements.push(db.prepare("ALTER TABLE game_categories ADD COLUMN group_ar TEXT NOT NULL DEFAULT ''"));
+      if (!questionColumns.has("answer_media_type")) statements.push(db.prepare("ALTER TABLE game_questions ADD COLUMN answer_media_type TEXT NOT NULL DEFAULT 'none'"));
+      if (!questionColumns.has("answer_media_url")) statements.push(db.prepare("ALTER TABLE game_questions ADD COLUMN answer_media_url TEXT"));
+      if (statements.length) await db.batch(statements);
+      await db.batch([
+        db.prepare("UPDATE game_categories SET group_en=CASE WHEN id IN ('cartoon','disney') THEN 'Movies' WHEN id IN ('biology','physics','math') THEN 'Science' WHEN id='music' THEN 'Music' ELSE 'Other' END WHERE COALESCE(group_en,'')=''"),
+        db.prepare("UPDATE game_categories SET group_ar=CASE WHEN id IN ('cartoon','disney') THEN 'أفلام' WHEN id IN ('biology','physics','math') THEN 'العلوم' WHEN id='music' THEN 'الموسيقى' ELSE 'أخرى' END WHERE COALESCE(group_ar,'')=''")
+      ]);
+    })();
+    zankoExtendedSchemaPromises.set(db, pending);
+  }
+  try { await pending; }
+  catch (error) { zankoExtendedSchemaPromises.delete(db); throw error; }
+}
 async function ensureSubscriptionSchema(env) {
   const db = env?.DB;
   if (!db) throw new Error("JALSA database binding is not configured.");
@@ -176,7 +215,7 @@ async function ensureSubscriptionSchema(env) {
         db.prepare("CREATE INDEX IF NOT EXISTS idx_user_subscriptions_status_expiry ON user_subscriptions(status, expires_at)"),
         db.prepare(`CREATE TABLE IF NOT EXISTS free_game_sessions (
           user_id TEXT PRIMARY KEY NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          game_id TEXT NOT NULL CHECK (game_id IN ('zanko','price','imposter','insight','mafia')),
+          game_id TEXT NOT NULL CHECK (game_id IN ('zanko','price','imposter','insight','mafia','kharj')),
           session_id TEXT NOT NULL,
           started_at TEXT NOT NULL
         )`),
@@ -210,6 +249,15 @@ async function ensureSubscriptionSchema(env) {
         db.prepare("CREATE INDEX IF NOT EXISTS idx_paddle_subscriptions_status_end ON paddle_subscriptions(status, current_period_end)"),
         db.prepare("CREATE TABLE IF NOT EXISTS paddle_webhook_events (event_id TEXT PRIMARY KEY NOT NULL, received_at TEXT NOT NULL)")
       ]);
+      const freeGameTable = await db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='free_game_sessions' LIMIT 1").first();
+      if (freeGameTable?.sql && !freeGameTable.sql.includes("'kharj'")) {
+        await db.batch([
+          db.prepare("ALTER TABLE free_game_sessions RENAME TO free_game_sessions_legacy"),
+          db.prepare("CREATE TABLE free_game_sessions (user_id TEXT PRIMARY KEY NOT NULL REFERENCES users(id) ON DELETE CASCADE, game_id TEXT NOT NULL CHECK (game_id IN ('zanko','price','imposter','insight','mafia','kharj')), session_id TEXT NOT NULL, started_at TEXT NOT NULL)"),
+          db.prepare("INSERT INTO free_game_sessions (user_id, game_id, session_id, started_at) SELECT user_id, game_id, session_id, started_at FROM free_game_sessions_legacy"),
+          db.prepare("DROP TABLE free_game_sessions_legacy")
+        ]);
+      }
     })();
     subscriptionSchemaPromises.set(db, pending);
   }
@@ -307,7 +355,7 @@ async function subscriptionAccessForUser(user, env) {
   };
 }
 const FREE_GAME_SESSION_MAX_AGE_MS = 6 * 60 * 60 * 1000;
-const VALID_FREE_GAME_IDS = new Set(["zanko", "price", "imposter", "insight", "mafia"]);
+const VALID_FREE_GAME_IDS = new Set(["zanko", "price", "imposter", "insight", "mafia", "kharj"]);
 async function freeGameSessionForUser(userId, env) {
   await ensureSubscriptionSchema(env);
   return await env.DB.prepare("SELECT game_id, session_id, started_at FROM free_game_sessions WHERE user_id=? LIMIT 1").bind(userId).first();
@@ -893,7 +941,7 @@ async function createImposterRoom(request,env){
  const words=await env.DB.prepare("SELECT COUNT(*) AS count FROM imposter_words").first();
  if(!Number(words?.count||0))return json({error:"The Imposter word list is empty. Ask an admin to add words first."},400);
  const roomId=toBase64Url(randomBytes(18)),key=toBase64Url(randomBytes(32)),now=new Date(),expires=new Date(now.getTime()+3*60*60*1000).toISOString();
- const state={stage:"lobby",players:[],turnIndex:0,turnsCompleted:0,currentPair:null,pairConfirmations:[],ready:[],votes:{},roles:{},secret:null,result:null};
+ const state={stage:"lobby",players:[],turnIndex:0,turnsCompleted:0,currentSpeakerId:null,speakerQueue:[],ready:[],votes:{},roles:{},secret:null,scores:{},roundPoints:{},guesserId:null,wordOptions:[],result:null};
  await env.DB.prepare("INSERT INTO imposter_rooms (room_id,token_hash,host_user_id,state_json,created_at,expires_at) VALUES (?,?,?,?,?,?)").bind(roomId,await sha256Hex(key),user.id,JSON.stringify(state),now.toISOString(),expires).run();
  return json({roomId,key,expiresAt:expires});
 }
@@ -940,6 +988,40 @@ async function deleteImposterWord(request,env,id){
  if(!await requireAdmin(request,env))return json({error:"Administrator access required."},403);
  await env.DB.prepare("DELETE FROM imposter_words WHERE id=?").bind(id).run();return json({ok:true});
 }
+
+async function listKharjWords(request,env){
+ if(!await requireAdmin(request,env))return json({error:"Administrator access required."},403);
+ await ensureKharjSchema(env);
+ const rows=await env.DB.prepare("SELECT id,category_id,word_en,word_ar,created_at FROM kharj_words ORDER BY category_id,word_en").all();
+ return json({words:rows.results||[],categories:KHARJ_CATEGORIES});
+}
+function cleanKharjWord(body){
+ const categoryId=cleanText(body.category_id,60),wordEn=cleanText(body.word_en,100),wordAr=cleanText(body.word_ar,100);
+ if(!kharjCategory(categoryId))return {error:"Choose a valid Kharj category."};
+ if(wordEn.length<2)return {error:"Enter an English word with at least 2 characters."};
+ return {category_id:categoryId,word_en:wordEn,word_ar:wordAr};
+}
+async function saveKharjWord(request,env){
+ if(!await requireAdmin(request,env))return json({error:"Administrator access required."},403);
+ await ensureKharjSchema(env);
+ const body=await readBody(request),word=cleanKharjWord(body);if(word.error)return json({error:word.error},400);
+ const id=crypto.randomUUID(),now=new Date().toISOString();
+ await env.DB.prepare("INSERT INTO kharj_words (id,category_id,word_en,word_ar,created_at,updated_at) VALUES (?,?,?,?,?,?)").bind(id,word.category_id,word.word_en,word.word_ar||null,now,now).run();
+ return json({ok:true,id});
+}
+async function updateKharjWord(request,env,id){
+ if(!await requireAdmin(request,env))return json({error:"Administrator access required."},403);
+ await ensureKharjSchema(env);
+ const body=await readBody(request),word=cleanKharjWord(body);if(word.error)return json({error:word.error},400);
+ await env.DB.prepare("UPDATE kharj_words SET category_id=?,word_en=?,word_ar=?,updated_at=? WHERE id=?").bind(word.category_id,word.word_en,word.word_ar||null,new Date().toISOString(),id).run();
+ return json({ok:true});
+}
+async function deleteKharjWord(request,env,id){
+ if(!await requireAdmin(request,env))return json({error:"Administrator access required."},403);
+ await ensureKharjSchema(env);
+ await env.DB.prepare("DELETE FROM kharj_words WHERE id=?").bind(id).run();return json({ok:true});
+}
+
 async function imposterRoomByKey(body,env){
  const roomId=String(body.roomId||""),key=String(body.key||"");
  if(!/^[A-Za-z0-9_-]{20,40}$/.test(roomId)||key.length<40||key.length>60)return null;
@@ -960,71 +1042,158 @@ async function getImposterHostState(request,env,url){
  let state={};try{state=JSON.parse(room.state_json||"{}")}catch{return json({error:"Game state is unreadable."},500)}
  return json({state:imposterPublicState(state)});
 }
+
+function imposterChooseNextSpeaker(state,previousId=null){
+ const players=state.players||[];
+ let queue=Array.isArray(state.speakerQueue)?state.speakerQueue.filter(id=>players.some(p=>p.id===id)):[];
+ if(!queue.length){
+  queue=imposterShuffle(players.map(p=>p.id));
+  if(queue.length>1&&queue[0]===previousId){const swap=queue[0];queue[0]=queue[1];queue[1]=swap}
+ }
+ state.currentSpeakerId=queue.shift()||null;
+ state.speakerQueue=queue;
+}
 function imposterPublicState(state){
- const pair=state.currentPair||null;
- return {stage:state.stage,players:state.players.map(p=>({id:p.id,name:p.name})),turnIndex:state.turnIndex||0,turnsCompleted:state.turnsCompleted||0,currentPair:pair?{askerName:state.players.find(p=>p.id===pair.askerId)?.name||"Player",targetName:state.players.find(p=>p.id===pair.targetId)?.name||"Player"}:null,confirmedCount:(state.pairConfirmations||[]).length,readyCount:(state.ready||[]).length,voteCount:Object.keys(state.votes||{}).length,result:state.stage==="results"?state.result:null};
+ const speaker=(state.players||[]).find(p=>p.id===state.currentSpeakerId)||null;
+ const guesser=(state.players||[]).find(p=>p.id===state.guesserId)||null;
+ return {stage:state.stage,players:(state.players||[]).map(p=>({id:p.id,name:p.name})),
+  turnIndex:state.turnIndex||0,turnsCompleted:state.turnsCompleted||0,
+  currentSpeakerName:speaker?.name||"",readyCount:(state.ready||[]).length,
+  voteCount:Object.keys(state.votes||{}).length,guesserName:guesser?.name||"",
+  result:state.stage==="results"?state.result:null};
 }
 async function getImposterPlayerState(request,env,url){
- const room=await imposterRoomByKey({roomId:url.searchParams.get("roomId"),key:url.searchParams.get("key")},env);if(!room)return json({error:"This game session has expired."},404);
- const playerId=url.searchParams.get("playerId")||"",player=room.state.players.find(p=>p.id===playerId);if(!player)return json({error:"Player not found. Scan the QR again."},404);
- const state=room.state,pair=state.currentPair||null;
- return json({state:{stage:state.stage,player:{id:player.id,name:player.name},players:state.players.map(p=>({id:p.id,name:p.name})),turnIndex:state.turnIndex||0,turnsCompleted:state.turnsCompleted||0,currentPair:pair?{askerName:state.players.find(p=>p.id===pair.askerId)?.name||"Player",targetName:state.players.find(p=>p.id===pair.targetId)?.name||"Player",isParticipant:playerId===pair.askerId||playerId===pair.targetId}:null,confirmed:(state.pairConfirmations||[]).includes(playerId),confirmedCount:(state.pairConfirmations||[]).length,role:state.stage==="lobby"?null:(state.roles[playerId]||"player"),word:state.stage==="lobby"||state.roles[playerId]==="imposter"?null:state.secret?.word,wordAr:state.stage==="lobby"||state.roles[playerId]==="imposter"?null:(state.secret?.wordAr||state.secret?.word),category:state.stage==="lobby"||state.roles[playerId]==="imposter"?null:state.secret?.category,ready:(state.ready||[]).includes(playerId),readyCount:(state.ready||[]).length,voted:Object.prototype.hasOwnProperty.call(state.votes||{},playerId),voteOptions:state.stage==="voting"?state.players.filter(p=>p.id!==playerId).map(p=>({id:p.id,name:p.name})):[],result:state.stage==="results"?state.result:null}});
+ const room=await imposterRoomByKey({roomId:url.searchParams.get("roomId"),key:url.searchParams.get("key")},env);
+ if(!room)return json({error:"This game session has expired."},404);
+ const playerId=url.searchParams.get("playerId")||"",player=room.state.players.find(p=>p.id===playerId);
+ if(!player)return json({error:"Player not found. Scan the QR again."},404);
+ const state=room.state,speaker=(state.players||[]).find(p=>p.id===state.currentSpeakerId)||null;
+ const guesser=(state.players||[]).find(p=>p.id===state.guesserId)||null;
+ const isGuesser=state.stage==="guessing"&&state.guesserId===playerId;
+ return json({state:{
+  stage:state.stage,player:{id:player.id,name:player.name},
+  players:(state.players||[]).map(p=>({id:p.id,name:p.name})),
+  turnIndex:state.turnIndex||0,turnsCompleted:state.turnsCompleted||0,
+  currentSpeaker:speaker?{name:speaker.name,isYou:speaker.id===playerId}:null,
+  role:state.stage==="lobby"?null:(state.roles[playerId]||"player"),
+  word:state.stage==="lobby"||state.roles[playerId]==="imposter"?null:state.secret?.word,
+  wordAr:state.stage==="lobby"||state.roles[playerId]==="imposter"?null:(state.secret?.wordAr||state.secret?.word),
+  category:state.stage==="lobby"||state.roles[playerId]==="imposter"?null:state.secret?.category,
+  ready:(state.ready||[]).includes(playerId),readyCount:(state.ready||[]).length,
+  voted:Object.prototype.hasOwnProperty.call(state.votes||{},playerId),
+  voteOptions:state.stage==="voting"?(state.players||[]).filter(p=>p.id!==playerId).map(p=>({id:p.id,name:p.name})):[],
+  isGuesser,guesserName:guesser?.name||"",
+  wordOptions:isGuesser?(state.wordOptions||[]).map(o=>({word:o.word,wordAr:o.wordAr||o.word})):[],
+  result:state.stage==="results"?state.result:null
+ }});
+}
+async function imposterPrepareWordOptions(env,state){
+ const secret=state.secret||{},secretKey=String(secret.word||"").trim().toLocaleLowerCase();
+ const chosen=[],seen=new Set([secretKey]);
+ const addRows=rows=>{
+  for(const row of rows||[]){
+   const word=String(row.word_en||"").trim(),key=word.toLocaleLowerCase();
+   if(word.length<2||seen.has(key))continue;
+   seen.add(key);chosen.push({word,wordAr:String(row.word_ar||word)});
+   if(chosen.length>=4)break;
+  }
+ };
+ const sameCategory=await env.DB.prepare("SELECT word_en,word_ar FROM imposter_words WHERE category=? AND lower(word_en)<>lower(?) ORDER BY random() LIMIT 12").bind(secret.category,secret.word).all();
+ addRows(sameCategory.results);
+ if(chosen.length<4){
+  const more=await env.DB.prepare("SELECT word_en,word_ar FROM imposter_words WHERE lower(word_en)<>lower(?) ORDER BY random() LIMIT 30").bind(secret.word).all();
+  addRows(more.results);
+ }
+ state.wordOptions=imposterShuffle([{word:secret.word,wordAr:secret.wordAr||secret.word},...chosen]);
 }
 async function imposterHostAction(request,env){
- const user=await getSessionUser(request,env);if(!user)return json({error:"Please sign in again."},401);
- const body=await readBody(request),room=await env.DB.prepare("SELECT * FROM imposter_rooms WHERE room_id=? AND host_user_id=? LIMIT 1").bind(String(body.roomId||""),user.id).first();
+ const user=await getSessionUser(request,env);
+ if(!user)return json({error:"Please sign in again."},401);
+ const body=await readBody(request);
+ const room=await env.DB.prepare("SELECT * FROM imposter_rooms WHERE room_id=? AND host_user_id=? LIMIT 1").bind(String(body.roomId||""),user.id).first();
  if(!room||room.ended_at)return json({error:"Game session not found."},404);
  let state={};try{state=JSON.parse(room.state_json||"{}")}catch{}
- if(body.action==="start"){
-  if(state.stage!=="lobby"||state.players.length<3)return json({error:"At least 3 players are needed."},400);
-  const words=await env.DB.prepare("SELECT category,word_en,word_ar FROM imposter_words").all();if(!words.results?.length)return json({error:"No words are available."},400);
+ if(body.action==="start"||body.action==="restart"){
+  const restarting=body.action==="restart";
+  if(restarting&&state.stage!=="results")return json({error:"A new game can only start after the results."},409);
+  if(!restarting&&(state.stage!=="lobby"||state.players.length<3))return json({error:"At least 3 players are needed."},400);
+  const words=await env.DB.prepare("SELECT category,word_en,word_ar FROM imposter_words").all();
+  if(!words.results?.length)return json({error:"No words are available."},400);
   const secret=imposterShuffle(words.results)[0],imposter=imposterShuffle(state.players)[0];
-  const order=imposterShuffle(state.players),asker=order[0],target=order[1];
-  state.stage="playing";state.secret={category:secret.category,word:secret.word_en,wordAr:secret.word_ar||secret.word_en};state.roles={};state.players.forEach(p=>state.roles[p.id]=p.id===imposter.id?"imposter":"player");
-  state.currentPair={askerId:asker.id,targetId:target.id};state.turnIndex=1;state.turnsCompleted=0;state.pairConfirmations=[];state.ready=[];state.votes={};state.result=null;
+  state.stage="playing";state.secret={category:secret.category,word:secret.word_en,wordAr:secret.word_ar||secret.word_en};
+  state.roles={};state.players.forEach(p=>state.roles[p.id]=p.id===imposter.id?"imposter":"player");
+  const previousScores=state.scores||{};state.scores={};state.roundPoints={};state.players.forEach(p=>{state.scores[p.id]=restarting?Number(previousScores[p.id]||0):0;state.roundPoints[p.id]=0});
+  state.speakerQueue=imposterShuffle(state.players.map(p=>p.id));state.currentSpeakerId=state.speakerQueue.shift()||null;
+  state.turnIndex=1;state.turnsCompleted=0;state.ready=[];state.votes={};state.guesserId=null;state.wordOptions=[];state.result=null;
  }else if(body.action==="end"){state.stage="ended"}
  else return json({error:"Unknown host action."},400);
  await env.DB.prepare("UPDATE imposter_rooms SET state_json=?,ended_at=? WHERE room_id=?").bind(JSON.stringify(state),body.action==="end"?new Date().toISOString():null,room.room_id).run();
  return json({ok:true});
 }
 async function imposterPlayerAction(request,env){
- const body=await readBody(request),room=await imposterRoomByKey(body,env);if(!room)return json({error:"This game session has expired."},404);
- const playerId=String(body.playerId||"");if(!room.state.players.some(p=>p.id===playerId))return json({error:"Player not found."},404);
+ const body=await readBody(request),room=await imposterRoomByKey(body,env);
+ if(!room)return json({error:"This game session has expired."},404);
+ const playerId=String(body.playerId||"");
+ if(!room.state.players.some(p=>p.id===playerId))return json({error:"Player not found."},404);
  const state=room.state;
  if(body.action==="next"){
-  if(state.stage!=="playing"||!state.currentPair)return json({error:"There is no active question."},409);
-  const pair=state.currentPair;if(playerId!==pair.askerId&&playerId!==pair.targetId)return json({error:"Only the two players in this question can move to the next one."},403);
-  state.pairConfirmations=Array.isArray(state.pairConfirmations)?state.pairConfirmations:[];
-  if(!state.pairConfirmations.includes(playerId))state.pairConfirmations.push(playerId);
-  if(state.pairConfirmations.includes(pair.askerId)&&state.pairConfirmations.includes(pair.targetId)){
-   state.turnsCompleted=(state.turnsCompleted||0)+1;state.turnIndex=(state.turnIndex||0)+1;state.pairConfirmations=[];
-   if(state.ready?.length===state.players.length){state.stage="voting";state.currentPair=null}
-   else{
-    const candidates=state.players.filter(p=>p.id!==pair.askerId&&p.id!==pair.targetId);
-    const asker=candidates.length?imposterShuffle(candidates)[0]:state.players.find(p=>p.id===pair.targetId);
-    const remaining=state.players.filter(p=>p.id!==asker.id);
-    const target=imposterShuffle(remaining)[0];
-    state.currentPair={askerId:asker.id,targetId:target.id};
-   }
-  }
+  if(state.stage!=="playing"||!state.currentSpeakerId)return json({error:"There is no active word turn."},409);
+  if(playerId!==state.currentSpeakerId)return json({error:"Only the selected player can press Next."},403);
+  const previous=state.currentSpeakerId;
+  state.turnsCompleted=(state.turnsCompleted||0)+1;state.turnIndex=(state.turnIndex||0)+1;
+  imposterChooseNextSpeaker(state,previous);
+  if((state.ready||[]).length===(state.players||[]).length){state.stage="voting";state.currentSpeakerId=null}
  }else if(body.action==="ready"){
-  if(state.stage!=="playing"||(state.turnIndex||0)<4)return json({error:"Ready to vote becomes available in question 4."},409);
+  if(state.stage!=="playing"||(state.turnsCompleted||0)<4)return json({error:"Ready to vote is available after four word turns."},409);
   state.ready=Array.isArray(state.ready)?state.ready:[];
   if(!state.ready.includes(playerId))state.ready.push(playerId);
-  if(state.ready.length===state.players.length){state.stage="voting";state.currentPair=null;state.pairConfirmations=[]}
+  if(state.ready.length===state.players.length){state.stage="voting";state.currentSpeakerId=null}
  }else if(body.action==="vote"){
   if(state.stage!=="voting")return json({error:"Voting is not open."},409);
-  const targetId=String(body.targetId||"");if(targetId===playerId||!state.players.some(p=>p.id===targetId))return json({error:"Choose another player."},400);
+  if(Object.prototype.hasOwnProperty.call(state.votes||{},playerId))return json({error:"You have already voted."},409);
+  const targetId=String(body.targetId||"");
+  if(targetId===playerId||!state.players.some(p=>p.id===targetId))return json({error:"Choose another player."},400);
   state.votes=state.votes||{};state.votes[playerId]=targetId;
   if(Object.keys(state.votes).length===state.players.length){
    const counts={};Object.values(state.votes).forEach(id=>counts[id]=(counts[id]||0)+1);
-   const ranked=Object.entries(counts).sort((a,b)=>b[1]-a[1]),top=ranked[0]?.[1]||0,winners=ranked.filter(x=>x[1]===top).map(x=>x[0]);
+   const ranked=Object.entries(counts).sort((a,b)=>b[1]-a[1]),top=ranked[0]?.[1]||0;
+   const winners=ranked.filter(x=>x[1]===top).map(x=>x[0]);
    const imposterId=Object.keys(state.roles).find(id=>state.roles[id]==="imposter");
-   state.result={votes:counts,imposterId,imposterName:state.players.find(p=>p.id===imposterId)?.name||"",mostVotedIds:winners};
-   state.stage="results";
+   state.scores=state.scores||{};state.roundPoints=state.roundPoints||{};
+   for(const player of state.players){state.scores[player.id]=Number(state.scores[player.id]||0);state.roundPoints[player.id]=Number(state.roundPoints[player.id]||0)}
+   for(const [voterId,target] of Object.entries(state.votes)){
+    if(target===imposterId){state.scores[voterId]+=100;state.roundPoints[voterId]+=100}
+   }
+   state.guesserId=imposterShuffle(winners)[0]||imposterId||null;
+   if(!state.guesserId)return json({error:"The game could not select a player for the word challenge."},500);
+   await imposterPrepareWordOptions(env,state);
+   state.stage="guessing";
   }
+ }else if(body.action==="guess-word"){
+  if(state.stage!=="guessing")return json({error:"The word challenge is not open."},409);
+  if(playerId!==state.guesserId)return json({error:"Only the most-voted player can choose the word."},403);
+  if(state.result)return json({error:"The word has already been chosen."},409);
+  const index=Number(body.optionIndex),option=Number.isInteger(index)?(state.wordOptions||[])[index]:null;
+  if(!option)return json({error:"Choose one of the available words."},400);
+  const normalize=value=>String(value||"").trim().toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu,"");
+  const correct=normalize(option.word)===normalize(state.secret?.word);
+  state.scores=state.scores||{};state.roundPoints=state.roundPoints||{};
+  state.scores[playerId]=Number(state.scores[playerId]||0);state.roundPoints[playerId]=Number(state.roundPoints[playerId]||0);
+  if(correct){state.scores[playerId]+=100;state.roundPoints[playerId]+=100}
+  const guesser=state.players.find(p=>p.id===state.guesserId),imposterId=Object.keys(state.roles).find(id=>state.roles[id]==="imposter");
+  const counts={};Object.values(state.votes||{}).forEach(id=>counts[id]=(counts[id]||0)+1);
+  const displayScores=state.players.map(p=>({id:p.id,name:p.name,score:Number(state.scores[p.id]||0),earned:Number(state.roundPoints[p.id]||0)})).sort((a,b)=>b.score-a.score||a.name.localeCompare(b.name));
+  state.result={
+   imposterId,imposterName:state.players.find(p=>p.id===imposterId)?.name||"",
+   secretWord:state.secret?.word||"",secretWordAr:state.secret?.wordAr||state.secret?.word||"",
+   guesserId:state.guesserId,guesserName:guesser?.name||"",
+   guessWord:option.word,guessWordAr:option.wordAr||option.word,guessCorrect:correct,
+   votes:counts,scores:displayScores
+  };
+  state.stage="results";
  }else return json({error:"Unknown player action."},400);
- if(!await saveImposterState(env,room,state))return json({error:"The game just updated. Please tap again."},409);return json({ok:true});
+ if(!await saveImposterState(env,room,state))return json({error:"The game just updated. Please tap again."},409);
+ return json({ok:true});
 }
 async function createRemoteRoom(request, env) {
   const user=await getSessionUser(request,env);if(!user)return json({error:"Sign in on the JALSA game screen first."},401);
@@ -1616,8 +1785,8 @@ async function deleteStoredMedia(env, value) {
   // A media file may be reused by more than one question or category.
   // Only remove the R2 object after every database reference has been removed.
   const references = await env.DB.prepare(
-    "SELECT (SELECT COUNT(*) FROM game_questions WHERE media_url = ?) + (SELECT COUNT(*) FROM game_categories WHERE image_url = ?) AS total"
-  ).bind(String(value), String(value)).first();
+    "SELECT (SELECT COUNT(*) FROM game_questions WHERE media_url = ?) + (SELECT COUNT(*) FROM game_questions WHERE answer_media_url = ?) + (SELECT COUNT(*) FROM game_categories WHERE image_url = ?) AS total"
+  ).bind(String(value), String(value), String(value)).first();
   if (!references || Number(references.total || 0) > 0) return;
   const key = String(value).slice("/api/media/".length);
   await env.MEDIA.delete(key);
@@ -1884,22 +2053,25 @@ async function deleteAdminUser(request, env, id) {
 }
 async function getGameContent(request, env) {
   if (!await getSessionUser(request, env)) return json({ error: "Please sign in to play." }, 401);
+  await ensureZankoExtendedSchema(env);
   const [cats, questions] = await Promise.all([
-    env.DB.prepare("SELECT id, name_en, name_ar, image_url, icon, sort_order FROM game_categories ORDER BY sort_order, name_en").all(),
+    env.DB.prepare("SELECT id, name_en, name_ar, image_url, icon, group_en, group_ar, sort_order FROM game_categories ORDER BY sort_order, name_en").all(),
     env.DB.prepare("SELECT * FROM game_questions ORDER BY created_at, id").all()
   ]);
   return json({ categories: cats.results || [], questions: questions.results || [] });
 }
 async function getAdminContent(request, env) {
   if (!await requireAdmin(request, env)) return json({ error: "Administrator access required." }, 403);
+  await ensureZankoExtendedSchema(env);
   const [cats, questions] = await Promise.all([
-    env.DB.prepare("SELECT id, name_en, name_ar, image_url, icon, sort_order FROM game_categories ORDER BY sort_order, name_en").all(),
+    env.DB.prepare("SELECT id, name_en, name_ar, image_url, icon, group_en, group_ar, sort_order FROM game_categories ORDER BY sort_order, name_en").all(),
     env.DB.prepare("SELECT * FROM game_questions ORDER BY game_type, category_id, difficulty, created_at DESC").all()
   ]);
   return json({ categories: cats.results || [], questions: questions.results || [] });
 }
 async function seedGameContent(request, env) {
   if (!await requireAdmin(request, env)) return json({ error: "Administrator access required." }, 403);
+  await ensureZankoExtendedSchema(env);
   const body = await readBody(request), categories = Array.isArray(body.categories) ? body.categories.slice(0, 30) : [], questions = Array.isArray(body.questions) ? body.questions.slice(0, 400) : [];
   const existing = await env.DB.prepare("SELECT COUNT(*) AS count FROM game_questions").first();
   if (Number(existing?.count || 0) > 0) return json({ ok: true, seeded: false });
@@ -1907,50 +2079,55 @@ async function seedGameContent(request, env) {
   const now = new Date().toISOString(), statements = [];
   for (let i = 0; i < categories.length; i++) {
     const c = categories[i]; if (!/^[a-z0-9_-]{2,48}$/.test(c.id || "") || !cleanText(c.name_en,80)) continue;
-    statements.push(env.DB.prepare("INSERT OR IGNORE INTO game_categories (id,name_en,name_ar,image_url,icon,sort_order,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)")
-      .bind(c.id, cleanText(c.name_en,80), cleanText(c.name_ar,80), cleanText(c.image_url,500) || null, cleanText(c.icon,12) || "🎯", i, now, now));
+    statements.push(env.DB.prepare("INSERT OR IGNORE INTO game_categories (id,name_en,name_ar,image_url,icon,group_en,group_ar,sort_order,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)")
+      .bind(c.id, cleanText(c.name_en,80), cleanText(c.name_ar,80), cleanText(c.image_url,500) || null, cleanText(c.icon,12) || "🎯", cleanText(c.group_en,80) || "Other", cleanText(c.group_ar,80) || "أخرى", i, now, now));
   }
   for (const q of questions) {
     const game = q.game_type === "price" ? "price" : "zanko", difficulty = ["easy","medium","hard"].includes(q.difficulty) ? q.difficulty : "medium";
     const mt = q.media_type || "none", mu = cleanText(q.media_url,1000);
     if (game === "zanko" && !categories.some(c => c.id === q.category_id)) continue;
     if (!validMedia(mt, mu)) continue;
-    statements.push(env.DB.prepare("INSERT OR IGNORE INTO game_questions (id,game_type,category_id,difficulty,question_en,question_ar,answer_en,answer_ar,media_type,media_url,product_name_en,product_name_ar,product_emoji,price_value,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+    const answerMediaType = game === "zanko" ? (q.answer_media_type || "none") : "none";
+    const answerMediaUrl = game === "zanko" ? cleanText(q.answer_media_url,1000) : "";
+    if (!["none","image","video"].includes(answerMediaType) || (answerMediaType !== "none" && !validMedia(answerMediaType, answerMediaUrl))) continue;
+    statements.push(env.DB.prepare("INSERT OR IGNORE INTO game_questions (id,game_type,category_id,difficulty,question_en,question_ar,answer_en,answer_ar,media_type,media_url,answer_media_type,answer_media_url,product_name_en,product_name_ar,product_emoji,price_value,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
       .bind(cleanText(q.id,80) || crypto.randomUUID(), game, game === "zanko" ? q.category_id : null, difficulty,
         cleanText(q.question_en,1000), cleanText(q.question_ar,1000), cleanText(q.answer_en,1000), cleanText(q.answer_ar,1000),
-        mt, mu || null, cleanText(q.product_name_en,160) || null, cleanText(q.product_name_ar,160) || null, cleanText(q.product_emoji,12) || null,
+        mt, mu || null, answerMediaType, answerMediaUrl || null, cleanText(q.product_name_en,160) || null, cleanText(q.product_name_ar,160) || null, cleanText(q.product_emoji,12) || null,
         q.price_value == null ? null : Number(q.price_value), now, now));
   }
-  for (let i = 0; i < statements.length; i += 50) {
-    await env.DB.batch(statements.slice(i, i + 50));
-  }
+  for (let i = 0; i < statements.length; i += 50) await env.DB.batch(statements.slice(i, i + 50));
   return json({ ok: true, seeded: true, inserted: statements.length });
 }
 function cleanCategory(body, id) {
   const nameEn = cleanText(body.name_en,80), nameAr = cleanText(body.name_ar,80), imageUrl = cleanText(body.image_url,500);
   if (nameEn.length < 2 || nameAr.length < 2) return { error: "Enter category names in English and Arabic." };
-  return { id: id || cleanText(body.id,48) || crypto.randomUUID(), name_en: nameEn, name_ar: nameAr, image_url: imageUrl, icon: cleanText(body.icon,12) || "🎯" };
+  return { id: id || cleanText(body.id,48) || crypto.randomUUID(), name_en: nameEn, name_ar: nameAr, image_url: imageUrl, icon: cleanText(body.icon,12) || "🎯", group_en: cleanText(body.group_en,80) || "Other", group_ar: cleanText(body.group_ar,80) || "أخرى" };
 }
 async function createCategory(request, env) {
   if (!await requireAdmin(request, env)) return json({ error: "Administrator access required." }, 403);
-  const body = await readBody(request), c = cleanCategory(body), id = c.id.toLowerCase().replace(/[^a-z0-9_-]/g,"-"), now = new Date().toISOString();
+  const body = await readBody(request), c = cleanCategory(body);
   if (c.error) return json({ error: c.error }, 400);
-  await env.DB.prepare("INSERT INTO game_categories (id,name_en,name_ar,image_url,icon,sort_order,created_at,updated_at) VALUES (?,?,?,?,?,(SELECT COALESCE(MAX(sort_order),-1)+1 FROM game_categories),?,?)")
-    .bind(id,c.name_en,c.name_ar,c.image_url || null,c.icon,now,now).run();
+  const id = c.id.toLowerCase().replace(/[^a-z0-9_-]/g,"-"), now = new Date().toISOString();
+  await ensureZankoExtendedSchema(env);
+  await env.DB.prepare("INSERT INTO game_categories (id,name_en,name_ar,image_url,icon,group_en,group_ar,sort_order,created_at,updated_at) VALUES (?,?,?,?,?,?,?,(SELECT COALESCE(MAX(sort_order),-1)+1 FROM game_categories),?,?)")
+    .bind(id,c.name_en,c.name_ar,c.image_url || null,c.icon,c.group_en,c.group_ar,now,now).run();
   return json({ ok: true, id });
 }
 async function updateCategory(request, env, id) {
   if (!await requireAdmin(request, env)) return json({ error: "Administrator access required." }, 403);
+  await ensureZankoExtendedSchema(env);
   const body = await readBody(request), c = cleanCategory(body,id);
   if (c.error) return json({ error: c.error },400);
   const previous = await env.DB.prepare("SELECT image_url FROM game_categories WHERE id=? LIMIT 1").bind(id).first();
-  await env.DB.prepare("UPDATE game_categories SET name_en=?,name_ar=?,image_url=?,icon=?,updated_at=? WHERE id=?")
-    .bind(c.name_en,c.name_ar,c.image_url || null,c.icon,new Date().toISOString(),id).run();
+  await env.DB.prepare("UPDATE game_categories SET name_en=?,name_ar=?,image_url=?,icon=?,group_en=?,group_ar=?,updated_at=? WHERE id=?")
+    .bind(c.name_en,c.name_ar,c.image_url || null,c.icon,c.group_en,c.group_ar,new Date().toISOString(),id).run();
   if (previous?.image_url && previous.image_url !== c.image_url) await deleteStoredMedia(env, previous.image_url);
   return json({ok:true});
 }
 async function deleteCategory(request, env, id) {
   if (!await requireAdmin(request, env)) return json({ error: "Administrator access required." }, 403);
+  await ensureZankoExtendedSchema(env);
   const previous = await env.DB.prepare("SELECT image_url FROM game_categories WHERE id=? LIMIT 1").bind(id).first();
   await env.DB.prepare("DELETE FROM game_categories WHERE id=?").bind(id).run();
   if (previous?.image_url) await deleteStoredMedia(env, previous.image_url);
@@ -1962,44 +2139,333 @@ function cleanQuestion(body, id) {
   if (!validMedia(mediaType,mediaUrl)) return {error:"Choose a valid media type and an HTTPS media URL."};
   if (game === "zanko") {
     const q=cleanText(body.question_en,1000), a=cleanText(body.answer_en,1000);
+    const answerMediaType=body.answer_media_type||"none",answerMediaUrl=cleanText(body.answer_media_url,1000);
     if (!body.category_id || q.length<3 || !a.length) return {error:"Choose a category and enter the English question and answer."};
-    return {id:id || crypto.randomUUID(),game_type:game,category_id:cleanText(body.category_id,48),difficulty,question_en:q,question_ar:cleanText(body.question_ar,1000),answer_en:a,answer_ar:cleanText(body.answer_ar,1000),media_type:mediaType,media_url:mediaUrl || null,product_name_en:null,product_name_ar:null,product_emoji:null,price_value:null};
+    if (!["none","image","video"].includes(answerMediaType) || (answerMediaType!=="none" && !validMedia(answerMediaType,answerMediaUrl))) return {error:"Choose a valid image or video for the answer."};
+    return {id:id || crypto.randomUUID(),game_type:game,category_id:cleanText(body.category_id,48),difficulty,question_en:q,question_ar:cleanText(body.question_ar,1000),answer_en:a,answer_ar:cleanText(body.answer_ar,1000),media_type:mediaType,media_url:mediaUrl || null,answer_media_type:answerMediaType,answer_media_url:answerMediaType==="none"?null:answerMediaUrl,product_name_en:null,product_name_ar:null,product_emoji:null,price_value:null};
   }
   const name=cleanText(body.product_name_en,160), price=Number(body.price_value);
   if (name.length<2 || !Number.isFinite(price) || price<=0) return {error:"Enter a product name and a valid price above zero in USD."};
   if (mediaType === "none" || !mediaUrl) return {error:"Add a real product photo or another media file before saving."};
-  return {id:id || crypto.randomUUID(),game_type:game,category_id:null,difficulty,question_en:"",question_ar:"",answer_en:"",answer_ar:"",media_type:mediaType,media_url:mediaUrl,product_name_en:name,product_name_ar:cleanText(body.product_name_ar,160),product_emoji:null,price_value:price};
+  return {id:id || crypto.randomUUID(),game_type:game,category_id:null,difficulty,question_en:"",question_ar:"",answer_en:"",answer_ar:"",media_type:mediaType,media_url:mediaUrl,answer_media_type:"none",answer_media_url:null,product_name_en:name,product_name_ar:cleanText(body.product_name_ar,160),product_emoji:null,price_value:price};
 }
 async function createQuestion(request, env) {
   if (!await requireAdmin(request, env)) return json({error:"Administrator access required."},403);
+  await ensureZankoExtendedSchema(env);
   const body=await readBody(request),q=cleanQuestion(body);
   if(q.error)return json({error:q.error},400);
   if(q.game_type==="zanko" && !await env.DB.prepare("SELECT id FROM game_categories WHERE id=? LIMIT 1").bind(q.category_id).first())return json({error:"Choose an existing category."},400);
   const now=new Date().toISOString();
-  await env.DB.prepare("INSERT INTO game_questions (id,game_type,category_id,difficulty,question_en,question_ar,answer_en,answer_ar,media_type,media_url,product_name_en,product_name_ar,product_emoji,price_value,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
-    .bind(q.id,q.game_type,q.category_id,q.difficulty,q.question_en,q.question_ar,q.answer_en,q.answer_ar,q.media_type,q.media_url,q.product_name_en,q.product_name_ar,q.product_emoji,q.price_value,now,now).run();
+  await env.DB.prepare("INSERT INTO game_questions (id,game_type,category_id,difficulty,question_en,question_ar,answer_en,answer_ar,media_type,media_url,answer_media_type,answer_media_url,product_name_en,product_name_ar,product_emoji,price_value,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+    .bind(q.id,q.game_type,q.category_id,q.difficulty,q.question_en,q.question_ar,q.answer_en,q.answer_ar,q.media_type,q.media_url,q.answer_media_type,q.answer_media_url,q.product_name_en,q.product_name_ar,q.product_emoji,q.price_value,now,now).run();
   return json({ok:true,id:q.id});
 }
 async function updateQuestion(request, env, id) {
   if (!await requireAdmin(request, env)) return json({error:"Administrator access required."},403);
+  await ensureZankoExtendedSchema(env);
   const body=await readBody(request),q=cleanQuestion(body,id);
   if(q.error)return json({error:q.error},400);
   if(q.game_type==="zanko" && !await env.DB.prepare("SELECT id FROM game_categories WHERE id=? LIMIT 1").bind(q.category_id).first())return json({error:"Choose an existing category."},400);
-  const previous = await env.DB.prepare("SELECT media_url FROM game_questions WHERE id=? LIMIT 1").bind(id).first();
-  await env.DB.prepare("UPDATE game_questions SET game_type=?,category_id=?,difficulty=?,question_en=?,question_ar=?,answer_en=?,answer_ar=?,media_type=?,media_url=?,product_name_en=?,product_name_ar=?,product_emoji=?,price_value=?,updated_at=? WHERE id=?")
-    .bind(q.game_type,q.category_id,q.difficulty,q.question_en,q.question_ar,q.answer_en,q.answer_ar,q.media_type,q.media_url,q.product_name_en,q.product_name_ar,q.product_emoji,q.price_value,new Date().toISOString(),id).run();
+  const previous = await env.DB.prepare("SELECT media_url,answer_media_url FROM game_questions WHERE id=? LIMIT 1").bind(id).first();
+  await env.DB.prepare("UPDATE game_questions SET game_type=?,category_id=?,difficulty=?,question_en=?,question_ar=?,answer_en=?,answer_ar=?,media_type=?,media_url=?,answer_media_type=?,answer_media_url=?,product_name_en=?,product_name_ar=?,product_emoji=?,price_value=?,updated_at=? WHERE id=?")
+    .bind(q.game_type,q.category_id,q.difficulty,q.question_en,q.question_ar,q.answer_en,q.answer_ar,q.media_type,q.media_url,q.answer_media_type,q.answer_media_url,q.product_name_en,q.product_name_ar,q.product_emoji,q.price_value,new Date().toISOString(),id).run();
   if (previous?.media_url && previous.media_url !== q.media_url) await deleteStoredMedia(env, previous.media_url);
+  if (previous?.answer_media_url && previous.answer_media_url !== q.answer_media_url) await deleteStoredMedia(env, previous.answer_media_url);
   return json({ok:true});
 }
 async function deleteQuestion(request, env, id) {
   if (!await requireAdmin(request, env)) return json({error:"Administrator access required."},403);
-  const previous = await env.DB.prepare("SELECT media_url FROM game_questions WHERE id=? LIMIT 1").bind(id).first();
+  await ensureZankoExtendedSchema(env);
+  const previous = await env.DB.prepare("SELECT media_url,answer_media_url FROM game_questions WHERE id=? LIMIT 1").bind(id).first();
   await env.DB.prepare("DELETE FROM game_questions WHERE id=?").bind(id).run();
   if (previous?.media_url) await deleteStoredMedia(env, previous.media_url);
+  if (previous?.answer_media_url) await deleteStoredMedia(env, previous.answer_media_url);
   return json({ok:true});
 }
 
 
+/* JALSA Kharj Al Jalsa: one-phone pass-and-play outsider game */
+const KHARJ_CATEGORIES = [
+  {id:"animals",en:"Animals",ar:"الحيوانات"},
+  {id:"foods",en:"Foods",ar:"الأطعمة"},
+  {id:"electronics",en:"Electronics",ar:"الإلكترونيات"},
+  {id:"english-celebrities",en:"English Celebrities",ar:"مشاهير عالميون"},
+  {id:"arabic-celebrities",en:"Arabic Celebrities",ar:"مشاهير عرب"},
+  {id:"countries",en:"Countries",ar:"الدول"},
+  {id:"fruit-vegetables",en:"Fruits & Vegetables",ar:"الفواكه والخضروات"},
+  {id:"sports",en:"Sports",ar:"الرياضة"},
+  {id:"hobbies",en:"Hobbies",ar:"الهوايات"},
+  {id:"jobs",en:"Jobs",ar:"الوظائف"}
+];
+const KHARJ_WORD_BANK = {
+ animals:[["Lion","أسد"],["Elephant","فيل"],["Giraffe","زرافة"],["Dolphin","دلفين"],["Penguin","بطريق"],["Camel","جمل"],["Tiger","نمر"],["Wolf","ذئب"],["Panda","باندا"],["Kangaroo","كنغر"],["Octopus","أخطبوط"],["Crocodile","تمساح"],["Eagle","نسر"],["Owl","بومة"],["Rabbit","أرنب"],["Horse","حصان"],["Fox","ثعلب"],["Whale","حوت"],["Flamingo","فلامنغو"],["Cheetah","فهد"]],
+ foods:[["Pizza","بيتزا"],["Sushi","سوشي"],["Burger","برغر"],["Shawarma","شاورما"],["Falafel","فلافل"],["Pancakes","بان كيك"],["Pasta","معكرونة"],["Tacos","تاكو"],["Hummus","حمص"],["Biryani","برياني"],["Lasagna","لازانيا"],["Croissant","كرواسون"],["Fried chicken","دجاج مقلي"],["Ramen","رامن"],["Kebab","كباب"],["Ice cream","آيس كريم"],["Donuts","دونات"],["Mansaf","منسف"],["Kabsa","كبسة"],["Mac and cheese","ماك آند تشيز"]],
+ electronics:[["iPhone","آيفون"],["PlayStation 5","بلايستيشن 5"],["Nintendo Switch 2","نينتندو سويتش 2"],["MacBook","ماك بوك"],["AirPods","إيربودز"],["Smartwatch","ساعة ذكية"],["Digital camera","كاميرا رقمية"],["Laptop","لابتوب"],["Drone","درون"],["VR headset","نظارة واقع افتراضي"],["Tablet","جهاز لوحي"],["Smart TV","تلفزيون ذكي"],["Gaming PC","كمبيوتر ألعاب"],["Keyboard","لوحة مفاتيح"],["Computer mouse","فأرة كمبيوتر"],["Microphone","ميكروفون"],["Power bank","شاحن متنقل"],["Projector","جهاز عرض"],["Robot vacuum","مكنسة روبوت"],["Headphones","سماعات"]],
+ "english-celebrities":[["Ariana Grande","أريانا غراندي"],["Taylor Swift","تايلور سويفت"],["The Weeknd","ذا ويكند"],["Billie Eilish","بيلي آيليش"],["Rihanna","ريهانا"],["Beyoncé","بيونسيه"],["Drake","دريك"],["Justin Bieber","جاستن بيبر"],["Selena Gomez","سيلينا غوميز"],["Zendaya","زندايا"],["Tom Holland","توم هولاند"],["Leonardo DiCaprio","ليوناردو دي كابريو"],["Dwayne Johnson","دوين جونسون"],["Kim Kardashian","كيم كارداشيان"],["Ed Sheeran","إد شيران"],["Lady Gaga","ليدي غاغا"],["Harry Styles","هاري ستايلز"],["Cristiano Ronaldo","كريستيانو رونالدو"],["Lionel Messi","ليونيل ميسي"],["Ice Spice","آيس سبايس"]],
+ "arabic-celebrities":[["Amr Diab","عمرو دياب"],["Nancy Ajram","نانسي عجرم"],["Mohamed Ramadan","محمد رمضان"],["Tamer Hosny","تامر حسني"],["Elissa","إليسا"],["Fairuz","فيروز"],["Kadim Al Sahir","كاظم الساهر"],["Assala","أصالة"],["Balqees","بلقيس"],["Hussain Al Jassmi","حسين الجسمي"],["Ahmed Helmy","أحمد حلمي"],["Adel Imam","عادل إمام"],["Mona Zaki","منى زكي"],["Yasmine Sabri","ياسمين صبري"],["Wael Kfoury","وائل كفوري"],["Ragheb Alama","راغب علامة"],["Saad Lamjarred","سعد لمجرد"],["Cyrine Abdelnour","سيرين عبد النور"],["Majida El Roumi","ماجدة الرومي"],["Nassif Zeytoun","ناصيف زيتون"]],
+ countries:[["Jordan","الأردن"],["United Arab Emirates","الإمارات العربية المتحدة"],["Palestine","فلسطين"],["Saudi Arabia","السعودية"],["Egypt","مصر"],["Turkey","تركيا"],["Japan","اليابان"],["South Korea","كوريا الجنوبية"],["Italy","إيطاليا"],["France","فرنسا"],["Brazil","البرازيل"],["Canada","كندا"],["Australia","أستراليا"],["Spain","إسبانيا"],["Germany","ألمانيا"],["Greece","اليونان"],["Morocco","المغرب"],["Lebanon","لبنان"],["Qatar","قطر"],["United States","الولايات المتحدة"]],
+ "fruit-vegetables":[["Apple","تفاح"],["Banana","موز"],["Watermelon","بطيخ"],["Mango","مانجو"],["Pineapple","أناناس"],["Strawberry","فراولة"],["Grapes","عنب"],["Kiwi","كيوي"],["Peach","خوخ"],["Avocado","أفوكادو"],["Cucumber","خيار"],["Carrot","جزر"],["Potato","بطاطا"],["Tomato","طماطم"],["Broccoli","بروكلي"],["Cauliflower","قرنبيط"],["Eggplant","باذنجان"],["Bell pepper","فلفل حلو"],["Corn","ذرة"],["Pumpkin","يقطين"]],
+ sports:[["Football","كرة القدم"],["Basketball","كرة السلة"],["Tennis","التنس"],["Swimming","السباحة"],["Boxing","الملاكمة"],["Volleyball","الكرة الطائرة"],["Cricket","الكريكيت"],["Formula 1","فورمولا 1"],["Gymnastics","الجمباز"],["Badminton","الريشة الطائرة"],["Golf","الغولف"],["Cycling","ركوب الدراجات"],["Wrestling","المصارعة"],["Skiing","التزلج"],["Surfing","ركوب الأمواج"],["Table tennis","تنس الطاولة"],["Rugby","الرجبي"],["Ice hockey","هوكي الجليد"],["Taekwondo","التايكوندو"],["Horse riding","ركوب الخيل"]],
+ hobbies:[["Photography","التصوير"],["Gaming","ألعاب الفيديو"],["Painting","الرسم"],["Reading","القراءة"],["Cooking","الطبخ"],["Gardening","البستنة"],["Dancing","الرقص"],["Singing","الغناء"],["Fishing","الصيد"],["Hiking","المشي الجبلي"],["Baking","الخبز"],["Knitting","الحياكة"],["Coin collecting","جمع العملات"],["Playing piano","عزف البيانو"],["Writing","الكتابة"],["Skateboarding","التزلج على اللوح"],["Pottery","صناعة الفخار"],["Birdwatching","مراقبة الطيور"],["Swimming","السباحة"],["Origami","الأوريغامي"]],
+ jobs:[["Doctor","طبيب"],["Teacher","معلم"],["Firefighter","رجل إطفاء"],["Police officer","شرطي"],["Chef","طاهٍ"],["Pilot","طيار"],["Dentist","طبيب أسنان"],["Engineer","مهندس"],["Architect","مهندس معماري"],["Photographer","مصور"],["Actor","ممثل"],["Singer","مغنٍ"],["Lawyer","محامٍ"],["Nurse","ممرض"],["Mechanic","ميكانيكي"],["Farmer","مزارع"],["Astronaut","رائد فضاء"],["Journalist","صحفي"],["Programmer","مبرمج"],["Footballer","لاعب كرة قدم"]]
+};
+const KHARJ_EXTRA_WORD_BANK = {"animals":[["Zebra","حمار وحشي"],["Gorilla","غوريلا"],["Koala","كوالا"],["Leopard","نمر مرقط"],["Rhinoceros","وحيد القرن"],["Hippopotamus","فرس النهر"],["Deer","أيل"],["Moose","أيل الموظ"],["Bison","بيسون"],["Hyena","ضبع"],["Meerkat","سرقاط"],["Lemur","ليمور"],["Sloth","كسلان"],["Porcupine","نيص"],["Hedgehog","قنفذ"],["Squirrel","سنجاب"],["Beaver","قندس"],["Otter","قضاعة"],["Seal","فقمة"],["Sea lion","أسد البحر"],["Shark","قرش"],["Stingray","شفنين"],["Seahorse","فرس البحر"],["Jellyfish","قنديل البحر"],["Starfish","نجم البحر"],["Lobster","كركند"],["Crab","سلطعون"],["Peacock","طاووس"],["Parrot","ببغاء"],["Toucan","طوقان"],["Falcon","صقر"],["Hawk","باشق"],["Swan","بجعة"],["Ostrich","نعامة"],["Emu","إيمو"],["Pelican","بجع"],["Woodpecker","نقّار الخشب"],["Turkey","ديك رومي"],["Rooster","ديك"],["Iguana","إغوانا"],["Gecko","وزغة"],["Chameleon","حرباء"],["Python","أفعى الأصلة"],["Cobra","كوبرا"],["Tortoise","سلحفاة برية"],["Butterfly","فراشة"],["Bee","نحلة"],["Ladybug","دعسوقة"],["Scorpion","عقرب"],["Ant","نملة"]],"foods":[["Dumplings","فطائر محشوة"],["Paella","باييّا"],["Risotto","ريزوتو"],["Gnocchi","نيوكي"],["Enchiladas","إنشيلادا"],["Burrito","بوريتو"],["Quesadilla","كيساديّا"],["Nachos","ناتشوز"],["Hot dog","هوت دوغ"],["Meatballs","كرات اللحم"],["Steak","شريحة لحم"],["Grilled salmon","سلمون مشوي"],["Fried rice","أرز مقلي"],["Spring rolls","لفائف الربيع"],["Pho","فو"],["Bibimbap","بيبيمباب"],["Kimchi","كيمتشي"],["Curry","كاري"],["Butter chicken","دجاج بالزبدة"],["Tikka masala","تيكا ماسالا"],["Moussaka","مسقعة"],["Dolma","دولمة"],["Kibbeh","كبة"],["Tabbouleh","تبولة"],["Fattoush","فتوش"],["Mutabbal","متبل"],["Kunafa","كنافة"],["Baklava","بقلاوة"],["Maamoul","معمول"],["Qatayef","قطايف"],["Basbousa","بسبوسة"],["Rice pudding","أرز بالحليب"],["Cheesecake","تشيزكيك"],["Brownie","براوني"],["Muffins","مافن"],["Waffles","وافل"],["French toast","توست فرنسي"],["Crepe","كريب"],["Apple pie","فطيرة التفاح"],["Tiramisu","تيراميسو"],["Churros","تشوروز"],["Gelato","جيلاتو"],["Mochi","موتشي"],["Macarons","ماكرون"],["Pretzel","بريتزل"],["Bagel","بيغل"],["Omelette","عجة"],["Scrambled eggs","بيض مخفوق"],["Corn dog","كورن دوغ"],["Stuffed grape leaves","ورق عنب محشي"]],"electronics":[["Bluetooth speaker","مكبر صوت بلوتوث"],["Soundbar","مكبر صوت تلفزيوني"],["Smart speaker","مكبر صوت ذكي"],["E-reader","قارئ إلكتروني"],["Smart ring","خاتم ذكي"],["Fitness tracker","سوار تتبع اللياقة"],["4K monitor","شاشة 4K"],["Ultrawide monitor","شاشة عريضة جداً"],["Graphics tablet","لوح رسم رقمي"],["Drawing tablet","لوحة رسم إلكترونية"],["External SSD","قرص SSD خارجي"],["USB flash drive","ذاكرة USB"],["Network-attached storage","وحدة تخزين شبكية"],["Wi-Fi router","جهاز توجيه واي فاي"],["Mesh Wi-Fi system","نظام واي فاي شبكي"],["Modem","مودم"],["Security camera","كاميرا مراقبة"],["Video doorbell","جرس باب بكاميرا"],["Smart lock","قفل ذكي"],["Smart thermostat","منظم حرارة ذكي"],["Smart light bulb","مصباح ذكي"],["Air purifier","منقي هواء"],["3D printer","طابعة ثلاثية الأبعاد"],["Action camera","كاميرا حركة"],["Instant camera","كاميرا فورية"],["Mirrorless camera","كاميرا بدون مرآة"],["Telephoto lens","عدسة تقريب"],["Capture card","بطاقة التقاط فيديو"],["Stream deck","لوحة تحكم للبث"],["Audio interface","واجهة صوتية"],["Studio monitor speaker","مكبر صوت استوديو"],["Condenser microphone","ميكروفون مكثف"],["USB microphone","ميكروفون USB"],["MIDI keyboard","لوحة مفاتيح MIDI"],["Turntable","مشغل أسطوانات"],["Portable monitor","شاشة محمولة"],["Docking station","محطة إرساء"],["USB-C hub","موزع USB-C"],["Smart display","شاشة ذكية"],["Smart glasses","نظارات ذكية"],["Electric toothbrush","فرشاة أسنان كهربائية"],["Digital photo frame","إطار صور رقمي"],["GPS navigator","جهاز ملاحة GPS"],["Dash camera","كاميرا سيارة أمامية"],["Portable power station","محطة طاقة محمولة"],["Wireless charger","شاحن لاسلكي"],["Gaming steering wheel","عجلة قيادة للألعاب"],["Flight simulator joystick","عصا تحكم لمحاكاة الطيران"],["Home theater receiver","مستقبل مسرح منزلي"],["Electronic drum kit","طقم طبول إلكتروني"]],"english-celebrities":[["Olivia Rodrigo","أوليفيا رودريغو"],["Sabrina Carpenter","سابرينا كاربنتر"],["Dua Lipa","دوا ليبا"],["Miley Cyrus","مايلي سايرس"],["Katy Perry","كاتي بيري"],["Adele","أديل"],["Bruno Mars","برونو مارس"],["Post Malone","بوست مالون"],["Eminem","إمينيم"],["Kendrick Lamar","كيندريك لامار"],["Travis Scott","ترافيس سكوت"],["Cardi B","كاردي بي"],["Nicki Minaj","نيكي ميناج"],["Doja Cat","دوجا كات"],["SZA","إس زي إيه"],["Shawn Mendes","شون مينديز"],["Charlie Puth","تشارلي بوث"],["Camila Cabello","كاميلا كابيو"],["Halsey","هالسي"],["Sam Smith","سام سميث"],["Jennifer Lopez","جينيفر لوبيز"],["Britney Spears","بريتني سبيرز"],["Christina Aguilera","كريستينا أغيليرا"],["Madonna","مادونا"],["Cher","شير"],["Celine Dion","سيلين ديون"],["Alicia Keys","أليشيا كيز"],["Gwen Stefani","غوين ستيفاني"],["Lana Del Rey","لانا ديل راي"],["Millie Bobby Brown","ميلي بوبي براون"],["Jenna Ortega","جينا أورتيغا"],["Emma Watson","إيما واتسون"],["Margot Robbie","مارغو روبي"],["Ryan Reynolds","رايان رينولدز"],["Ryan Gosling","رايان غوسلينغ"],["Robert Downey Jr.","روبرت داوني جونيور"],["Chris Evans","كريس إيفانز"],["Chris Hemsworth","كريس هيمسوورث"],["Scarlett Johansson","سكارليت جوهانسون"],["Jennifer Lawrence","جينيفر لورانس"],["Anne Hathaway","آن هاثاواي"],["Timothée Chalamet","تيموثي شالاميه"],["Florence Pugh","فلورنس بيو"],["Pedro Pascal","بيدرو باسكال"],["Keanu Reeves","كيانو ريفز"],["Tom Cruise","توم كروز"],["Brad Pitt","براد بيت"],["Angelina Jolie","أنجلينا جولي"],["Meryl Streep","ميريل ستريب"],["Johnny Depp","جوني ديب"]],"arabic-celebrities":[["Assi El Hallani","عاصي الحلاني"],["Melhem Zein","ملحم زين"],["Myriam Fares","ميريام فارس"],["Haifa Wehbe","هيفاء وهبي"],["Sherine Abdel Wahab","شيرين عبد الوهاب"],["Ruby","روبي"],["Angham","أنغام"],["Mohamed Mounir","محمد منير"],["Hany Shaker","هاني شاكر"],["Ramy Sabry","رامي صبري"],["Mahmoud El Esseily","محمود العسيلي"],["Wegz","ويجز"],["Marwan Pablo","مروان بابلو"],["Marwan Moussa","مروان موسى"],["Ahmed Ezz","أحمد عز"],["Karim Abdel Aziz","كريم عبد العزيز"],["Mohamed Henedy","محمد هنيدي"],["Donia Samir Ghanem","دنيا سمير غانم"],["Saba Mubarak","صبا مبارك"],["Nadine Njeim","نادين نسيب نجيم"],["Carmen Bsaibes","كارمن بصيبص"],["Yousra","يسرا"],["Rania Youssef","رانيا يوسف"],["Menna Shalaby","منة شلبي"],["Asser Yassin","آسر ياسين"],["Ahmed Dawood","أحمد داود"],["Eyad Nassar","إياد نصار"],["Dhafer L'Abidine","ظافر العابدين"],["Amina Khalil","أمينة خليل"],["Tara Emad","تارا عماد"],["Ahmed Malek","أحمد مالك"],["Mohamed Farrag","محمد فراج"],["Amr Youssef","عمرو يوسف"],["Ahmed Fahmy","أحمد فهمي"],["Hisham Maged","هشام ماجد"],["Chico","شيكو"],["Bayoumi Fouad","بيومي فؤاد"],["Ahmed Saad","أحمد سعد"],["Majid Al Mohandis","ماجد المهندس"],["Ahlam","أحلام"],["Nawal El Kuwaitia","نوال الكويتية"],["Dalia Mubarak","داليا مبارك"],["Abdul Majeed Abdullah","عبد المجيد عبد الله"],["Rashed Al Majed","راشد الماجد"],["Ziad Bourji","زياد برجي"],["Marwan Khoury","مروان خوري"],["Wael Jassar","وائل جسار"],["Fadel Shaker","فضل شاكر"],["Diana Haddad","ديانا حداد"],["Jannat","جنات"]],"countries":[["United Kingdom","المملكة المتحدة"],["China","الصين"],["India","الهند"],["Mexico","المكسيك"],["Argentina","الأرجنتين"],["Chile","تشيلي"],["Peru","بيرو"],["Colombia","كولومبيا"],["Uruguay","أوروغواي"],["Portugal","البرتغال"],["Netherlands","هولندا"],["Belgium","بلجيكا"],["Switzerland","سويسرا"],["Austria","النمسا"],["Sweden","السويد"],["Norway","النرويج"],["Finland","فنلندا"],["Denmark","الدنمارك"],["Ireland","أيرلندا"],["Poland","بولندا"],["Ukraine","أوكرانيا"],["Russia","روسيا"],["Thailand","تايلاند"],["Malaysia","ماليزيا"],["Singapore","سنغافورة"],["Indonesia","إندونيسيا"],["Philippines","الفلبين"],["Vietnam","فيتنام"],["Pakistan","باكستان"],["Bangladesh","بنغلاديش"],["Sri Lanka","سريلانكا"],["Nepal","نيبال"],["Afghanistan","أفغانستان"],["Iran","إيران"],["Iraq","العراق"],["Kuwait","الكويت"],["Bahrain","البحرين"],["Oman","عُمان"],["Yemen","اليمن"],["Tunisia","تونس"],["Algeria","الجزائر"],["Libya","ليبيا"],["Sudan","السودان"],["Ethiopia","إثيوبيا"],["Kenya","كينيا"],["Nigeria","نيجيريا"],["Ghana","غانا"],["South Africa","جنوب أفريقيا"],["New Zealand","نيوزيلندا"],["Iceland","آيسلندا"]],"fruit-vegetables":[["Orange","برتقال"],["Lemon","ليمون"],["Lime","ليمون أخضر"],["Grapefruit","جريب فروت"],["Papaya","بابايا"],["Pear","كمثرى"],["Plum","برقوق"],["Cherry","كرز"],["Raspberry","توت العليق"],["Blueberry","توت أزرق"],["Blackberry","توت أسود"],["Pomegranate","رمان"],["Fig","تين"],["Date","تمر"],["Coconut","جوز الهند"],["Guava","جوافة"],["Passion fruit","فاكهة العاطفة"],["Dragon fruit","فاكهة التنين"],["Lychee","ليتشي"],["Apricot","مشمش"],["Cantaloupe","شمام"],["Honeydew melon","شمام أخضر"],["Cranberry","توت بري"],["Tangerine","يوسفي"],["Clementine","كلمنتينا"],["Persimmon","كاكا"],["Quince","سفرجل"],["Mulberry","توت"],["Starfruit","فاكهة النجمة"],["Jackfruit","جاك فروت"],["Breadfruit","فاكهة الخبز"],["Durian","دوريان"],["Plantain","موز الطبخ"],["Beetroot","شمندر"],["Spinach","سبانخ"],["Lettuce","خس"],["Kale","كرنب أجعد"],["Cabbage","ملفوف"],["Red cabbage","ملفوف أحمر"],["Zucchini","كوسا"],["Radish","فجل"],["Turnip","لفت"],["Sweet potato","بطاطا حلوة"],["Onion","بصل"],["Garlic","ثوم"],["Ginger","زنجبيل"],["Celery","كرفس"],["Asparagus","هليون"],["Artichoke","خرشوف"],["Green beans","فاصولياء خضراء"]],"sports":[["Athletics","ألعاب القوى"],["Sprinting","العدو السريع"],["Marathon running","الجري لمسافات طويلة"],["Archery","الرماية بالقوس"],["Fencing","المبارزة"],["Rowing","التجديف"],["Canoeing","التجديف بالكانو"],["Kayaking","التجديف بالكاياك"],["Sailing","الإبحار"],["Snowboarding","التزلج على اللوح الثلجي"],["Figure skating","التزلج الفني"],["Speed skating","التزلج السريع"],["Handball","كرة اليد"],["Baseball","البيسبول"],["Softball","الكرة اللينة"],["American football","كرة القدم الأمريكية"],["Futsal","كرة الصالات"],["Squash","الإسكواش"],["Racquetball","راكت بول"],["Pickleball","بيكل بول"],["Darts","لعبة السهام"],["Bowling","البولينغ"],["Snooker","السنوكر"],["Billiards","البلياردو"],["Karate","الكاراتيه"],["Judo","الجودو"],["Brazilian jiu-jitsu","الجوجيتسو البرازيلية"],["Kickboxing","الكيك بوكسينغ"],["Muay Thai","المواي تاي"],["Mixed martial arts","الفنون القتالية المختلطة"],["Weightlifting","رفع الأثقال"],["Powerlifting","القوة البدنية"],["Pole vault","القفز بالزانة"],["Long jump","الوثب الطويل"],["High jump","الوثب العالي"],["Shot put","دفع الجلة"],["Discus throw","رمي القرص"],["Javelin throw","رمي الرمح"],["Triathlon","الترياتلون"],["Modern pentathlon","الخماسي الحديث"],["Equestrian","الفروسية"],["Dressage","الترويض"],["Show jumping","قفز الحواجز"],["Water polo","كرة الماء"],["Springboard diving","الغوص من منصة متحركة"],["BMX racing","سباق الدراجات BMX"],["Motocross","سباق الدراجات النارية الترابية"],["Rally racing","سباق الرالي"],["Rock climbing","تسلق الصخور"],["Parkour","الباركور"]],"hobbies":[["Journaling","كتابة اليوميات"],["Scrapbooking","صناعة ألبومات الذكريات"],["Calligraphy","فن الخط"],["Candle making","صناعة الشموع"],["Soap making","صناعة الصابون"],["Woodworking","النجارة كهواية"],["Model building","تركيب المجسمات"],["Stamp collecting","جمع الطوابع"],["Sneaker collecting","جمع الأحذية الرياضية"],["Astronomy","علم الفلك"],["Stargazing","مراقبة النجوم"],["Chess","الشطرنج"],["Jigsaw puzzles","تركيب أحجيات الصور"],["Crossword puzzles","حل الكلمات المتقاطعة"],["Learning languages","تعلم اللغات"],["Podcasting","إنتاج البودكاست"],["Blogging","التدوين"],["Video editing","تحرير الفيديو"],["Animation","التحريك والأنيميشن"],["Coding","البرمجة"],["3D printing","الطباعة ثلاثية الأبعاد"],["Sewing","الخياطة"],["Embroidery","التطريز"],["Quilting","ترقيع الأقمشة"],["Leather crafting","صناعة المنتجات الجلدية"],["Jewelry making","صناعة المجوهرات"],["Flower arranging","تنسيق الزهور"],["Terrarium making","صناعة الحدائق الزجاجية"],["Bonsai growing","زراعة البونساي"],["Beekeeping","تربية النحل"],["Home decorating","تزيين المنزل"],["Car restoration","ترميم السيارات"],["Motorcycle maintenance","صيانة الدراجات النارية"],["Geocaching","البحث عن الكنز بالإحداثيات"],["Metal detecting","البحث عن المعادن"],["Rock collecting","جمع الصخور"],["Magic tricks","الخدع السحرية"],["Cardistry","فن استعراض أوراق اللعب"],["Board games","ألعاب الطاولة"],["Tabletop role-playing","ألعاب تقمص الأدوار"],["Cosplay","الأزياء التنكرية"],["Drone flying","قيادة الطائرات المسيّرة"],["Comic book collecting","جمع القصص المصورة"],["Vinyl record collecting","جمع أسطوانات الفينيل"],["Urban sketching","الرسم في الأماكن العامة"],["Filmmaking","صناعة الأفلام"],["Amateur radio","هواية الراديو"],["Volunteering","العمل التطوعي"],["Birdhouse building","صناعة بيوت الطيور"],["Speedcubing","حل مكعب روبيك بسرعة"]],"jobs":[["Pharmacist","صيدلي"],["Veterinarian","طبيب بيطري"],["Surgeon","جرّاح"],["Pediatrician","طبيب أطفال"],["Dermatologist","طبيب جلدية"],["Cardiologist","طبيب قلب"],["Paramedic","مسعف"],["Psychologist","أخصائي نفسي"],["Physical therapist","أخصائي علاج طبيعي"],["Optometrist","أخصائي بصريات"],["Radiologist","طبيب أشعة"],["Midwife","قابلة"],["Flight attendant","مضيف طيران"],["Air traffic controller","مراقب حركة جوية"],["Ship captain","قبطان سفينة"],["Train driver","سائق قطار"],["Bus driver","سائق حافلة"],["Truck driver","سائق شاحنة"],["Electrician","كهربائي"],["Plumber","سباك"],["Carpenter","نجار"],["Welder","لحّام"],["House painter","دهّان"],["Tailor","خيّاط"],["Barber","حلاق"],["Hairdresser","مصفف شعر"],["Makeup artist","خبير مكياج"],["Fashion designer","مصمم أزياء"],["Interior designer","مصمم ديكور"],["Graphic designer","مصمم جرافيك"],["Web developer","مطوّر مواقع"],["Data analyst","محلل بيانات"],["Software tester","مختبر برمجيات"],["Cybersecurity analyst","محلل أمن سيبراني"],["Civil engineer","مهندس مدني"],["Electrical engineer","مهندس كهربائي"],["Accountant","محاسب"],["Banker","مصرفي"],["Economist","خبير اقتصادي"],["Professor","أستاذ جامعي"],["Librarian","أمين مكتبة"],["Translator","مترجم"],["Interpreter","مترجم فوري"],["Editor","محرر"],["News anchor","مذيع أخبار"],["Waiter","نادل"],["Hotel manager","مدير فندق"],["Travel agent","وكيل سفر"],["Real estate agent","وكيل عقارات"],["Social worker","أخصائي اجتماعي"]]};
+
+async function ensureKharjSchema(env){
+ await env.DB.prepare("CREATE TABLE IF NOT EXISTS kharj_rooms (room_id TEXT PRIMARY KEY, token_hash TEXT NOT NULL, host_user_id TEXT NOT NULL, state_json TEXT NOT NULL, created_at TEXT NOT NULL, expires_at TEXT NOT NULL, ended_at TEXT)").run();
+ await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_kharj_rooms_host ON kharj_rooms(host_user_id,created_at)").run();
+ await env.DB.prepare("CREATE TABLE IF NOT EXISTS kharj_words (id TEXT PRIMARY KEY, category_id TEXT NOT NULL, word_en TEXT NOT NULL, word_ar TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)").run();
+ await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_kharj_words_category ON kharj_words(category_id,word_en)").run();
+ await env.DB.prepare("CREATE TABLE IF NOT EXISTS kharj_word_seed (id INTEGER PRIMARY KEY CHECK(id=1), seeded_at TEXT NOT NULL)").run();
+ const now=new Date().toISOString();
+ const seeded=await env.DB.prepare("SELECT id FROM kharj_word_seed WHERE id=1").first();
+ if(!seeded){
+  const statements=[];
+  for(const category of KHARJ_CATEGORIES){
+   const words=KHARJ_WORD_BANK[category.id]||[];
+   words.forEach((word,index)=>statements.push(
+    env.DB.prepare("INSERT OR IGNORE INTO kharj_words (id,category_id,word_en,word_ar,created_at,updated_at) VALUES (?,?,?,?,?,?)").bind("seed_"+category.id+"_"+(index+1),category.id,word[0],word[1]||null,now,now)
+   ));
+  }
+  for(let i=0;i<statements.length;i+=50)await env.DB.batch(statements.slice(i,i+50));
+  await env.DB.prepare("INSERT OR IGNORE INTO kharj_word_seed (id,seeded_at) VALUES (1,?)").bind(now).run();
+ }
+ // Versioned incremental seed: adds 50 fresh words to every existing Kharj category once.
+ await env.DB.prepare("CREATE TABLE IF NOT EXISTS kharj_word_seed_versions (version TEXT PRIMARY KEY, seeded_at TEXT NOT NULL)").run();
+ const extraVersion="kharj-extra-50-v1";
+ const extraSeeded=await env.DB.prepare("SELECT version FROM kharj_word_seed_versions WHERE version=?").bind(extraVersion).first();
+ if(!extraSeeded){
+  const statements=[];
+  for(const category of KHARJ_CATEGORIES){
+   const words=KHARJ_EXTRA_WORD_BANK[category.id]||[];
+   if(words.length!==50)throw new Error("Kharj extra word seed must contain exactly 50 words for "+category.id);
+   words.forEach((word,index)=>statements.push(
+    env.DB.prepare("INSERT OR IGNORE INTO kharj_words (id,category_id,word_en,word_ar,created_at,updated_at) VALUES (?,?,?,?,?,?)").bind("seed_extra50_"+category.id+"_"+(index+1),category.id,word[0],word[1]||null,now,now)
+   ));
+  }
+  for(let i=0;i<statements.length;i+=50)await env.DB.batch(statements.slice(i,i+50));
+  await env.DB.prepare("INSERT OR IGNORE INTO kharj_word_seed_versions (version,seeded_at) VALUES (?,?)").bind(extraVersion,now).run();
+ }
+}
+function kharjShuffle(items){
+ const a=[...items];
+ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}
+ return a;
+}
+function kharjCategory(id){return KHARJ_CATEGORIES.find(c=>c.id===id)||null}
+function kharjNormalizeGuess(value){
+ return String(value||"").normalize("NFKD").replace(/[\u0300-\u036f]/g,"").toLocaleLowerCase().replace(/[.,!?؛،:'"’‘()\-_/]/g,"").replace(/\s+/g," ").trim();
+}
+async function kharjChooseSecret(state,env){
+ const rows=await env.DB.prepare("SELECT id,category_id,word_en,word_ar FROM kharj_words ORDER BY category_id,word_en").all();
+ const categories=new Set(state.categories||[]);
+ const pool=(rows.results||[]).filter(row=>categories.has(row.category_id)).map(row=>({id:row.id,categoryId:row.category_id,wordEn:row.word_en,wordAr:row.word_ar||row.word_en}));
+ const unused=pool.filter(item=>!(state.usedWordIds||[]).includes(item.id));
+ return kharjShuffle(unused.length?unused:pool)[0]||null;
+}
+async function kharjPrepareWordOptions(state,env){
+ const rows=await env.DB.prepare("SELECT id,word_en,word_ar FROM kharj_words WHERE category_id=? AND id<>? ORDER BY word_en")
+  .bind(state.secret.categoryId,state.secret.id).all();
+ const seen=new Set();
+ const distractors=(rows.results||[]).filter(row=>{
+  const normalized=kharjNormalizeGuess(row.word_en);
+  if(!normalized||seen.has(normalized))return false;
+  seen.add(normalized);return true;
+ }).map(row=>({id:row.id,wordEn:row.word_en,wordAr:row.word_ar||row.word_en}));
+ const requiredDistractors=9;
+ if(distractors.length<requiredDistractors)throw new Error("This category needs at least 10 different words for the imposter's final choice.");
+ const correct={id:state.secret.id,wordEn:state.secret.wordEn,wordAr:state.secret.wordAr||state.secret.wordEn};
+ state.wordOptions=kharjShuffle([correct,...kharjShuffle(distractors).slice(0,requiredDistractors)]);
+}
+async function kharjStartRound(state,env){
+ const secret=await kharjChooseSecret(state,env);
+ if(!secret)throw new Error("No words are available for the selected category. Add words in Dashboard → Game editor → Kharj editor.");
+ state.secret=secret;state.usedWordIds=[...(state.usedWordIds||[]),secret.id].slice(-250);
+ state.outsiderId=kharjShuffle(state.players)[0].id;
+ state.scores=state.scores||{};state.roundPoints={};
+ for(const player of state.players){state.scores[player.id]=Number(state.scores[player.id]||0);state.roundPoints[player.id]=0}
+ state.wordOptions=[];state.stage="revealing";state.revealIndex=0;state.revealed=false;state.askRound=0;state.askerId=null;state.askTargetId=null;state.specialPick=false;state.lastQuestion=null;state.votes={};state.voteIndex=0;state.voteSummary=null;state.guess="";state.outcome=null;state.caughtPlayerId=null;state.round=(state.round||0)+1;
+}
+function kharjBeginDiscussion(state){
+ state.stage="discussion";state.askRound=1;state.askerId=kharjShuffle(state.players)[0]?.id||null;state.askTargetId=kharjShuffle((state.players||[]).filter(p=>p.id!==state.askerId))[0]?.id||null;state.specialPick=false;state.lastQuestion=state.askerId&&state.askTargetId?{askerId:state.askerId,targetId:state.askTargetId}:null;
+}
+function kharjNextAsker(state){
+ const players=state.players||[],previous=state.askerId,pool=players.filter(p=>p.id!==previous);
+ state.askerId=kharjShuffle(pool.length?pool:players)[0]?.id||null;
+ state.askRound=(state.askRound||1)+1;
+ state.specialPick=state.askRound>=6;
+ if(state.specialPick){state.askTargetId=null;state.lastQuestion=null;return}
+ state.askTargetId=kharjShuffle(players.filter(p=>p.id!==state.askerId))[0]?.id||null;
+ state.lastQuestion=state.askerId&&state.askTargetId?{askerId:state.askerId,targetId:state.askTargetId}:null;
+}
+async function createKharjRoom(request,env){
+ const user=await getSessionUser(request,env);
+ if(!user)return json({error:"Please sign in to host Kharj Al Jalsa."},401);
+ await ensureKharjSchema(env);
+ const roomId=toBase64Url(randomBytes(18)),key=toBase64Url(randomBytes(32)),now=new Date(),expires=new Date(now.getTime()+3*60*60*1000).toISOString();
+ const state={stage:"setup",language:"en",players:[],categories:[],round:0,usedWordIds:[],secret:null,outsiderId:null,revealIndex:0,revealed:false,askRound:0,askerId:null,askTargetId:null,specialPick:false,lastQuestion:null,votes:{},voteIndex:0,voteSummary:null,outcome:null};
+ await env.DB.prepare("INSERT INTO kharj_rooms (room_id,token_hash,host_user_id,state_json,created_at,expires_at) VALUES (?,?,?,?,?,?)").bind(roomId,await sha256Hex(key),user.id,JSON.stringify(state),now.toISOString(),expires).run();
+ return json({roomId,key,expiresAt:expires});
+}
+async function kharjRoomByKey(body,env){
+ const roomId=String(body.roomId||""),key=String(body.key||"");
+ if(!/^[A-Za-z0-9_-]{20,40}$/.test(roomId)||key.length<40||key.length>60)return null;
+ const row=await env.DB.prepare("SELECT * FROM kharj_rooms WHERE room_id=? LIMIT 1").bind(roomId).first();
+ if(!row||row.ended_at||row.expires_at<=new Date().toISOString())return null;
+ if(!constantTimeEqual(row.token_hash,await sha256Hex(key)))return null;
+ let state={};try{state=JSON.parse(row.state_json||"{}")}catch{return null}
+ return {...row,state};
+}
+async function saveKharjState(env,room,state){
+ const next=JSON.stringify(state);
+ const result=await env.DB.prepare("UPDATE kharj_rooms SET state_json=? WHERE room_id=? AND state_json=? AND ended_at IS NULL").bind(next,room.room_id,room.state_json).run();
+ if(Number(result.meta?.changes||0)>0){room.state=state;room.state_json=next;return true}
+ return false;
+}
+async function getKharjHostState(request,env,url){
+ const user=await getSessionUser(request,env);
+ if(!user)return json({error:"Please sign in again."},401);
+ const row=await env.DB.prepare("SELECT * FROM kharj_rooms WHERE room_id=? AND host_user_id=? LIMIT 1").bind(String(url.searchParams.get("roomId")||""),user.id).first();
+ if(!row||row.ended_at||row.expires_at<=new Date().toISOString())return json({error:"Game session not found or expired."},404);
+ let state={};try{state=JSON.parse(row.state_json||"{}")}catch{return json({error:"Game state is unreadable."},500)}
+ const publicState={
+  stage:state.stage,round:state.round||0,outsiderCaught:state.outsiderCaught===true,players:(state.players||[]).map(p=>({id:p.id,name:p.name,score:Number(state.scores?.[p.id]||0),roundPoints:Number(state.roundPoints?.[p.id]||0)})),
+  categories:(state.categories||[]).map(kharjCategory).filter(Boolean).map(c=>({id:c.id,nameEn:c.en,nameAr:c.ar})),
+  revealIndex:state.revealIndex||0,askRound:state.askRound||0,specialPick:state.specialPick===true,askerName:(state.players||[]).find(p=>p.id===state.askerId)?.name||"",askTargetName:(state.players||[]).find(p=>p.id===state.askTargetId)?.name||"",voteIndex:state.voteIndex||0,voteCount:Object.keys(state.votes||{}).length,
+  outcome:state.stage==="results"?{wordEn:state.secret?.wordEn,wordAr:state.secret?.wordAr,category:state.secret?.categoryId,outsiderName:state.players.find(p=>p.id===state.outsiderId)?.name||"",voteSummary:state.voteSummary||[],guess:state.guess||"",guessCorrect:!!state.outcome?.guessCorrect}:null
+ };
+ return json({state:publicState});
+}
+function kharjControllerPublicState(s,lang){
+ const player=s.players?.[s.revealIndex]||null;
+ let reveal=null;
+ if(s.stage==="revealing"&&s.revealed===true&&player&&s.secret){
+  const outsider=player.id===s.outsiderId,category=kharjCategory(s.secret.categoryId);
+  reveal={
+   role:outsider?"outsider":"player",
+   categoryId:s.secret.categoryId,
+   category:category?.[lang]||s.secret.categoryId,
+   word:outsider?null:(lang==="ar"?(s.secret.wordAr||s.secret.wordEn):(s.secret.wordEn||s.secret.wordAr))
+  };
+ }
+ const asker=s.stage==="discussion"?(s.players||[]).find(p=>p.id===s.askerId)||null:null;
+ const askTarget=s.stage==="discussion"&&s.askTargetId?(s.players||[]).find(p=>p.id===s.askTargetId)||null:null;
+ const askCandidates=s.stage==="discussion"&&(s.askRound||0)>=6&&!s.askTargetId?(s.players||[]).filter(p=>p.id!==s.askerId):[];
+ const voter=s.players?.[s.voteIndex]||null;
+ return {
+  stage:s.stage,round:s.round||0,language:lang,
+  players:(s.players||[]).map(p=>({id:p.id,name:p.name})),
+  categories:(s.categories||[]).map(kharjCategory).filter(Boolean).map(c=>({id:c.id,name:lang==="ar"?c.ar:c.en})),
+  revealIndex:s.revealIndex||0,currentPlayer:s.stage==="revealing"&&player?{id:player.id,name:player.name}:null,
+  revealed:s.revealed===true,reveal,
+  askRound:s.askRound||1,specialPick:s.specialPick===true,
+  asker:asker?{id:asker.id,name:asker.name}:null,
+  askTarget:askTarget?{id:askTarget.id,name:askTarget.name}:null,
+  askCandidates:askCandidates.map(p=>({id:p.id,name:p.name})),
+  voter:s.stage==="voting"&&voter?{id:voter.id,name:voter.name}:null,
+  candidates:s.stage==="voting"&&voter?(s.players||[]).filter(p=>p.id!==voter.id).map(p=>({id:p.id,name:p.name})):[],
+  voteIndex:s.voteIndex||0,voteCount:Object.keys(s.votes||{}).length,
+  outsiderName:s.stage==="final-guess"?(s.players.find(p=>p.id===s.outsiderId)?.name||""):"",
+  guessOptions:s.stage==="final-guess"?(s.wordOptions||[]).map(item=>({id:item.id,word:lang==="ar"?(item.wordAr||item.wordEn):item.wordEn})):[],
+  result:s.stage==="results"?{
+   word:lang==="ar"?(s.secret?.wordAr||s.secret?.wordEn):s.secret?.wordEn,
+   category:kharjCategory(s.secret?.categoryId)?.[lang]||"",
+   outsiderName:s.players.find(p=>p.id===s.outsiderId)?.name||"",
+   voteSummary:s.voteSummary||[],guess:s.guess||"",guessCorrect:!!s.outcome?.guessCorrect
+  }:null
+ };
+}
+async function getKharjControllerState(request,env,url){
+ const room=await kharjRoomByKey({roomId:url.searchParams.get("roomId"),key:url.searchParams.get("key")},env);
+ if(!room)return json({error:"This Kharj Al Jalsa QR is invalid or expired."},404);
+ const lang=url.searchParams.get("lang")==="ar"?"ar":"en";
+ return json({state:kharjControllerPublicState(room.state,lang)});
+}
+async function kharjControllerAction(request,env){
+ const body=await readBody(request),room=await kharjRoomByKey(body,env);
+ if(!room)return json({error:"This game session has expired."},404);
+ const state=room.state;
+ if(body.action==="configure"){
+  if(state.stage!=="setup")return json({error:"You can only change players and categories before the round starts."},409);
+  const rawNames=Array.isArray(body.names)?body.names:[];
+  const names=rawNames.map(value=>String(value||"").trim()).filter(Boolean);
+  if(names.length<3)return json({error:"Add at least 3 players."},400);
+  if(names.length>24)return json({error:"This game supports up to 24 players."},400);
+  if(names.some(n=>n.length<2||n.length>32))return json({error:"Each player name must contain 2 to 32 characters."},400);
+  if(new Set(names.map(n=>n.toLocaleLowerCase())).size!==names.length)return json({error:"Player names must be unique."},409);
+  const categories=Array.isArray(body.categories)?[...new Set(body.categories.map(String))].filter(id=>!!kharjCategory(id)):[];
+  if(categories.length!==1)return json({error:"Choose exactly one category."},400);
+  state.players=names.map(name=>({id:toBase64Url(randomBytes(12)),name}));
+  state.scores={};state.roundPoints={};for(const player of state.players){state.scores[player.id]=0;state.roundPoints[player.id]=0}
+  state.categories=categories;state.language=body.language==="ar"?"ar":"en";state.stage="setup-ready";
+ }else if(body.action==="start"){
+  if(!["setup-ready","results"].includes(state.stage))return json({error:"Finish setup before starting a round."},409);
+  if((state.players||[]).length<3||(state.categories||[]).length!==1)return json({error:"Add at least 3 players and choose exactly one category first."},400);
+  try{await kharjStartRound(state,env)}catch(error){return json({error:error.message},400)}
+ }else if(body.action==="reveal"){
+  if(state.stage!=="revealing"||state.revealed)return json({error:"This card is not ready to reveal."},409);
+  state.revealed=true;
+ }else if(body.action==="next-player"){
+  if(state.stage!=="revealing"||!state.revealed)return json({error:"Reveal the current card before passing the phone."},409);
+  state.revealIndex++;state.revealed=false;
+  if(state.revealIndex>=state.players.length)kharjBeginDiscussion(state);
+ }else if(body.action==="choose-target"){
+  if(state.stage!=="discussion"||(state.askRound||0)<6||state.askTargetId)return json({error:"Player selection is available on every question after the first five rounds."},409);
+  const targetId=String(body.targetId||"");
+  if(!state.askerId||!state.players.some(p=>p.id===targetId&&p.id!==state.askerId))return json({error:"Choose another player to question."},400);
+  state.askTargetId=targetId;state.lastQuestion={askerId:state.askerId,targetId};
+ }else if(body.action==="next-asker"){
+  if(state.stage!=="discussion"||!state.askTargetId)return json({error:"Choose someone to question before continuing."},409);
+  kharjNextAsker(state);
+ }else if(body.action==="start-vote"){
+  if(state.stage!=="discussion")return json({error:"The discussion phase is not open."},409);
+  if((state.askRound||0)<5)return json({error:"Complete five question rounds before voting."},409);
+  state.stage="voting";state.voteIndex=0;state.votes={};
+ }else if(body.action==="vote"){
+  if(state.stage!=="voting")return json({error:"Voting is not open."},409);
+  const voter=state.players[state.voteIndex],targetId=String(body.targetId||"");
+  if(!voter||!state.players.some(p=>p.id===targetId&&p.id!==voter.id))return json({error:"Choose another player."},400);
+  state.votes[voter.id]=targetId;state.voteIndex++;
+  if(state.voteIndex>=state.players.length){
+   const counts={};Object.values(state.votes).forEach(id=>counts[id]=(counts[id]||0)+1);
+   const ranked=Object.entries(counts).sort((a,b)=>b[1]-a[1]),top=ranked[0]?.[1]||0,winners=ranked.filter(x=>x[1]===top).map(x=>x[0]);
+   state.scores=state.scores||{};state.roundPoints={};
+   for(const player of state.players){
+    const points=state.votes[player.id]===state.outsiderId?100:0;
+    state.scores[player.id]=Number(state.scores[player.id]||0)+points;
+    state.roundPoints[player.id]=points;
+   }
+   state.voteSummary=state.players.map(p=>({id:p.id,name:p.name,votes:counts[p.id]||0,points:state.roundPoints[p.id],score:state.scores[p.id]}));
+   state.caughtPlayerId=winners.length===1?winners[0]:null;
+   state.outsiderCaught=state.caughtPlayerId===state.outsiderId;
+   // Always give the outsider the phone-based four-word challenge after voting finishes.
+   try{await kharjPrepareWordOptions(state,env)}catch(error){return json({error:error.message},400)}
+   state.stage="final-guess";
+  }
+ }else if(body.action==="guess"){
+  if(state.stage!=="final-guess")return json({error:"The final word choice is not open."},409);
+  const optionId=String(body.optionId||"");
+  const option=(state.wordOptions||[]).find(item=>item.id===optionId);
+  if(!option)return json({error:"Choose one of the four available words."},400);
+  const correct=option.id===state.secret?.id;
+  if(correct){
+   state.scores=state.scores||{};state.roundPoints=state.roundPoints||{};
+   state.scores[state.outsiderId]=Number(state.scores[state.outsiderId]||0)+100;
+   state.roundPoints[state.outsiderId]=Number(state.roundPoints[state.outsiderId]||0)+100;
+  }
+  state.guess=option.wordEn;
+  // If the group missed the outsider, the outsider already wins; the word challenge is still played for +100.
+  state.outcome={guessCorrect:correct,outsiderCaught:state.outsiderCaught===true};
+  state.stage="results";
+ }else if(body.action==="play-again"){
+  if(state.stage!=="results")return json({error:"Finish the current round first."},409);
+  try{await kharjStartRound(state,env)}catch(error){return json({error:error.message},400)}
+ }else if(body.action==="end"){state.stage="ended"}
+ else return json({error:"Unknown Kharj Al Jalsa action."},400);
+ if(!await saveKharjState(env,room,state))return json({error:"The game just updated. Please try again."},409);
+ const responseLanguage=body.lang==="ar"?"ar":(state.language==="ar"?"ar":"en");
+ return json({ok:true,state:kharjControllerPublicState(state,responseLanguage)});
+}
 
 /* JALSA Mafia: private-role, QR multiplayer game */
 async function ensureMafiaSchema(env) {
