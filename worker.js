@@ -2217,9 +2217,10 @@ async function ensureKharjSchema(env){
  await env.DB.prepare("CREATE TABLE IF NOT EXISTS kharj_words (id TEXT PRIMARY KEY, category_id TEXT NOT NULL, word_en TEXT NOT NULL, word_ar TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)").run();
  await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_kharj_words_category ON kharj_words(category_id,word_en)").run();
  await env.DB.prepare("CREATE TABLE IF NOT EXISTS kharj_word_seed (id INTEGER PRIMARY KEY CHECK(id=1), seeded_at TEXT NOT NULL)").run();
+ const now=new Date().toISOString();
  const seeded=await env.DB.prepare("SELECT id FROM kharj_word_seed WHERE id=1").first();
  if(!seeded){
-  const now=new Date().toISOString(),statements=[];
+  const statements=[];
   for(const category of KHARJ_CATEGORIES){
    const words=KHARJ_WORD_BANK[category.id]||[];
    words.forEach((word,index)=>statements.push(
