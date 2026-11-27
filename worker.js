@@ -2272,9 +2272,10 @@ async function kharjPrepareWordOptions(state,env){
   if(!normalized||seen.has(normalized))return false;
   seen.add(normalized);return true;
  }).map(row=>({id:row.id,wordEn:row.word_en,wordAr:row.word_ar||row.word_en}));
- if(distractors.length<3)throw new Error("This category needs at least 3 other words for the outsider's final choice.");
+ const requiredDistractors=9;
+ if(distractors.length<requiredDistractors)throw new Error("This category needs at least 10 different words for the imposter's final choice.");
  const correct={id:state.secret.id,wordEn:state.secret.wordEn,wordAr:state.secret.wordAr||state.secret.wordEn};
- state.wordOptions=kharjShuffle([correct,...kharjShuffle(distractors).slice(0,3)]);
+ state.wordOptions=kharjShuffle([correct,...kharjShuffle(distractors).slice(0,requiredDistractors)]);
 }
 async function kharjStartRound(state,env){
  const secret=await kharjChooseSecret(state,env);
@@ -2309,7 +2310,6 @@ async function createKharjRoom(request,env){
 async function kharjRoomByKey(body,env){
  const roomId=String(body.roomId||""),key=String(body.key||"");
  if(!/^[A-Za-z0-9_-]{20,40}$/.test(roomId)||key.length<40||key.length>60)return null;
- await ensureKharjSchema(env);
  const row=await env.DB.prepare("SELECT * FROM kharj_rooms WHERE room_id=? LIMIT 1").bind(roomId).first();
  if(!row||row.ended_at||row.expires_at<=new Date().toISOString())return null;
  if(!constantTimeEqual(row.token_hash,await sha256Hex(key)))return null;
@@ -2325,7 +2325,6 @@ async function saveKharjState(env,room,state){
 async function getKharjHostState(request,env,url){
  const user=await getSessionUser(request,env);
  if(!user)return json({error:"Please sign in again."},401);
- await ensureKharjSchema(env);
  const row=await env.DB.prepare("SELECT * FROM kharj_rooms WHERE room_id=? AND host_user_id=? LIMIT 1").bind(String(url.searchParams.get("roomId")||""),user.id).first();
  if(!row||row.ended_at||row.expires_at<=new Date().toISOString())return json({error:"Game session not found or expired."},404);
  let state={};try{state=JSON.parse(row.state_json||"{}")}catch{return json({error:"Game state is unreadable."},500)}
@@ -2333,7 +2332,7 @@ async function getKharjHostState(request,env,url){
   stage:state.stage,round:state.round||0,outsiderCaught:state.outsiderCaught===true,players:(state.players||[]).map(p=>({id:p.id,name:p.name,score:Number(state.scores?.[p.id]||0),roundPoints:Number(state.roundPoints?.[p.id]||0)})),
   categories:(state.categories||[]).map(kharjCategory).filter(Boolean).map(c=>({id:c.id,nameEn:c.en,nameAr:c.ar})),
   revealIndex:state.revealIndex||0,askRound:state.askRound||0,specialPick:state.specialPick===true,askerName:(state.players||[]).find(p=>p.id===state.askerId)?.name||"",askTargetName:(state.players||[]).find(p=>p.id===state.askTargetId)?.name||"",voteIndex:state.voteIndex||0,voteCount:Object.keys(state.votes||{}).length,
-  outcome:state.stage==="results"?{winner:state.outcome?.winner,wordEn:state.secret?.wordEn,wordAr:state.secret?.wordAr,category:state.secret?.categoryId,outsiderName:state.players.find(p=>p.id===state.outsiderId)?.name||"",voteSummary:state.voteSummary||[],guess:state.guess||"",guessCorrect:!!state.outcome?.guessCorrect}:null
+  outcome:state.stage==="results"?{wordEn:state.secret?.wordEn,wordAr:state.secret?.wordAr,category:state.secret?.categoryId,outsiderName:state.players.find(p=>p.id===state.outsiderId)?.name||"",voteSummary:state.voteSummary||[],guess:state.guess||"",guessCorrect:!!state.outcome?.guessCorrect}:null
  };
  return json({state:publicState});
 }
@@ -2369,7 +2368,7 @@ function kharjControllerPublicState(s,lang){
   outsiderName:s.stage==="final-guess"?(s.players.find(p=>p.id===s.outsiderId)?.name||""):"",
   guessOptions:s.stage==="final-guess"?(s.wordOptions||[]).map(item=>({id:item.id,word:lang==="ar"?(item.wordAr||item.wordEn):item.wordEn})):[],
   result:s.stage==="results"?{
-   winner:s.outcome?.winner,word:lang==="ar"?(s.secret?.wordAr||s.secret?.wordEn):s.secret?.wordEn,
+   word:lang==="ar"?(s.secret?.wordAr||s.secret?.wordEn):s.secret?.wordEn,
    category:kharjCategory(s.secret?.categoryId)?.[lang]||"",
    outsiderName:s.players.find(p=>p.id===s.outsiderId)?.name||"",
    voteSummary:s.voteSummary||[],guess:s.guess||"",guessCorrect:!!s.outcome?.guessCorrect
@@ -2456,8 +2455,7 @@ async function kharjControllerAction(request,env){
   }
   state.guess=option.wordEn;
   // If the group missed the outsider, the outsider already wins; the word challenge is still played for +100.
-  const outsiderWins=state.outsiderCaught!==true||correct;
-  state.outcome={winner:outsiderWins?"outsider":"group",guessCorrect:correct,outsiderCaught:state.outsiderCaught===true};
+  state.outcome={guessCorrect:correct,outsiderCaught:state.outsiderCaught===true};
   state.stage="results";
  }else if(body.action==="play-again"){
   if(state.stage!=="results")return json({error:"Finish the current round first."},409);
