@@ -2245,38 +2245,72 @@ async function getZankoImage(request, env) {
     const seenPages = new Set();
 
     for (const searchTerm of searchTerms) {
-      const apiUrl = new URL("https://commons.wikimedia.org/w/api.php");
-      const params = {
+      // Use the standard list=search endpoint, then request imageinfo for the
+      // returned File: titles. This avoids fragile generator=search responses.
+      const searchUrl = new URL("https://commons.wikimedia.org/w/api.php");
+      const searchParams = {
         action: "query",
-        generator: "search",
-        gsrsearch: searchTerm,
-        gsrnamespace: "6",
-        gsrlimit: "35",
-        prop: "imageinfo",
-        iiprop: "url|size|mime|extmetadata",
-        iiurlwidth: "1600",
+        list: "search",
+        srsearch: searchTerm,
+        srnamespace: "6",
+        srlimit: "35",
+        srwhat: "text",
         format: "json",
         origin: "*"
       };
-      Object.entries(params).forEach(([key, value]) => apiUrl.searchParams.set(key, value));
+      Object.entries(searchParams).forEach(([key, value]) => searchUrl.searchParams.set(key, value));
 
-      let response;
+      let searchResponse;
       try {
-        response = await fetch(apiUrl.toString(), {
+        searchResponse = await fetch(searchUrl.toString(), {
           headers: {
             "Accept": "application/json",
-            "User-Agent": "JALSA-Quiz/2.0 (https://jalsa.me; locally cached question images)"
+            "Api-User-Agent": "JALSA-Quiz/2.0 (https://jalsa.me; support: support@jalsa.me)"
           },
           cf: { cacheTtl: 86400, cacheEverything: true }
         });
       } catch {
         continue;
       }
-      if (!response.ok) continue;
-      let payload;
-      try { payload = await response.json(); } catch { continue; }
+      if (!searchResponse.ok) continue;
+      let searchPayload;
+      try { searchPayload = await searchResponse.json(); } catch { continue; }
 
-      const pages = Object.values(payload?.query?.pages || {}).filter(page => {
+      const fileTitles = (searchPayload?.query?.search || [])
+        .map(item => String(item.title || ""))
+        .filter(title => /^File:/i.test(title))
+        .slice(0, 35);
+      if (!fileTitles.length) continue;
+
+      const infoUrl = new URL("https://commons.wikimedia.org/w/api.php");
+      const infoParams = {
+        action: "query",
+        titles: fileTitles.join("|"),
+        prop: "imageinfo",
+        iiprop: "url|size|mime|extmetadata",
+        iiurlwidth: "1600",
+        format: "json",
+        origin: "*"
+      };
+      Object.entries(infoParams).forEach(([key, value]) => infoUrl.searchParams.set(key, value));
+
+      let infoResponse;
+      try {
+        infoResponse = await fetch(infoUrl.toString(), {
+          headers: {
+            "Accept": "application/json",
+            "Api-User-Agent": "JALSA-Quiz/2.0 (https://jalsa.me; support: support@jalsa.me)"
+          },
+          cf: { cacheTtl: 86400, cacheEverything: true }
+        });
+      } catch {
+        continue;
+      }
+      if (!infoResponse.ok) continue;
+      let infoPayload;
+      try { infoPayload = await infoResponse.json(); } catch { continue; }
+
+      const pages = Object.values(infoPayload?.query?.pages || {}).filter(page => {
         const info = page?.imageinfo?.[0];
         const pageKey = String(info?.descriptionurl || page.title || "");
         return info && pageKey && !seenPages.has(pageKey) &&
@@ -2295,14 +2329,10 @@ async function getZankoImage(request, env) {
         return sb.hits - sa.hits || sb.width - sa.width;
       });
 
-      const minimumHits = 1;
       for (const page of pages) {
         const info = page.imageinfo[0];
         const sourcePage = info.descriptionurl || ("https://commons.wikimedia.org/wiki/" + encodeURIComponent(page.title));
         seenPages.add(sourcePage);
-        const match = score(page);
-        if (match.hits < minimumHits) continue;
-
         const metadata = info.extmetadata || {};
         const plain = value => String(value || "").replace(/<[^>]*>/g, " ")
           .replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'")
@@ -2336,7 +2366,10 @@ async function getZankoImage(request, env) {
     let imageResponse;
     try {
       imageResponse = await fetch(candidate.url, {
-        headers: { "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8" },
+        headers: {
+          "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+          "Api-User-Agent": "JALSA-Quiz/2.0 (https://jalsa.me; support: support@jalsa.me)"
+        },
         cf: { cacheTtl: 86400, cacheEverything: true }
       });
     } catch {
@@ -2429,7 +2462,10 @@ async function getZankoImageFile(request, env) {
   let upstream;
   try {
     upstream = await fetch(source.toString(), {
-      headers: { "Accept": "image/jpeg,image/png,image/webp,image/gif,*/*;q=0.5" },
+      headers: {
+        "Accept": "image/jpeg,image/png,image/webp,image/gif,*/*;q=0.5",
+        "Api-User-Agent": "JALSA-Quiz/2.0 (https://jalsa.me; support: support@jalsa.me)"
+      },
       cf: { cacheTtl: 86400, cacheEverything: true }
     });
   } catch {
