@@ -1237,7 +1237,7 @@ function continueToCategories(){gameState.teamNames=[document.getElementById('te
 function backToTeams(){showStageScreen('teamScreen')}
 function renderCategoryCards(){
  const grid=document.getElementById('categoryGrid');if(!grid)return;
- if(!Array.isArray(CATEGORIES)||CATEGORIES.length!==15){
+ if(!Array.isArray(CATEGORIES)||CATEGORIES.length!==21){
   grid.replaceChildren();
   const note=document.createElement("p");
   note.className="media-load-error";
@@ -1760,14 +1760,22 @@ async function v17LoadGameContent(gameId){
  const data=await v17Request("/game-content?gameId="+encodeURIComponent(requestedGame),"GET");
  v17Content.categories=data.categories||[];
  v17Content.questions=data.questions||[];
- if(requestedGame==="zanko"&&(v17Content.categories.length!==15||v17Content.questions.length!==900)){
-  const response=await fetch("/zanko-content-v2.json?v=8",{cache:"no-store",credentials:"same-origin"});
+ if(requestedGame==="zanko"&&(v17Content.categories.length!==21||v17Content.questions.length<900)){
+  const response=await fetch("/zanko-content-v2.json?v=9",{cache:"no-store",credentials:"same-origin"});
   if(!response.ok)throw new Error("The Zanko V2.0 question bank could not be loaded.");
   const bank=await response.json();
-  if(bank.version!==8||bank.categories?.length!==15||bank.questions?.length!==900)throw new Error("The Zanko V2.0 content package is incomplete.");
-  v17Content.categories=bank.categories.map(c=>({
-   id:c.id,name:c.name_en,ar:c.name_ar,image:c.image_url||"",icon:"",group_en:c.group_en||"Other",group_ar:c.group_ar||"أخرى"
-  }));
+  if(bank.version!==9||bank.categories?.length!==15||bank.questions?.length!==900)throw new Error("The Zanko V2.0 content package is incomplete.");
+  v17Content.categories=[
+   {id:"cartoon",name:"Cartoon Network",ar:"كرتون نتورك",image:"category-cartoon.jpg",icon:"",group_en:"Movies",group_ar:"أفلام"},
+   {id:"disney",name:"Disney",ar:"ديزني",image:"category-disney.jpg",icon:"",group_en:"Movies",group_ar:"أفلام"},
+   {id:"biology",name:"Biology",ar:"الأحياء",image:"commons:biology laboratory real photograph",icon:"",group_en:"Science",group_ar:"العلوم"},
+   {id:"physics",name:"Physics",ar:"الفيزياء",image:"commons:physics experiment laboratory real photograph",icon:"",group_en:"Science",group_ar:"العلوم"},
+   {id:"math",name:"Math",ar:"الرياضيات",image:"commons:mathematics equations classroom blackboard real photograph",icon:"",group_en:"Science",group_ar:"العلوم"},
+   {id:"music",name:"Music",ar:"الموسيقى",image:"commons:live music concert performance real photograph",icon:"",group_en:"Music",group_ar:"الموسيقى"},
+   ...bank.categories.map(c=>({
+    id:c.id,name:c.name_en,ar:c.name_ar,image:c.image_url||"",icon:"",group_en:c.group_en||"Other",group_ar:c.group_ar||"أخرى"
+   }))
+  ];
   v17Content.questions=bank.questions.map(q=>({...q,game_type:"zanko"}));
  }
  if(v17Content.categories.length){
