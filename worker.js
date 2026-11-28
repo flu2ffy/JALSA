@@ -179,12 +179,12 @@ async function seedZankoContentV2(env) {
       const current = await db.prepare(
         "SELECT version FROM jalsa_content_versions WHERE content_key = ? LIMIT 1"
       ).bind("zanko-question-bank").first();
-      if (Number(current?.version || 0) >= 3) return;
+      if (Number(current?.version || 0) >= 4) return;
 
       const response = await env.ASSETS.fetch(new Request("https://jalsa-assets/zanko-content-v2.json"));
       if (!response.ok) throw new Error("The expanded Zanko question bank could not be loaded.");
       const bank = await response.json();
-      if (bank?.version !== 3 || !Array.isArray(bank.categories) || !Array.isArray(bank.questions)) {
+      if (bank?.version !== 4 || !Array.isArray(bank.categories) || !Array.isArray(bank.questions)) {
         throw new Error("The expanded Zanko question bank has an invalid format.");
       }
       if (bank.categories.length !== 15 || bank.questions.length !== 900) {
@@ -232,7 +232,7 @@ async function seedZankoContentV2(env) {
       const versionUpdate = db.prepare(
         "INSERT INTO jalsa_content_versions (content_key,version,updated_at) VALUES (?,?,?) " +
         "ON CONFLICT(content_key) DO UPDATE SET version=excluded.version,updated_at=excluded.updated_at"
-      ).bind("zanko-question-bank", 3, now);
+      ).bind("zanko-question-bank", 4, now);
 
       await db.batch([categoryInsert, questionInsert, versionUpdate]);
     })();
@@ -2179,7 +2179,7 @@ async function getZankoImage(request) {
       gsrlimit: "18",
       prop: "imageinfo",
       iiprop: "url|extmetadata",
-      iiurlwidth: "1400",
+      iiurlwidth: "1800",
       format: "json",
       origin: "*"
     };
@@ -2234,29 +2234,45 @@ async function getZankoImage(request) {
   }
 
   if (!selected) {
-    // Wikipedia's public REST search is a secondary source for real article thumbnails.
+    // Ask Wikipedia for original article images, not tiny search-result thumbnails.
+    // A candidate must match the actual subject in the question.
     try {
-      const fallbackUrl = "https://en.wikipedia.org/w/rest.php/v1/search/page?" +
-        new URLSearchParams({ q: query, limit: "5" }).toString();
-      const response = await fetch(fallbackUrl, {
+      const ignored = new Set(["real","photo","photos","photograph","photographs","image","images","picture","pictures","high","quality","official","artwork","landscape","product","automobile","car","game","screenshot"]);
+      const tokens = query.toLowerCase().split(/[^a-z0-9]+/).filter(token => token.length > 2 && !ignored.has(token));
+      const apiUrl = new URL("https://en.wikipedia.org/w/api.php");
+      const params = {
+        action: "query",
+        generator: "search",
+        gsrsearch: query,
+        gsrnamespace: "0",
+        gsrlimit: "8",
+        prop: "pageimages",
+        piprop: "original|thumbnail",
+        pithumbsize: "1800",
+        format: "json",
+        origin: "*"
+      };
+      Object.entries(params).forEach(([key, value]) => apiUrl.searchParams.set(key, value));
+      const response = await fetch(apiUrl.toString(), {
         headers: { "Accept": "application/json", "User-Agent": "JALSA-Quiz/1.0 (https://jalsa.me)" },
         cf: { cacheTtl: 86400, cacheEverything: true }
       });
       if (response.ok) {
         const payload = await response.json();
-        const tokens = query.toLowerCase().split(/[^a-z0-9]+/).filter(word => word.length > 2);
-        const pages = (payload.pages || []).filter(page => page.thumbnail?.url);
-        pages.sort((a, b) => {
-          const score = page => tokens.reduce((sum, token) => sum + (String(page.title || "").toLowerCase().includes(token) ? 5 : 0), 0);
-          return score(b) - score(a);
-        });
-        const page = pages[0];
-        if (page) {
+        const candidates = Object.values(payload?.query?.pages || {}).map(page => {
+          const title = String(page.title || "").toLowerCase();
+          const hits = tokens.filter(token => title.includes(token)).length;
+          const imageUrl = page.original?.source || page.thumbnail?.source;
+          return { page, hits, imageUrl };
+        }).filter(item => item.imageUrl && item.hits >= (tokens.length > 2 ? 2 : 1));
+        candidates.sort((a, b) => b.hits - a.hits);
+        const candidate = candidates[0];
+        if (candidate) {
           selected = {
-            url: page.thumbnail.url.startsWith("//") ? "https:" + page.thumbnail.url : page.thumbnail.url,
-            fallbackUrl: page.thumbnail.url.startsWith("//") ? "https:" + page.thumbnail.url : page.thumbnail.url,
-            sourceUrl: page.content_urls?.desktop?.page || ("https://en.wikipedia.org/wiki/" + encodeURIComponent(page.key || page.title)),
-            credit: "Wikipedia · " + String(page.title || "Article image") + " · source page"
+            url: candidate.imageUrl,
+            fallbackUrl: candidate.page.thumbnail?.source || candidate.imageUrl,
+            sourceUrl: "https://en.wikipedia.org/wiki/" + encodeURIComponent(String(candidate.page.title || "").replace(/ /g, "_")),
+            credit: "Wikipedia · " + String(candidate.page.title || "Article image") + " · source page"
           };
         }
       }
