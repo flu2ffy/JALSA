@@ -195,7 +195,7 @@ async function seedZankoContentV2(env) {
         q && typeof q.id === "string" && /^[a-z0-9_-]{2,80}$/.test(q.id) &&
         bank.categories.some(c => c.id === q.category_id) &&
         ["none","image"].includes(q.media_type || "none") &&
-        (q.media_type !== "image" || /^commons:.{3,500}$/i.test(String(q.media_url || "")))
+        (q.media_type !== "image" || /^(?:commons:|fortnite:).{3,500}$/i.test(String(q.media_url || "")))
       );
       if (questions.length !== 900) {
         throw new Error("Some Zanko questions are missing valid image sources.");
@@ -2138,6 +2138,33 @@ async function getZankoImage(request) {
   let query = cleanText(requestUrl.searchParams.get("q"), 240);
   query = query.replace(/^commons:/i, "").replace(/^fnapi:/i, "").trim();
   if (query.length < 3) return json({ error: "A valid image search phrase is required." }, 400);
+
+  if (/^fortnite:/i.test(query)) {
+    const name = query.replace(/^fortnite:/i, "").trim();
+    const apiUrl = "https://fortnite-api.com/v2/cosmetics/br/search?" +
+      new URLSearchParams({ name, matchMethod: "full" }).toString();
+    let response;
+    try {
+      response = await fetch(apiUrl, {
+        headers: { "Accept": "application/json" },
+        cf: { cacheTtl: 86400, cacheEverything: true }
+      });
+    } catch {
+      return json({ error: "Fortnite's official cosmetic catalogue is temporarily unavailable." }, 502);
+    }
+    if (!response.ok) return json({ error: "That Fortnite outfit could not be found." }, 404);
+    const payload = await response.json();
+    const item = payload?.data;
+    const images = item?.images || {};
+    const imageUrl = images.featured || images.icon || images.smallIcon;
+    if (!imageUrl) return json({ error: "Fortnite did not provide artwork for that outfit." }, 404);
+    return json({
+      url: imageUrl,
+      fallbackUrl: images.icon || imageUrl,
+      sourceUrl: "https://fortnite-api.com/",
+      credit: "Fortnite cosmetic artwork · Fortnite-API · " + String(item.name || name)
+    }, 200, { "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800" });
+  }
 
   const searchTerms = ["filetype:bitmap " + query, query];
   let selected = null;
