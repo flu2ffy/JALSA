@@ -179,12 +179,12 @@ async function seedZankoContentV2(env) {
       const current = await db.prepare(
         "SELECT version FROM jalsa_content_versions WHERE content_key = ? LIMIT 1"
       ).bind("zanko-question-bank").first();
-      if (Number(current?.version || 0) >= 6) return;
+      if (Number(current?.version || 0) >= 7) return;
 
       const response = await env.ASSETS.fetch(new Request("https://jalsa-assets/zanko-content-v2.json"));
       if (!response.ok) throw new Error("The expanded Zanko question bank could not be loaded.");
       const bank = await response.json();
-      if (bank?.version !== 6 || !Array.isArray(bank.categories) || !Array.isArray(bank.questions)) {
+      if (bank?.version !== 7 || !Array.isArray(bank.categories) || !Array.isArray(bank.questions)) {
         throw new Error("The expanded Zanko question bank has an invalid format.");
       }
       if (bank.categories.length !== 15 || bank.questions.length !== 900) {
@@ -250,7 +250,7 @@ async function seedZankoContentV2(env) {
       const versionUpdate = db.prepare(
         "INSERT INTO jalsa_content_versions (content_key,version,updated_at) VALUES (?,?,?) " +
         "ON CONFLICT(content_key) DO UPDATE SET version=excluded.version,updated_at=excluded.updated_at"
-      ).bind("zanko-question-bank", 6, now);
+      ).bind("zanko-question-bank", 7, now);
 
       await db.batch([categoryInsert, questionInsert, legacyCategoryPhotos, versionUpdate]);
     })();
