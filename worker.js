@@ -2208,18 +2208,20 @@ async function getZankoImage(request) {
     });
     if (!pages.length) continue;
 
-    const tokens = query.toLowerCase().split(/[^a-z0-9]+/).filter(word => word.length > 2);
-    pages.sort((a, b) => {
-      const score = page => {
-        const title = String(page.title || "").toLowerCase();
-        return tokens.reduce((sum, token) => sum + (title.includes(token) ? 5 : 0), 0);
-      };
-      const scoreDiff = score(b) - score(a);
-      if (scoreDiff) return scoreDiff;
-      return Number(b.imageinfo?.[0]?.width || 0) - Number(a.imageinfo?.[0]?.width || 0);
+    const ignored = new Set(["real","photo","photos","photograph","photographs","image","images","picture","pictures","high","quality","official","artwork","landscape","product","automobile","car","game","screenshot","picture","famous"]);
+    const tokens = query.toLowerCase().split(/[^a-z0-9]+/).filter(word => word.length > 2 && !ignored.has(word));
+    const rankedPages = pages.map(page => {
+      const title = String(page.title || "").toLowerCase();
+      const hits = tokens.filter(token => title.includes(token)).length;
+      return { page, hits };
+    }).filter(item => item.hits >= 1);
+    rankedPages.sort((a, b) => {
+      if (a.hits !== b.hits) return b.hits - a.hits;
+      return Number(b.page.imageinfo?.[0]?.width || 0) - Number(a.page.imageinfo?.[0]?.width || 0);
     });
+    if (!rankedPages.length) continue;
 
-    const page = pages[0], info = page.imageinfo[0], metadata = info.extmetadata || {};
+    const page = rankedPages[0].page, info = page.imageinfo[0], metadata = info.extmetadata || {};
     const plain = value => String(value || "").replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/\s+/g, " ").trim().slice(0, 120);
     const artist = plain(metadata.Artist?.value || metadata.Credit?.value);
     const licence = plain(metadata.LicenseShortName?.value) || "See source page for licence";
