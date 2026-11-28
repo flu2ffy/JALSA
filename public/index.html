@@ -1237,15 +1237,14 @@ function continueToCategories(){gameState.teamNames=[document.getElementById('te
 function backToTeams(){showStageScreen('teamScreen')}
 function renderCategoryCards(){
  const grid=document.getElementById('categoryGrid');if(!grid)return;
- const fallback=[
-  {id:'cartoon',name:'Cartoon Network',ar:'كرتون نتورك',image:'category-cartoon.jpg',group_en:'Movies',group_ar:'أفلام'},
-  {id:'disney',name:'Disney',ar:'ديزني',image:'category-disney.jpg',group_en:'Movies',group_ar:'أفلام'},
-  {id:'biology',name:'Biology',ar:'الأحياء',image:'commons:biology laboratory real photograph',group_en:'Science',group_ar:'العلوم'},
-  {id:'physics',name:'Physics',ar:'الفيزياء',image:'commons:physics laboratory experiment real photograph',group_en:'Science',group_ar:'العلوم'},
-  {id:'math',name:'Math',ar:'الرياضيات',image:'commons:mathematics equations on classroom blackboard real photograph',group_en:'Science',group_ar:'العلوم'},
-  {id:'music',name:'Music',ar:'الموسيقى',image:'commons:live music concert performance real photograph',group_en:'Music',group_ar:'الموسيقى'}
- ];
- if(!Array.isArray(CATEGORIES)||CATEGORIES.length===0)CATEGORIES=fallback;
+ if(!Array.isArray(CATEGORIES)||CATEGORIES.length!==15){
+  grid.replaceChildren();
+  const note=document.createElement("p");
+  note.className="media-load-error";
+  note.textContent=isArabic?"تعذر تحميل فئات زانكو V2.0. أعد تحميل الصفحة.":"Zanko V2.0 categories could not be loaded. Please refresh.";
+  grid.appendChild(note);
+  return;
+ }
  const groups=new Map();
  CATEGORIES.forEach(c=>{const en=String(c.group_en||'Other').trim()||'Other',ar=String(c.group_ar||'أخرى').trim()||'أخرى',key=en.toLocaleLowerCase();if(!groups.has(key))groups.set(key,{en,ar,categories:[]});groups.get(key).categories.push(c)});
  grid.replaceChildren();grid.style.display='block';grid.style.visibility='visible';grid.style.minHeight='180px';
@@ -1756,7 +1755,32 @@ function previewProfilePhoto(event){const file=event.target.files&&event.target.
 async function saveProfile(event){event.preventDefault();const button=event.submitter;if(button)button.disabled=true;try{const data=await v17Request("/profile","POST",{name:document.getElementById("profileName").value,birthDate:document.getElementById("profileBirthDate").value,avatarDataUrl:v17ProfileAvatar});currentUser=data.user;showAdminButton();v17ShowStatus("profileStatus",v17T("saved"),false)}catch(error){v17ShowStatus("profileStatus",error.message,true)}finally{if(button)button.disabled=false}}
 function v17BuildLegacySeed(){const categories=CATEGORIES.map((c,i)=>({id:c.id,name_en:c.name,name_ar:c.ar,image_url:c.image,icon:c.icon}));const questions=[];Object.keys(FIXED_QUESTIONS).forEach(categoryId=>{const en=FIXED_QUESTIONS[categoryId]||[],ar=FIXED_QUESTIONS_AR[categoryId]||[];en.forEach((q,i)=>{questions.push({id:"legacy-zanko-"+categoryId+"-"+i,game_type:"zanko",category_id:categoryId,difficulty:q.points===100?"easy":q.points===600?"hard":"medium",question_en:q.q,question_ar:ar[i]?ar[i].q:q.q,answer_en:q.a,answer_ar:ar[i]?ar[i].a:q.a,media_type:"none",media_url:""})})});["easy","medium","hard"].forEach(tier=>{(MUSIC_BANK[tier]||[]).forEach((q,i)=>{const ar=(MUSIC_BANK_AR[tier]||[])[i]||q;questions.push({id:"legacy-zanko-music-"+tier+"-"+i,game_type:"zanko",category_id:"music",difficulty:tier,question_en:q.q,question_ar:ar.q,answer_en:q.a,answer_ar:ar.a,media_type:"none",media_url:""})})});return{categories,questions}}
 async function v17EnsureSeeded(){let data=await v17Request("/admin/content","GET");if(!data.questions||data.questions.length===0){const seed=v17BuildLegacySeed();await v17Request("/admin/content/seed","POST",seed);data=await v17Request("/admin/content","GET")}return data}
-async function v17LoadGameContent(gameId){const requestedGame=gameId||v17ActiveGameId||"zanko";const data=await v17Request("/game-content?gameId="+encodeURIComponent(requestedGame),"GET");v17Content.categories=data.categories||[];v17Content.questions=data.questions||[];v17Content.priceItems=v17Content.questions.filter(q=>q.game_type==="price"&&q.media_url&&q.media_type!=="none").map(q=>[q.product_name_en,"",Number(q.price_value||0),q.media_type,q.media_url,q.product_name_ar]);if(v17Content.categories.length){CATEGORIES=v17Content.categories.map(c=>({id:c.id,name:c.name_en,ar:c.name_ar,image:c.image_url||"",icon:c.icon||"🎯",group_en:c.group_en||"Other",group_ar:c.group_ar||"أخرى"}))}v17ContentLoaded=true;return data}
+async function v17LoadGameContent(gameId){
+ const requestedGame=gameId||v17ActiveGameId||"zanko";
+ const data=await v17Request("/game-content?gameId="+encodeURIComponent(requestedGame),"GET");
+ v17Content.categories=data.categories||[];
+ v17Content.questions=data.questions||[];
+ if(requestedGame==="zanko"&&(v17Content.categories.length!==15||v17Content.questions.length!==900)){
+  const response=await fetch("/zanko-content-v2.json?v=8",{cache:"no-store",credentials:"same-origin"});
+  if(!response.ok)throw new Error("The Zanko V2.0 question bank could not be loaded.");
+  const bank=await response.json();
+  if(bank.version!==8||bank.categories?.length!==15||bank.questions?.length!==900)throw new Error("The Zanko V2.0 content package is incomplete.");
+  v17Content.categories=bank.categories.map(c=>({
+   id:c.id,name:c.name_en,ar:c.name_ar,image:c.image_url||"",icon:"",group_en:c.group_en||"Other",group_ar:c.group_ar||"أخرى"
+  }));
+  v17Content.questions=bank.questions.map(q=>({...q,game_type:"zanko"}));
+ }
+ if(v17Content.categories.length){
+  CATEGORIES=v17Content.categories.map(c=>({
+   id:c.id,name:c.name||c.name_en,ar:c.ar||c.name_ar,image:c.image||c.image_url||"",icon:c.icon||"",
+   group_en:c.group_en||"Other",group_ar:c.group_ar||"أخرى"
+  }));
+ }
+ v17Content.priceItems=v17Content.questions.filter(q=>q.game_type==="price"&&q.media_url&&q.media_type!=="none")
+  .map(q=>[q.product_name_en,"",Number(q.price_value||0),q.media_type,q.media_url,q.product_name_ar]);
+ v17ContentLoaded=true;
+ return data;
+}
 async function v17UploadMedia(file,expectedType){
  if(!file)throw new Error("Choose a file from your device.");
  if(expectedType&&!(file.type||"").toLowerCase().startsWith(expectedType+"/"))throw new Error("The selected file does not match the media type. Choose an "+expectedType+" file.");
