@@ -179,20 +179,20 @@ async function seedZankoContentV2(env) {
       const current = await db.prepare(
         "SELECT version FROM jalsa_content_versions WHERE content_key = ? LIMIT 1"
       ).bind("zanko-question-bank").first();
-      if (Number(current?.version || 0) >= 8) {
+      if (Number(current?.version || 0) >= 9) {
         const ready = await db.prepare(
           "SELECT COUNT(*) AS count FROM game_categories WHERE id IN (" +
           "'cars','fortnite','minecraft','naruto','spacetoon','brands','womens-bags','perfume'," +
           "'the-blacklist','football','english-football','spanish-football','general-knowledge'," +
-          "'correct-the-error','who-am-i')"
+          "'correct-the-error','who-am-i','cartoon','disney','biology','physics','math','music')"
         ).first();
-        if (Number(ready?.count || 0) === 15) return;
+        if (Number(ready?.count || 0) === 21) return;
       }
 
       const response = await env.ASSETS.fetch(new Request("https://jalsa-assets/zanko-content-v2.json"));
       if (!response.ok) throw new Error("The expanded Zanko question bank could not be loaded.");
       const bank = await response.json();
-      if (bank?.version !== 8 || !Array.isArray(bank.categories) || !Array.isArray(bank.questions)) {
+      if (bank?.version !== 9 || !Array.isArray(bank.categories) || !Array.isArray(bank.questions)) {
         throw new Error("The expanded Zanko question bank has an invalid format.");
       }
       if (bank.categories.length !== 15 || bank.questions.length !== 900) {
@@ -240,25 +240,22 @@ async function seedZankoContentV2(env) {
       // Keep the six original categories that may already exist in older D1 databases.
       // Disney and Cartoon Network reuse the real JPGs already stored in /public.
       const legacyCategoryPhotos = db.prepare(
-        "UPDATE game_categories SET image_url = CASE id " +
-        "WHEN 'cartoon' THEN ? WHEN 'disney' THEN ? " +
-        "WHEN 'biology' THEN ? WHEN 'physics' THEN ? WHEN 'math' THEN ? WHEN 'music' THEN ? " +
-        "ELSE image_url END, icon = '', updated_at = ? " +
-        "WHERE id IN ('cartoon','disney','biology','physics','math','music')"
-      ).bind(
-        "category-cartoon.jpg",
-        "category-disney.jpg",
-        "commons:biology laboratory real photograph",
-        "commons:physics experiment laboratory real photograph",
-        "commons:mathematics equations classroom blackboard real photograph",
-        "commons:live music concert performance real photograph",
-        now
-      );
+        "INSERT INTO game_categories " +
+        "(id,name_en,name_ar,image_url,icon,group_en,group_ar,sort_order,created_at,updated_at) VALUES " +
+        "('cartoon','Cartoon Network','كرتون نتورك','category-cartoon.jpg','','Movies','أفلام',1,?,?), " +
+        "('disney','Disney','ديزني','category-disney.jpg','','Movies','أفلام',2,?,?), " +
+        "('biology','Biology','الأحياء','commons:biology laboratory real photograph','','Science','العلوم',3,?,?), " +
+        "('physics','Physics','الفيزياء','commons:physics experiment laboratory real photograph','','Science','العلوم',4,?,?), " +
+        "('math','Math','الرياضيات','commons:mathematics equations classroom blackboard real photograph','','Science','العلوم',5,?,?), " +
+        "('music','Music','الموسيقى','commons:live music concert performance real photograph','','Music','الموسيقى',6,?,?) " +
+        "ON CONFLICT(id) DO UPDATE SET name_en=excluded.name_en,name_ar=excluded.name_ar," +
+        "image_url=excluded.image_url,icon='',group_en=excluded.group_en,group_ar=excluded.group_ar,updated_at=excluded.updated_at"
+      ).bind(now,now,now,now,now,now);
 
       const versionUpdate = db.prepare(
         "INSERT INTO jalsa_content_versions (content_key,version,updated_at) VALUES (?,?,?) " +
         "ON CONFLICT(content_key) DO UPDATE SET version=excluded.version,updated_at=excluded.updated_at"
-      ).bind("zanko-question-bank", 8, now);
+      ).bind("zanko-question-bank", 9, now);
 
       await db.batch([categoryInsert, questionInsert, legacyCategoryPhotos, versionUpdate]);
     })();
@@ -2372,6 +2369,7 @@ async function getGameContent(request, env) {
   await ensureZankoExtendedSchema(env);
   await seedZankoContentV2(env);
   const categoryIds = [
+    "cartoon","disney","biology","physics","math","music",
     "cars","fortnite","minecraft","naruto","spacetoon","brands","womens-bags","perfume",
     "the-blacklist","football","english-football","spanish-football","general-knowledge",
     "correct-the-error","who-am-i"
