@@ -179,12 +179,12 @@ async function seedZankoContentV2(env) {
       const current = await db.prepare(
         "SELECT version FROM jalsa_content_versions WHERE content_key = ? LIMIT 1"
       ).bind("zanko-question-bank").first();
-      if (Number(current?.version || 0) >= 5) return;
+      if (Number(current?.version || 0) >= 6) return;
 
       const response = await env.ASSETS.fetch(new Request("https://jalsa-assets/zanko-content-v2.json"));
       if (!response.ok) throw new Error("The expanded Zanko question bank could not be loaded.");
       const bank = await response.json();
-      if (bank?.version !== 5 || !Array.isArray(bank.categories) || !Array.isArray(bank.questions)) {
+      if (bank?.version !== 6 || !Array.isArray(bank.categories) || !Array.isArray(bank.questions)) {
         throw new Error("The expanded Zanko question bank has an invalid format.");
       }
       if (bank.categories.length !== 15 || bank.questions.length !== 900) {
@@ -250,7 +250,7 @@ async function seedZankoContentV2(env) {
       const versionUpdate = db.prepare(
         "INSERT INTO jalsa_content_versions (content_key,version,updated_at) VALUES (?,?,?) " +
         "ON CONFLICT(content_key) DO UPDATE SET version=excluded.version,updated_at=excluded.updated_at"
-      ).bind("zanko-question-bank", 5, now);
+      ).bind("zanko-question-bank", 6, now);
 
       await db.batch([categoryInsert, questionInsert, legacyCategoryPhotos, versionUpdate]);
     })();
@@ -2154,7 +2154,7 @@ async function deleteAdminUser(request, env, id) {
 async function getZankoImage(request, env) {
   const requestUrl = new URL(request.url);
   let query = cleanText(requestUrl.searchParams.get("q"), 240);
-  query = query.replace(/^commons:/i, "").replace(/^fnapi:/i, "").trim();
+  query = query.replace(/^(?:(?:commons|fnapi):)+/i, "").trim();
   const assetId = cleanText(requestUrl.searchParams.get("id"), 140);
   if (query.length < 3) return json({ error: "A valid image search phrase is required." }, 400);
   if (!/^[a-zA-Z0-9:_-]{2,140}$/.test(assetId)) return json({ error: "A valid unique image ID is required." }, 400);
