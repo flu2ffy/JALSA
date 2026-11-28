@@ -2225,7 +2225,7 @@ async function getZankoImage(request, env) {
         gsrnamespace: "6",
         gsrlimit: "35",
         prop: "imageinfo",
-        iiprop: "url|extmetadata",
+        iiprop: "url|size|mime|extmetadata",
         iiurlwidth: "1600",
         format: "json",
         origin: "*"
