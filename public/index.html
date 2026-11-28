@@ -1861,7 +1861,7 @@ async function v17ResolveExternalQuestionImage(value,assetId) {
    method:"GET",credentials:"same-origin",headers:{"Accept":"application/json"}
   });
   let data={};try{data=await response.json()}catch{}
-  if(!response.ok||!data.url||!data.stored)throw new Error(data.error||"No relevant local photo was stored.");
+  if(!response.ok||!data.url||(!data.stored&&!data.proxied))throw new Error(data.error||"No usable photo source was found.");
   return data;
  });
  v17ExternalQuestionImageCache.set(cacheKey,pending);
@@ -1913,8 +1913,13 @@ function v17AttachCategoryImage(container,category) {
    credit.textContent=result.credit||"Real image source";
    if(result.fallbackUrl)img.dataset.fallback=result.fallbackUrl;
    img.src=result.url;
-  }).catch(()=>{
-   if(container.contains(img)){img.style.display="none";fallback.style.display="grid"}
+  }).catch(error=>{
+   if(container.contains(img)){
+    img.style.display="none";
+    fallback.textContent=isArabic?"تعذر تحميل الصورة":"Photo unavailable";
+    fallback.title=String(error?.message||"Image could not be loaded");
+    fallback.style.display="grid";
+   }
   });
  }else{
   img.src=/^(https?:|data:|blob:|\/)/i.test(value)?value:"/"+value.replace(/^\.\//,"").replace(/^\/+/, "");
