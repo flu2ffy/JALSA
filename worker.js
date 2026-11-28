@@ -96,6 +96,7 @@ export default {
       if (url.pathname === "/api/feedback" && request.method === "POST") return await submitFeedback(request, env);
       if (url.pathname === "/api/faq-questions" && request.method === "POST") return await submitFaqQuestion(request, env);
       if (url.pathname === "/api/admin/faq-questions" && request.method === "GET") return await listFaqQuestions(request, env);
+      if (url.pathname === "/api/zanko-image" && request.method === "GET") return await getZankoImage(request);
       if (url.pathname === "/api/game-content" && request.method === "GET") return await getGameContent(request, env);
       if (url.pathname === "/api/admin/content" && request.method === "GET") return await getAdminContent(request, env);
       if (url.pathname === "/api/admin/content/seed" && request.method === "POST") return await seedGameContent(request, env);
@@ -172,37 +173,49 @@ async function seedZankoContentV2(env) {
   let pending = zankoContentV2SeedPromises.get(db);
   if (!pending) {
     pending = (async () => {
-      const existing = await db.prepare("SELECT COUNT(*) AS count FROM game_questions WHERE id LIKE 'z2-%'").first();
-      if (Number(existing?.count || 0) >= 900) return;
+      await db.prepare(
+        "CREATE TABLE IF NOT EXISTS jalsa_content_versions (content_key TEXT PRIMARY KEY NOT NULL, version INTEGER NOT NULL, updated_at TEXT NOT NULL)"
+      ).run();
+      const current = await db.prepare(
+        "SELECT version FROM jalsa_content_versions WHERE content_key = ? LIMIT 1"
+      ).bind("zanko-question-bank").first();
+      if (Number(current?.version || 0) >= 3) return;
+
       const response = await env.ASSETS.fetch(new Request("https://jalsa-assets/zanko-content-v2.json"));
       if (!response.ok) throw new Error("The expanded Zanko question bank could not be loaded.");
       const bank = await response.json();
-      if (bank?.version !== 2 || !Array.isArray(bank.categories) || !Array.isArray(bank.questions)) {
+      if (bank?.version !== 3 || !Array.isArray(bank.categories) || !Array.isArray(bank.questions)) {
         throw new Error("The expanded Zanko question bank has an invalid format.");
+      }
+      if (bank.categories.length !== 15 || bank.questions.length !== 900) {
+        throw new Error("The Zanko question bank is incomplete. Expected 15 categories and 900 prompts.");
       }
       const now = new Date().toISOString();
       const questions = bank.questions.filter(q =>
         q && typeof q.id === "string" && /^[a-z0-9_-]{2,80}$/.test(q.id) &&
         bank.categories.some(c => c.id === q.category_id) &&
         ["none","image"].includes(q.media_type || "none") &&
-        (q.media_type !== "image" || /^(commons:|fnapi:).{3,500}$/i.test(String(q.media_url || "")))
+        (q.media_type !== "image" || /^commons:.{3,500}$/i.test(String(q.media_url || "")))
       );
+      if (questions.length !== 900) {
+        throw new Error("Some Zanko questions are missing valid image sources.");
+      }
 
-      // Send each bank as one JSON binding and expand it with SQLite JSON1.
-      // This stays well below D1's 100 parameters per statement and ~5,000
-      // bindings per Worker invocation, even for the full 900-question bank.
+      // One JSON binding per insert keeps the entire 900-question upgrade below D1's bind limit.
       const categoryInsert = db.prepare(
-        "INSERT OR IGNORE INTO game_categories (id,name_en,name_ar,image_url,icon,group_en,group_ar,sort_order,created_at,updated_at) " +
+        "INSERT INTO game_categories (id,name_en,name_ar,image_url,icon,group_en,group_ar,sort_order,created_at,updated_at) " +
         "SELECT json_extract(value,'$.id'), substr(COALESCE(json_extract(value,'$.name_en'),''),1,80), " +
-        "substr(COALESCE(json_extract(value,'$.name_ar'),json_extract(value,'$.name_en'),''),1,80), NULL, " +
-        "substr(COALESCE(json_extract(value,'$.icon'),'🎯'),1,12), " +
+        "substr(COALESCE(json_extract(value,'$.name_ar'),json_extract(value,'$.name_en'),''),1,80), " +
+        "json_extract(value,'$.image_url'), substr(COALESCE(json_extract(value,'$.icon'),'🎯'),1,12), " +
         "substr(COALESCE(json_extract(value,'$.group_en'),'Other'),1,80), " +
         "substr(COALESCE(json_extract(value,'$.group_ar'),'أخرى'),1,80), " +
-        "100 + CAST(key AS INTEGER), ?, ? FROM json_each(?)"
+        "100 + CAST(key AS INTEGER), ?, ? FROM json_each(?) WHERE 1 " +
+        "ON CONFLICT(id) DO UPDATE SET name_en=excluded.name_en,name_ar=excluded.name_ar,image_url=excluded.image_url," +
+        "icon=excluded.icon,group_en=excluded.group_en,group_ar=excluded.group_ar,updated_at=excluded.updated_at"
       ).bind(now, now, JSON.stringify(bank.categories));
 
       const questionInsert = db.prepare(
-        "INSERT OR IGNORE INTO game_questions (id,game_type,category_id,difficulty,question_en,question_ar,answer_en,answer_ar,media_type,media_url,answer_media_type,answer_media_url,product_name_en,product_name_ar,product_emoji,price_value,created_at,updated_at) " +
+        "INSERT INTO game_questions (id,game_type,category_id,difficulty,question_en,question_ar,answer_en,answer_ar,media_type,media_url,answer_media_type,answer_media_url,product_name_en,product_name_ar,product_emoji,price_value,created_at,updated_at) " +
         "SELECT json_extract(value,'$.id'), 'zanko', json_extract(value,'$.category_id'), " +
         "CASE WHEN json_extract(value,'$.difficulty') IN ('easy','medium','hard') THEN json_extract(value,'$.difficulty') ELSE 'medium' END, " +
         "substr(COALESCE(json_extract(value,'$.question_en'),''),1,1000), " +
@@ -210,10 +223,18 @@ async function seedZankoContentV2(env) {
         "substr(COALESCE(json_extract(value,'$.answer_en'),''),1,1000), " +
         "substr(COALESCE(json_extract(value,'$.answer_ar'),json_extract(value,'$.answer_en'),''),1,1000), " +
         "COALESCE(json_extract(value,'$.media_type'),'none'), json_extract(value,'$.media_url'), " +
-        "'none', NULL, NULL, NULL, NULL, NULL, ?, ? FROM json_each(?)"
+        "'none', NULL, NULL, NULL, NULL, NULL, ?, ? FROM json_each(?) WHERE 1 " +
+        "ON CONFLICT(id) DO UPDATE SET category_id=excluded.category_id,difficulty=excluded.difficulty," +
+        "question_en=excluded.question_en,question_ar=excluded.question_ar,answer_en=excluded.answer_en," +
+        "answer_ar=excluded.answer_ar,media_type=excluded.media_type,media_url=excluded.media_url,updated_at=excluded.updated_at"
       ).bind(now, now, JSON.stringify(questions));
 
-      await db.batch([categoryInsert, questionInsert]);
+      const versionUpdate = db.prepare(
+        "INSERT INTO jalsa_content_versions (content_key,version,updated_at) VALUES (?,?,?) " +
+        "ON CONFLICT(content_key) DO UPDATE SET version=excluded.version,updated_at=excluded.updated_at"
+      ).bind("zanko-question-bank", 3, now);
+
+      await db.batch([categoryInsert, questionInsert, versionUpdate]);
     })();
     zankoContentV2SeedPromises.set(db, pending);
   }
@@ -2112,6 +2133,112 @@ async function deleteAdminUser(request, env, id) {
   await env.DB.prepare("DELETE FROM users WHERE id = ?").bind(id).run();
   return json({ ok: true });
 }
+async function getZankoImage(request) {
+  const requestUrl = new URL(request.url);
+  let query = cleanText(requestUrl.searchParams.get("q"), 240);
+  query = query.replace(/^commons:/i, "").replace(/^fnapi:/i, "").trim();
+  if (query.length < 3) return json({ error: "A valid image search phrase is required." }, 400);
+
+  const searchTerms = ["filetype:bitmap " + query, query];
+  let selected = null;
+  for (const searchTerm of searchTerms) {
+    const apiUrl = new URL("https://commons.wikimedia.org/w/api.php");
+    const params = {
+      action: "query",
+      generator: "search",
+      gsrsearch: searchTerm,
+      gsrnamespace: "6",
+      gsrlimit: "18",
+      prop: "imageinfo",
+      iiprop: "url|extmetadata",
+      iiurlwidth: "1400",
+      format: "json",
+      origin: "*"
+    };
+    Object.entries(params).forEach(([key, value]) => apiUrl.searchParams.set(key, value));
+    let response;
+    try {
+      response = await fetch(apiUrl.toString(), {
+        headers: {
+          "Accept": "application/json",
+          "User-Agent": "JALSA-Quiz/1.0 (https://jalsa.me; image lookup)"
+        },
+        cf: { cacheTtl: 86400, cacheEverything: true }
+      });
+    } catch {
+      continue;
+    }
+    if (!response.ok) continue;
+    let payload;
+    try { payload = await response.json(); } catch { continue; }
+
+    const pages = Object.values(payload?.query?.pages || {}).filter(page => {
+      const info = page?.imageinfo?.[0];
+      return info && (info.thumburl || info.url) &&
+        (!info.mime || /^image\/(jpeg|png|webp|gif)$/i.test(info.mime)) &&
+        Number(info.width || 0) >= 500;
+    });
+    if (!pages.length) continue;
+
+    const tokens = query.toLowerCase().split(/[^a-z0-9]+/).filter(word => word.length > 2);
+    pages.sort((a, b) => {
+      const score = page => {
+        const title = String(page.title || "").toLowerCase();
+        return tokens.reduce((sum, token) => sum + (title.includes(token) ? 5 : 0), 0);
+      };
+      const scoreDiff = score(b) - score(a);
+      if (scoreDiff) return scoreDiff;
+      return Number(b.imageinfo?.[0]?.width || 0) - Number(a.imageinfo?.[0]?.width || 0);
+    });
+
+    const page = pages[0], info = page.imageinfo[0], metadata = info.extmetadata || {};
+    const plain = value => String(value || "").replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/\s+/g, " ").trim().slice(0, 120);
+    const artist = plain(metadata.Artist?.value || metadata.Credit?.value);
+    const licence = plain(metadata.LicenseShortName?.value) || "See source page for licence";
+    selected = {
+      url: info.thumburl || info.url,
+      fallbackUrl: info.url || info.thumburl,
+      sourceUrl: info.descriptionurl || "https://commons.wikimedia.org/",
+      credit: "Wikimedia Commons · " + String(page.title || "").replace(/^File:/i, "") +
+        (artist ? " · " + artist : "") + " · " + licence
+    };
+    break;
+  }
+
+  if (!selected) {
+    // Wikipedia's public REST search is a secondary source for real article thumbnails.
+    try {
+      const fallbackUrl = "https://en.wikipedia.org/w/rest.php/v1/search/page?" +
+        new URLSearchParams({ q: query, limit: "5" }).toString();
+      const response = await fetch(fallbackUrl, {
+        headers: { "Accept": "application/json", "User-Agent": "JALSA-Quiz/1.0 (https://jalsa.me)" },
+        cf: { cacheTtl: 86400, cacheEverything: true }
+      });
+      if (response.ok) {
+        const payload = await response.json();
+        const tokens = query.toLowerCase().split(/[^a-z0-9]+/).filter(word => word.length > 2);
+        const pages = (payload.pages || []).filter(page => page.thumbnail?.url);
+        pages.sort((a, b) => {
+          const score = page => tokens.reduce((sum, token) => sum + (String(page.title || "").toLowerCase().includes(token) ? 5 : 0), 0);
+          return score(b) - score(a);
+        });
+        const page = pages[0];
+        if (page) {
+          selected = {
+            url: page.thumbnail.url.startsWith("//") ? "https:" + page.thumbnail.url : page.thumbnail.url,
+            fallbackUrl: page.thumbnail.url.startsWith("//") ? "https:" + page.thumbnail.url : page.thumbnail.url,
+            sourceUrl: page.content_urls?.desktop?.page || ("https://en.wikipedia.org/wiki/" + encodeURIComponent(page.key || page.title)),
+            credit: "Wikipedia · " + String(page.title || "Article image") + " · source page"
+          };
+        }
+      }
+    } catch {}
+  }
+
+  if (!selected?.url) return json({ error: "No suitable real photograph or artwork was found for this prompt." }, 404);
+  return json(selected, 200, { "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800" });
+}
+
 async function getGameContent(request, env) {
   if (!await getSessionUser(request, env)) return json({ error: "Please sign in to play." }, 401);
   await ensureZankoExtendedSchema(env);
