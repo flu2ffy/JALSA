@@ -181,12 +181,17 @@ async function seedZankoContentV2(env) {
       ).bind("zanko-question-bank").first();
       if (Number(current?.version || 0) >= 9) {
         const ready = await db.prepare(
-          "SELECT COUNT(*) AS count FROM game_categories WHERE id IN (" +
+          "SELECT " +
+          "(SELECT COUNT(*) FROM game_categories WHERE id IN (" +
           "'cars','fortnite','minecraft','naruto','spacetoon','brands','womens-bags','perfume'," +
           "'the-blacklist','football','english-football','spanish-football','general-knowledge'," +
-          "'correct-the-error','who-am-i','cartoon','disney','biology','physics','math','music')"
+          "'correct-the-error','who-am-i','cartoon','disney','biology','physics','math','music')) AS categories, " +
+          "(SELECT COUNT(*) FROM game_questions WHERE game_type='zanko' AND category_id IN (" +
+          "'cars','fortnite','minecraft','naruto','spacetoon','brands','womens-bags','perfume'," +
+          "'the-blacklist','football','english-football','spanish-football','general-knowledge'," +
+          "'correct-the-error','who-am-i')) AS questions"
         ).first();
-        if (Number(ready?.count || 0) === 21) return;
+        if (Number(ready?.categories || 0) === 21 && Number(ready?.questions || 0) >= 900) return;
       }
 
       const response = await env.ASSETS.fetch(new Request("https://jalsa-assets/zanko-content-v2.json"));
