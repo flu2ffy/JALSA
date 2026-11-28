@@ -202,8 +202,9 @@ async function seedZankoContentV2(env) {
         ["none","image"].includes(q.media_type || "none") &&
         (q.media_type !== "image" || /^(commons:|fnapi:).{3,500}$/i.test(String(q.media_url || "")))
       );
-      for (let offset = 0; offset < questions.length; offset += 20) {
-        const group = questions.slice(offset, offset + 20);
+      for (let offset = 0; offset < questions.length; offset += 9) {
+        // D1 allows at most 100 bound parameters per statement. Each question binds 11 values.
+        const group = questions.slice(offset, offset + 9);
         const values = [];
         const tuples = group.map(() => "(?, 'zanko', ?, ?, ?, ?, ?, ?, ?, ?, 'none', NULL, NULL, NULL, NULL, NULL, ?, ?)").join(",");
         for (const q of group) {
