@@ -179,12 +179,20 @@ async function seedZankoContentV2(env) {
       const current = await db.prepare(
         "SELECT version FROM jalsa_content_versions WHERE content_key = ? LIMIT 1"
       ).bind("zanko-question-bank").first();
-      if (Number(current?.version || 0) >= 7) return;
+      if (Number(current?.version || 0) >= 8) {
+        const ready = await db.prepare(
+          "SELECT COUNT(*) AS count FROM game_categories WHERE id IN (" +
+          "'cars','fortnite','minecraft','naruto','spacetoon','brands','womens-bags','perfume'," +
+          "'the-blacklist','football','english-football','spanish-football','general-knowledge'," +
+          "'correct-the-error','who-am-i')"
+        ).first();
+        if (Number(ready?.count || 0) === 15) return;
+      }
 
       const response = await env.ASSETS.fetch(new Request("https://jalsa-assets/zanko-content-v2.json"));
       if (!response.ok) throw new Error("The expanded Zanko question bank could not be loaded.");
       const bank = await response.json();
-      if (bank?.version !== 7 || !Array.isArray(bank.categories) || !Array.isArray(bank.questions)) {
+      if (bank?.version !== 8 || !Array.isArray(bank.categories) || !Array.isArray(bank.questions)) {
         throw new Error("The expanded Zanko question bank has an invalid format.");
       }
       if (bank.categories.length !== 15 || bank.questions.length !== 900) {
@@ -250,7 +258,7 @@ async function seedZankoContentV2(env) {
       const versionUpdate = db.prepare(
         "INSERT INTO jalsa_content_versions (content_key,version,updated_at) VALUES (?,?,?) " +
         "ON CONFLICT(content_key) DO UPDATE SET version=excluded.version,updated_at=excluded.updated_at"
-      ).bind("zanko-question-bank", 7, now);
+      ).bind("zanko-question-bank", 8, now);
 
       await db.batch([categoryInsert, questionInsert, legacyCategoryPhotos, versionUpdate]);
     })();
@@ -2363,9 +2371,21 @@ async function getGameContent(request, env) {
   if (!await getSessionUser(request, env)) return json({ error: "Please sign in to play." }, 401);
   await ensureZankoExtendedSchema(env);
   await seedZankoContentV2(env);
+  const categoryIds = [
+    "cars","fortnite","minecraft","naruto","spacetoon","brands","womens-bags","perfume",
+    "the-blacklist","football","english-football","spanish-football","general-knowledge",
+    "correct-the-error","who-am-i"
+  ];
+  const placeholders = categoryIds.map(() => "?").join(",");
   const [cats, questions] = await Promise.all([
-    env.DB.prepare("SELECT id, name_en, name_ar, image_url, icon, group_en, group_ar, sort_order FROM game_categories ORDER BY sort_order, name_en").all(),
-    env.DB.prepare("SELECT * FROM game_questions ORDER BY created_at, id").all()
+    env.DB.prepare(
+      "SELECT id,name_en,name_ar,image_url,icon,group_en,group_ar,sort_order " +
+      "FROM game_categories WHERE id IN (" + placeholders + ") ORDER BY sort_order,name_en"
+    ).bind(...categoryIds).all(),
+    env.DB.prepare(
+      "SELECT * FROM game_questions WHERE game_type = 'zanko' AND category_id IN (" +
+      placeholders + ") ORDER BY created_at,id"
+    ).bind(...categoryIds).all()
   ]);
   return json({ categories: cats.results || [], questions: questions.results || [] });
 }
