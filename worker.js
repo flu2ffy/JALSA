@@ -96,7 +96,7 @@ export default {
       if (url.pathname === "/api/feedback" && request.method === "POST") return await submitFeedback(request, env);
       if (url.pathname === "/api/faq-questions" && request.method === "POST") return await submitFaqQuestion(request, env);
       if (url.pathname === "/api/admin/faq-questions" && request.method === "GET") return await listFaqQuestions(request, env);
-      if (url.pathname === "/api/zanko-image" && request.method === "GET") return await getZankoImage(request);
+      if (url.pathname === "/api/zanko-image" && request.method === "GET") return await getZankoImage(request, env);
       if (url.pathname === "/api/game-content" && request.method === "GET") return await getGameContent(request, env);
       if (url.pathname === "/api/admin/content" && request.method === "GET") return await getAdminContent(request, env);
       if (url.pathname === "/api/admin/content/seed" && request.method === "POST") return await seedGameContent(request, env);
@@ -179,12 +179,12 @@ async function seedZankoContentV2(env) {
       const current = await db.prepare(
         "SELECT version FROM jalsa_content_versions WHERE content_key = ? LIMIT 1"
       ).bind("zanko-question-bank").first();
-      if (Number(current?.version || 0) >= 4) return;
+      if (Number(current?.version || 0) >= 5) return;
 
       const response = await env.ASSETS.fetch(new Request("https://jalsa-assets/zanko-content-v2.json"));
       if (!response.ok) throw new Error("The expanded Zanko question bank could not be loaded.");
       const bank = await response.json();
-      if (bank?.version !== 4 || !Array.isArray(bank.categories) || !Array.isArray(bank.questions)) {
+      if (bank?.version !== 5 || !Array.isArray(bank.categories) || !Array.isArray(bank.questions)) {
         throw new Error("The expanded Zanko question bank has an invalid format.");
       }
       if (bank.categories.length !== 15 || bank.questions.length !== 900) {
@@ -250,7 +250,7 @@ async function seedZankoContentV2(env) {
       const versionUpdate = db.prepare(
         "INSERT INTO jalsa_content_versions (content_key,version,updated_at) VALUES (?,?,?) " +
         "ON CONFLICT(content_key) DO UPDATE SET version=excluded.version,updated_at=excluded.updated_at"
-      ).bind("zanko-question-bank", 4, now);
+      ).bind("zanko-question-bank", 5, now);
 
       await db.batch([categoryInsert, questionInsert, legacyCategoryPhotos, versionUpdate]);
     })();
@@ -2151,13 +2151,37 @@ async function deleteAdminUser(request, env, id) {
   await env.DB.prepare("DELETE FROM users WHERE id = ?").bind(id).run();
   return json({ ok: true });
 }
-async function getZankoImage(request) {
+async function getZankoImage(request, env) {
   const requestUrl = new URL(request.url);
   let query = cleanText(requestUrl.searchParams.get("q"), 240);
   query = query.replace(/^commons:/i, "").replace(/^fnapi:/i, "").trim();
+  const assetId = cleanText(requestUrl.searchParams.get("id"), 140);
   if (query.length < 3) return json({ error: "A valid image search phrase is required." }, 400);
+  if (!/^[a-zA-Z0-9:_-]{2,140}$/.test(assetId)) return json({ error: "A valid unique image ID is required." }, 400);
+  if (!env?.DB || !env?.MEDIA) return json({ error: "Persistent JALSA image storage is not configured." }, 503);
 
-  if (/^fortnite:/i.test(query)) {
+  await env.DB.prepare(
+    "CREATE TABLE IF NOT EXISTS zanko_image_cache (" +
+    "asset_id TEXT PRIMARY KEY NOT NULL, source_page TEXT UNIQUE NOT NULL, " +
+    "storage_url TEXT NOT NULL, storage_key TEXT NOT NULL, credit TEXT NOT NULL, updated_at TEXT NOT NULL)"
+  ).run();
+
+  const cached = await env.DB.prepare(
+    "SELECT storage_url,storage_key,source_page,credit FROM zanko_image_cache WHERE asset_id = ? LIMIT 1"
+  ).bind(assetId).first();
+  if (cached) {
+    const object = await env.MEDIA.head(cached.storage_key);
+    if (object) return json({
+      url: cached.storage_url,
+      sourceUrl: cached.source_page,
+      credit: cached.credit,
+      stored: true
+    }, 200, { "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800" });
+    await env.DB.prepare("DELETE FROM zanko_image_cache WHERE asset_id = ?").bind(assetId).run();
+  }
+
+  const candidates = [];
+  if (/^fortnite:/i.test(String(requestUrl.searchParams.get("q") || ""))) {
     const name = query.replace(/^fortnite:/i, "").trim();
     const apiUrl = "https://fortnite-api.com/v2/cosmetics/br/search?" +
       new URLSearchParams({ name, matchMethod: "full" }).toString();
@@ -2173,115 +2197,166 @@ async function getZankoImage(request) {
     if (!response.ok) return json({ error: "That Fortnite outfit could not be found." }, 404);
     const payload = await response.json();
     const item = payload?.data;
-    const images = item?.images || {};
-    const imageUrl = images.featured || images.icon || images.smallIcon;
-    if (!imageUrl) return json({ error: "Fortnite did not provide artwork for that outfit." }, 404);
-    return json({
+    const imageUrl = item?.images?.featured || item?.images?.icon || item?.images?.smallIcon;
+    if (!imageUrl || !item?.id) return json({ error: "Fortnite did not provide official artwork for that outfit." }, 404);
+    candidates.push({
       url: imageUrl,
-      fallbackUrl: images.icon || imageUrl,
-      sourceUrl: "https://fortnite-api.com/",
-      credit: "Fortnite cosmetic artwork · Fortnite-API · " + String(item.name || name)
-    }, 200, { "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800" });
+      sourcePage: "https://fortnite-api.com/cosmetics/" + String(item.id),
+      credit: "Official Fortnite cosmetic artwork · " + String(item.name || name)
+    });
+  } else {
+    const coreTokens = query.toLowerCase()
+      .replace(/^(?:commons:|fnapi:|fortnite:)/, "")
+      .split(/[^a-z0-9]+/)
+      .filter(token => token.length > 2 && ![
+        "real","photo","photograph","picture","image","images","screenshot","product",
+        "artwork","official","high","quality","the","and","with","from","for","this",
+        "that","category","logo","wallpaper","portrait"
+      ].includes(token));
+    const searchTerms = ["filetype:bitmap " + query, query];
+    const seenPages = new Set();
+
+    for (const searchTerm of searchTerms) {
+      const apiUrl = new URL("https://commons.wikimedia.org/w/api.php");
+      const params = {
+        action: "query",
+        generator: "search",
+        gsrsearch: searchTerm,
+        gsrnamespace: "6",
+        gsrlimit: "35",
+        prop: "imageinfo",
+        iiprop: "url|extmetadata",
+        iiurlwidth: "1600",
+        format: "json",
+        origin: "*"
+      };
+      Object.entries(params).forEach(([key, value]) => apiUrl.searchParams.set(key, value));
+
+      let response;
+      try {
+        response = await fetch(apiUrl.toString(), {
+          headers: {
+            "Accept": "application/json",
+            "User-Agent": "JALSA-Quiz/2.0 (https://jalsa.me; locally cached question images)"
+          },
+          cf: { cacheTtl: 86400, cacheEverything: true }
+        });
+      } catch {
+        continue;
+      }
+      if (!response.ok) continue;
+      let payload;
+      try { payload = await response.json(); } catch { continue; }
+
+      const pages = Object.values(payload?.query?.pages || {}).filter(page => {
+        const info = page?.imageinfo?.[0];
+        const pageKey = String(info?.descriptionurl || page.title || "");
+        return info && pageKey && !seenPages.has(pageKey) &&
+          (info.thumburl || info.url) &&
+          (!info.mime || /^image\/(jpeg|png|webp|gif)$/i.test(info.mime)) &&
+          Number(info.width || 0) >= 640;
+      });
+
+      const score = page => {
+        const title = String(page.title || "").toLowerCase().replace(/[^a-z0-9]+/g, " ");
+        const hits = coreTokens.filter(token => title.includes(token)).length;
+        return { hits, width: Number(page.imageinfo?.[0]?.width || 0) };
+      };
+      pages.sort((a, b) => {
+        const sa = score(a), sb = score(b);
+        return sb.hits - sa.hits || sb.width - sa.width;
+      });
+
+      const minimumHits = coreTokens.length >= 3 ? 2 : 1;
+      for (const page of pages) {
+        const info = page.imageinfo[0];
+        const sourcePage = info.descriptionurl || ("https://commons.wikimedia.org/wiki/" + encodeURIComponent(page.title));
+        seenPages.add(sourcePage);
+        const match = score(page);
+        if (match.hits < minimumHits) continue;
+
+        const metadata = info.extmetadata || {};
+        const plain = value => String(value || "").replace(/<[^>]*>/g, " ")
+          .replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+          .replace(/\s+/g, " ").trim().slice(0, 120);
+        const artist = plain(metadata.Artist?.value || metadata.Credit?.value);
+        const licence = plain(metadata.LicenseShortName?.value) || "See source page for licence";
+        candidates.push({
+          url: info.thumburl || info.url,
+          sourcePage,
+          credit: "Wikimedia Commons · " + String(page.title || "").replace(/^File:/i, "") +
+            (artist ? " · " + artist : "") + " · " + licence
+        });
+      }
+    }
   }
 
-  const searchTerms = ["filetype:bitmap " + query, query];
-  let selected = null;
-  for (const searchTerm of searchTerms) {
-    const apiUrl = new URL("https://commons.wikimedia.org/w/api.php");
-    const params = {
-      action: "query",
-      generator: "search",
-      gsrsearch: searchTerm,
-      gsrnamespace: "6",
-      gsrlimit: "18",
-      prop: "imageinfo",
-      iiprop: "url|extmetadata",
-      iiurlwidth: "1400",
-      format: "json",
-      origin: "*"
-    };
-    Object.entries(params).forEach(([key, value]) => apiUrl.searchParams.set(key, value));
-    let response;
+  if (!candidates.length) return json({
+    error: "No sufficiently relevant real photo or official artwork was found. This question needs a better image source."
+  }, 404);
+
+  const now = new Date().toISOString();
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(assetId));
+  const hash = Array.from(new Uint8Array(digest)).map(byte => byte.toString(16).padStart(2, "0")).join("");
+
+  for (const candidate of candidates) {
+    const alreadyUsed = await env.DB.prepare(
+      "SELECT asset_id FROM zanko_image_cache WHERE source_page = ? AND asset_id <> ? LIMIT 1"
+    ).bind(candidate.sourcePage, assetId).first();
+    if (alreadyUsed) continue;
+
+    let imageResponse;
     try {
-      response = await fetch(apiUrl.toString(), {
-        headers: {
-          "Accept": "application/json",
-          "User-Agent": "JALSA-Quiz/1.0 (https://jalsa.me; image lookup)"
-        },
+      imageResponse = await fetch(candidate.url, {
+        headers: { "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8" },
         cf: { cacheTtl: 86400, cacheEverything: true }
       });
     } catch {
       continue;
     }
-    if (!response.ok) continue;
-    let payload;
-    try { payload = await response.json(); } catch { continue; }
+    if (!imageResponse.ok) continue;
 
-    const pages = Object.values(payload?.query?.pages || {}).filter(page => {
-      const info = page?.imageinfo?.[0];
-      return info && (info.thumburl || info.url) &&
-        (!info.mime || /^image\/(jpeg|png|webp|gif)$/i.test(info.mime)) &&
-        Number(info.width || 0) >= 500;
-    });
-    if (!pages.length) continue;
+    const mime = String(imageResponse.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
+    const extension = ({ "image/jpeg":"jpg", "image/png":"png", "image/webp":"webp", "image/gif":"gif" })[mime];
+    if (!extension) continue;
 
-    const tokens = query.toLowerCase().split(/[^a-z0-9]+/).filter(word => word.length > 2);
-    pages.sort((a, b) => {
-      const score = page => {
-        const title = String(page.title || "").toLowerCase();
-        return tokens.reduce((sum, token) => sum + (title.includes(token) ? 5 : 0), 0);
-      };
-      const scoreDiff = score(b) - score(a);
-      if (scoreDiff) return scoreDiff;
-      return Number(b.imageinfo?.[0]?.width || 0) - Number(a.imageinfo?.[0]?.width || 0);
-    });
+    const declaredLength = Number(imageResponse.headers.get("content-length") || 0);
+    if (declaredLength > 12 * 1024 * 1024) continue;
+    const bytes = await imageResponse.arrayBuffer();
+    if (!bytes.byteLength || bytes.byteLength > 12 * 1024 * 1024) continue;
 
-    const page = pages[0], info = page.imageinfo[0], metadata = info.extmetadata || {};
-    const plain = value => String(value || "").replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/\s+/g, " ").trim().slice(0, 120);
-    const artist = plain(metadata.Artist?.value || metadata.Credit?.value);
-    const licence = plain(metadata.LicenseShortName?.value) || "See source page for licence";
-    selected = {
-      url: info.thumburl || info.url,
-      fallbackUrl: info.url || info.thumburl,
-      sourceUrl: info.descriptionurl || "https://commons.wikimedia.org/",
-      credit: "Wikimedia Commons · " + String(page.title || "").replace(/^File:/i, "") +
-        (artist ? " · " + artist : "") + " · " + licence
-    };
-    break;
-  }
-
-  if (!selected) {
-    // Wikipedia's public REST search is a secondary source for real article thumbnails.
+    const key = "uploads/zanko/" + hash + "." + extension;
     try {
-      const fallbackUrl = "https://en.wikipedia.org/w/rest.php/v1/search/page?" +
-        new URLSearchParams({ q: query, limit: "5" }).toString();
-      const response = await fetch(fallbackUrl, {
-        headers: { "Accept": "application/json", "User-Agent": "JALSA-Quiz/1.0 (https://jalsa.me)" },
-        cf: { cacheTtl: 86400, cacheEverything: true }
+      await env.MEDIA.put(key, bytes, {
+        httpMetadata: {
+          contentType: mime,
+          cacheControl: "public, max-age=31536000, immutable",
+          contentDisposition: "inline"
+        },
+        customMetadata: { sourcePage: candidate.sourcePage.slice(0, 800), assetId }
       });
-      if (response.ok) {
-        const payload = await response.json();
-        const tokens = query.toLowerCase().split(/[^a-z0-9]+/).filter(word => word.length > 2);
-        const pages = (payload.pages || []).filter(page => page.thumbnail?.url);
-        pages.sort((a, b) => {
-          const score = page => tokens.reduce((sum, token) => sum + (String(page.title || "").toLowerCase().includes(token) ? 5 : 0), 0);
-          return score(b) - score(a);
-        });
-        const page = pages[0];
-        if (page) {
-          selected = {
-            url: page.thumbnail.url.startsWith("//") ? "https:" + page.thumbnail.url : page.thumbnail.url,
-            fallbackUrl: page.thumbnail.url.startsWith("//") ? "https:" + page.thumbnail.url : page.thumbnail.url,
-            sourceUrl: page.content_urls?.desktop?.page || ("https://en.wikipedia.org/wiki/" + encodeURIComponent(page.key || page.title)),
-            credit: "Wikipedia · " + String(page.title || "Article image") + " · source page"
-          };
-        }
-      }
-    } catch {}
+      const storageUrl = "/api/media/" + key;
+      await env.DB.prepare(
+        "INSERT INTO zanko_image_cache (asset_id,source_page,storage_url,storage_key,credit,updated_at) " +
+        "VALUES (?,?,?,?,?,?) ON CONFLICT(asset_id) DO UPDATE SET source_page=excluded.source_page," +
+        "storage_url=excluded.storage_url,storage_key=excluded.storage_key,credit=excluded.credit,updated_at=excluded.updated_at"
+      ).bind(assetId, candidate.sourcePage, storageUrl, key, candidate.credit, now).run();
+
+      return json({
+        url: storageUrl,
+        sourceUrl: candidate.sourcePage,
+        credit: candidate.credit,
+        stored: true
+      }, 200, { "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800" });
+    } catch (error) {
+      // Unique-source conflicts and transient R2 errors should try the next relevant photo.
+      continue;
+    }
   }
 
-  if (!selected?.url) return json({ error: "No suitable real photograph or artwork was found for this prompt." }, 404);
-  return json(selected, 200, { "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800" });
+  return json({
+    error: "No unused, relevant real photo could be downloaded for this question."
+  }, 404);
 }
 
 async function getGameContent(request, env) {
