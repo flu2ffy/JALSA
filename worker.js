@@ -2421,7 +2421,7 @@ async function getZankoImageFile(request, env) {
 
   let source;
   try { source = new URL(row.storage_key); } catch { return new Response("Image source is invalid.", { status: 502 }); }
-  const allowedHosts = new Set(["upload.wikimedia.org", "fortnite-api.com", "images.unsplash.com"]);
+  const allowedHosts = new Set(["upload.wikimedia.org", "fortnite-api.com", "images.fortnite-api.com", "cdn1.unrealengine.com", "cdn2.unrealengine.com", "images.unsplash.com"]);
   if (source.protocol !== "https:" || !allowedHosts.has(source.hostname)) {
     return new Response("Image source is not allowed.", { status: 403 });
   }
