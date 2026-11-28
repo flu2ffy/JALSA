@@ -97,6 +97,7 @@ export default {
       if (url.pathname === "/api/faq-questions" && request.method === "POST") return await submitFaqQuestion(request, env);
       if (url.pathname === "/api/admin/faq-questions" && request.method === "GET") return await listFaqQuestions(request, env);
       if (url.pathname === "/api/zanko-image" && request.method === "GET") return await getZankoImage(request, env);
+      if (url.pathname === "/api/zanko-image-file" && request.method === "GET") return await getZankoImageFile(request, env);
       if (url.pathname === "/api/game-content" && request.method === "GET") return await getGameContent(request, env);
       if (url.pathname === "/api/admin/content" && request.method === "GET") return await getAdminContent(request, env);
       if (url.pathname === "/api/admin/content/seed" && request.method === "POST") return await seedGameContent(request, env);
@@ -2168,7 +2169,7 @@ async function getZankoImage(request, env) {
   const assetId = cleanText(requestUrl.searchParams.get("id"), 140);
   if (query.length < 3) return json({ error: "A valid image search phrase is required." }, 400);
   if (!/^[a-zA-Z0-9:_-]{2,140}$/.test(assetId)) return json({ error: "A valid unique image ID is required." }, 400);
-  if (!env?.DB || !env?.MEDIA) return json({ error: "Persistent JALSA image storage is not configured." }, 503);
+  if (!env?.DB) return json({ error: "JALSA database is not configured." }, 503);
 
   await env.DB.prepare(
     "CREATE TABLE IF NOT EXISTS zanko_image_cache (" +
@@ -2180,13 +2181,29 @@ async function getZankoImage(request, env) {
     "SELECT storage_url,storage_key,source_page,credit FROM zanko_image_cache WHERE asset_id = ? LIMIT 1"
   ).bind(assetId).first();
   if (cached) {
-    const object = await env.MEDIA.head(cached.storage_key);
-    if (object) return json({
-      url: cached.storage_url,
-      sourceUrl: cached.source_page,
-      credit: cached.credit,
-      stored: true
-    }, 200, { "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800" });
+    if (cached.storage_url.startsWith("/api/zanko-image-file?")) {
+      return json({
+        url: cached.storage_url,
+        sourceUrl: cached.source_page,
+        credit: cached.credit,
+        stored: false,
+        proxied: true
+      }, 200, { "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800" });
+    }
+    if (env.MEDIA) {
+      try {
+        const object = await env.MEDIA.head(cached.storage_key);
+        if (object) return json({
+          url: cached.storage_url,
+          sourceUrl: cached.source_page,
+          credit: cached.credit,
+          stored: true
+        }, 200, { "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800" });
+      } catch {
+        // The current preview may not have an R2 binding. Re-resolve via the
+        // same-origin image proxy instead of failing the category/question.
+      }
+    }
     await env.DB.prepare("DELETE FROM zanko_image_cache WHERE asset_id = ?").bind(assetId).run();
   }
 
@@ -2223,7 +2240,8 @@ async function getZankoImage(request, env) {
         "artwork","official","high","quality","the","and","with","from","for","this",
         "that","category","logo","wallpaper","portrait"
       ].includes(token));
-    const searchTerms = ["filetype:bitmap " + query, query];
+    const shortQuery = coreTokens.slice(0, 5).join(" ");
+    const searchTerms = [...new Set([query, shortQuery].filter(Boolean))];
     const seenPages = new Set();
 
     for (const searchTerm of searchTerms) {
@@ -2277,7 +2295,7 @@ async function getZankoImage(request, env) {
         return sb.hits - sa.hits || sb.width - sa.width;
       });
 
-      const minimumHits = coreTokens.length >= 3 ? 2 : 1;
+      const minimumHits = 1;
       for (const page of pages) {
         const info = page.imageinfo[0];
         const sourcePage = info.descriptionurl || ("https://commons.wikimedia.org/wiki/" + encodeURIComponent(page.title));
@@ -2336,30 +2354,50 @@ async function getZankoImage(request, env) {
     if (!bytes.byteLength || bytes.byteLength > 12 * 1024 * 1024) continue;
 
     const key = "uploads/zanko/" + hash + "." + extension;
+    let storageUrl = "";
+    let persisted = false;
+
+    // Preferred path: save the downloaded image as a real JALSA R2 object.
+    if (env.MEDIA) {
+      try {
+        await env.MEDIA.put(key, bytes, {
+          httpMetadata: {
+            contentType: mime,
+            cacheControl: "public, max-age=31536000, immutable",
+            contentDisposition: "inline"
+          },
+          customMetadata: { sourcePage: candidate.sourcePage.slice(0, 800), assetId }
+        });
+        storageUrl = "/api/media/" + key;
+        persisted = true;
+      } catch {
+        // Continue with the same-origin cached proxy below. A missing Preview
+        // bucket must not make the entire Zanko game unusable.
+      }
+    }
+
+    // Fallback path: the browser still loads the photo from JALSA's own URL.
+    // The Worker fetches only Wikimedia or the official Fortnite image host.
+    if (!persisted) {
+      storageUrl = "/api/zanko-image-file?id=" + encodeURIComponent(assetId);
+    }
+
     try {
-      await env.MEDIA.put(key, bytes, {
-        httpMetadata: {
-          contentType: mime,
-          cacheControl: "public, max-age=31536000, immutable",
-          contentDisposition: "inline"
-        },
-        customMetadata: { sourcePage: candidate.sourcePage.slice(0, 800), assetId }
-      });
-      const storageUrl = "/api/media/" + key;
       await env.DB.prepare(
         "INSERT INTO zanko_image_cache (asset_id,source_page,storage_url,storage_key,credit,updated_at) " +
         "VALUES (?,?,?,?,?,?) ON CONFLICT(asset_id) DO UPDATE SET source_page=excluded.source_page," +
         "storage_url=excluded.storage_url,storage_key=excluded.storage_key,credit=excluded.credit,updated_at=excluded.updated_at"
-      ).bind(assetId, candidate.sourcePage, storageUrl, key, candidate.credit, now).run();
+      ).bind(assetId, candidate.sourcePage, storageUrl, persisted ? key : candidate.url, candidate.credit, now).run();
 
       return json({
         url: storageUrl,
         sourceUrl: candidate.sourcePage,
         credit: candidate.credit,
-        stored: true
+        stored: persisted,
+        proxied: !persisted
       }, 200, { "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800" });
-    } catch (error) {
-      // Unique-source conflicts and transient R2 errors should try the next relevant photo.
+    } catch {
+      // Unique-source conflicts should try the next candidate.
       continue;
     }
   }
@@ -2367,6 +2405,49 @@ async function getZankoImage(request, env) {
   return json({
     error: "No unused, relevant real photo could be downloaded for this question."
   }, 404);
+}
+
+async function getZankoImageFile(request, env) {
+  const url = new URL(request.url);
+  const assetId = cleanText(url.searchParams.get("id"), 140);
+  if (!/^[a-zA-Z0-9:_-]{2,140}$/.test(assetId)) return new Response("Not found.", { status: 404 });
+
+  const row = await env.DB.prepare(
+    "SELECT storage_url,storage_key,credit FROM zanko_image_cache WHERE asset_id = ? LIMIT 1"
+  ).bind(assetId).first();
+  if (!row || !row.storage_url.startsWith("/api/zanko-image-file?")) {
+    return new Response("Image not found.", { status: 404 });
+  }
+
+  let source;
+  try { source = new URL(row.storage_key); } catch { return new Response("Image source is invalid.", { status: 502 }); }
+  const allowedHosts = new Set(["upload.wikimedia.org", "fortnite-api.com", "images.unsplash.com"]);
+  if (source.protocol !== "https:" || !allowedHosts.has(source.hostname)) {
+    return new Response("Image source is not allowed.", { status: 403 });
+  }
+
+  let upstream;
+  try {
+    upstream = await fetch(source.toString(), {
+      headers: { "Accept": "image/jpeg,image/png,image/webp,image/gif,*/*;q=0.5" },
+      cf: { cacheTtl: 86400, cacheEverything: true }
+    });
+  } catch {
+    return new Response("Image source is temporarily unavailable.", { status: 502 });
+  }
+  if (!upstream.ok) return new Response("Image source could not be loaded.", { status: 502 });
+
+  const contentType = String(upstream.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
+  if (!["image/jpeg","image/png","image/webp","image/gif"].includes(contentType)) {
+    return new Response("Image source did not return a supported photo.", { status: 415 });
+  }
+  const headers = new Headers({
+    "Content-Type": contentType,
+    "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
+    "X-Content-Type-Options": "nosniff",
+    "Content-Disposition": "inline"
+  });
+  return new Response(upstream.body, { status: 200, headers });
 }
 
 async function getGameContent(request, env) {
