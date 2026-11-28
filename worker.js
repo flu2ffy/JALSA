@@ -182,46 +182,40 @@ async function seedZankoContentV2(env) {
       }
       const now = new Date().toISOString();
       const statements = [];
-      for (let i = 0; i < bank.categories.length; i++) {
-        const category = bank.categories[i];
-        if (!/^[a-z0-9_-]{2,48}$/.test(category.id || "")) continue;
-        statements.push(db.prepare(
-          "INSERT OR IGNORE INTO game_categories (id,name_en,name_ar,image_url,icon,group_en,group_ar,sort_order,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)"
-        ).bind(
-          category.id, String(category.name_en || "").slice(0,80),
-          String(category.name_ar || category.name_en || "").slice(0,80),
-          null, String(category.icon || "🎯").slice(0,12),
-          String(category.group_en || "Other").slice(0,80),
-          String(category.group_ar || "أخرى").slice(0,80),
-          100 + i, now, now
-        ));
-      }
+      const now = new Date().toISOString();
       const questions = bank.questions.filter(q =>
         q && typeof q.id === "string" && /^[a-z0-9_-]{2,80}$/.test(q.id) &&
         bank.categories.some(c => c.id === q.category_id) &&
         ["none","image"].includes(q.media_type || "none") &&
         (q.media_type !== "image" || /^(commons:|fnapi:).{3,500}$/i.test(String(q.media_url || "")))
       );
-      for (let offset = 0; offset < questions.length; offset += 9) {
-        // D1 allows at most 100 bound parameters per statement. Each question binds 11 values.
-        const group = questions.slice(offset, offset + 9);
-        const values = [];
-        const tuples = group.map(() => "(?, 'zanko', ?, ?, ?, ?, ?, ?, ?, ?, 'none', NULL, NULL, NULL, NULL, NULL, ?, ?)").join(",");
-        for (const q of group) {
-          values.push(
-            q.id, q.category_id, ["easy","medium","hard"].includes(q.difficulty) ? q.difficulty : "medium",
-            String(q.question_en || "").slice(0,1000), String(q.question_ar || q.question_en || "").slice(0,1000),
-            String(q.answer_en || "").slice(0,1000), String(q.answer_ar || q.answer_en || "").slice(0,1000),
-            q.media_type || "none", q.media_url || null, now, now
-          );
-        }
-        statements.push(db.prepare(
-          "INSERT OR IGNORE INTO game_questions (id,game_type,category_id,difficulty,question_en,question_ar,answer_en,answer_ar,media_type,media_url,answer_media_type,answer_media_url,product_name_en,product_name_ar,product_emoji,price_value,created_at,updated_at) VALUES " + tuples
-        ).bind(...values));
-      }
-      for (let i = 0; i < statements.length; i += 50) {
-        await db.batch(statements.slice(i, i + 50));
-      }
+
+      // Send each bank as one JSON binding and expand it with SQLite JSON1.
+      // This stays well below D1's 100 parameters per statement and ~5,000
+      // bindings per Worker invocation, even for the full 900-question bank.
+      const categoryInsert = db.prepare(
+        "INSERT OR IGNORE INTO game_categories (id,name_en,name_ar,image_url,icon,group_en,group_ar,sort_order,created_at,updated_at) " +
+        "SELECT json_extract(value,'$.id'), substr(COALESCE(json_extract(value,'$.name_en'),''),1,80), " +
+        "substr(COALESCE(json_extract(value,'$.name_ar'),json_extract(value,'$.name_en'),''),1,80), NULL, " +
+        "substr(COALESCE(json_extract(value,'$.icon'),'🎯'),1,12), " +
+        "substr(COALESCE(json_extract(value,'$.group_en'),'Other'),1,80), " +
+        "substr(COALESCE(json_extract(value,'$.group_ar'),'أخرى'),1,80), " +
+        "100 + CAST(key AS INTEGER), ?, ? FROM json_each(?)"
+      ).bind(now, now, JSON.stringify(bank.categories));
+
+      const questionInsert = db.prepare(
+        "INSERT OR IGNORE INTO game_questions (id,game_type,category_id,difficulty,question_en,question_ar,answer_en,answer_ar,media_type,media_url,answer_media_type,answer_media_url,product_name_en,product_name_ar,product_emoji,price_value,created_at,updated_at) " +
+        "SELECT json_extract(value,'$.id'), 'zanko', json_extract(value,'$.category_id'), " +
+        "CASE WHEN json_extract(value,'$.difficulty') IN ('easy','medium','hard') THEN json_extract(value,'$.difficulty') ELSE 'medium' END, " +
+        "substr(COALESCE(json_extract(value,'$.question_en'),''),1,1000), " +
+        "substr(COALESCE(json_extract(value,'$.question_ar'),json_extract(value,'$.question_en'),''),1,1000), " +
+        "substr(COALESCE(json_extract(value,'$.answer_en'),''),1,1000), " +
+        "substr(COALESCE(json_extract(value,'$.answer_ar'),json_extract(value,'$.answer_en'),''),1,1000), " +
+        "COALESCE(json_extract(value,'$.media_type'),'none'), json_extract(value,'$.media_url'), " +
+        "'none', NULL, NULL, NULL, NULL, NULL, ?, ? FROM json_each(?)"
+      ).bind(now, now, JSON.stringify(questions));
+
+      await db.batch([categoryInsert, questionInsert]);
     })();
     zankoContentV2SeedPromises.set(db, pending);
   }
