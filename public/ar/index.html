@@ -886,7 +886,6 @@ function renderCategoryCards(){
   button.type='button';button.className='category-pick'+(selected?' selected':'');button.dataset.id=c.id;button.setAttribute('aria-pressed',String(selected));
   v17AttachCategoryImage(button,c);
   const title=document.createElement('strong');title.textContent=isArabic?(c.ar||c.name):(c.name||c.id);
-  const icon=document.createElement('span');icon.className='category-icon-fallback';icon.textContent=c.icon||'🎯';if(!img)icon.style.display="grid";
   const check=document.createElement('span');check.className='check';check.textContent='✓';
   button.append(title,check);button.onclick=()=>toggleCategory(c.id);grid.appendChild(button);
  });
