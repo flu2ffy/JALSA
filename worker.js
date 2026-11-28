@@ -2141,7 +2141,7 @@ async function getZankoImage(request) {
 
   if (/^fortnite:/i.test(query)) {
     const name = query.replace(/^fortnite:/i, "").trim();
-    const apiUrl = "https://fortnite-api.com/v2/cosmetics/br/search?" +
+    const apiUrl = "https://fortnite-api.com/v2/cosmetics/br/search/all?" +
       new URLSearchParams({ name, matchMethod: "full" }).toString();
     let response;
     try {
@@ -2154,7 +2154,8 @@ async function getZankoImage(request) {
     }
     if (!response.ok) return json({ error: "That Fortnite outfit could not be found." }, 404);
     const payload = await response.json();
-    const item = payload?.data;
+    const matches = Array.isArray(payload?.data) ? payload.data : (payload?.data ? [payload.data] : []);
+    const item = matches.find(entry => String(entry?.name || "").toLowerCase() === name.toLowerCase()) || matches[0];
     const images = item?.images || {};
     const imageUrl = images.featured || images.icon || images.smallIcon;
     if (!imageUrl) return json({ error: "Fortnite did not provide artwork for that outfit." }, 404);
