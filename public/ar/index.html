@@ -1431,7 +1431,7 @@ function v17ProcessImageLookupQueue() {
 }
 
 async function v17ResolveExternalQuestionImage(value) {
- const query=String(value||"").replace(/^(?:commons:|fnapi:)/i,"").trim();
+ const query=String(value||"").replace(/^(?:commons:|fnapi:|fortnite:)/i,"").trim();
  if(!query)throw new Error("Missing image search phrase.");
  if(v17ExternalQuestionImageCache.has(query))return v17ExternalQuestionImageCache.get(query);
  const pending=v17QueueImageLookup(async()=>{
@@ -1463,7 +1463,7 @@ function v17AttachCategoryImage(button,category) {
  img.onload=()=>{img.style.display="block";fallback.style.display="none";credit.hidden=false};
  img.onerror=()=>{img.style.display="none";fallback.style.display="grid"};
  button.insertBefore(img,fallback);
- if(/^(?:commons:|fnapi:)/i.test(String(category.image))){
+ if(/^(?:commons:|fnapi:|fortnite:)/i.test(String(category.image))){
   v17ResolveExternalQuestionImage(category.image).then(result=>{if(button.contains(img)){credit.textContent=result.credit||"Wikimedia Commons image";img.src=result.url}}).catch(()=>{});
  }else{
   const value=String(category.image);
@@ -1484,7 +1484,7 @@ function v17RenderMedia(container,type,url){
    :"This real image could not be loaded from its source. Try the next question and retry later.";
   container.replaceChildren(note);container.hidden=false;
  };
- if(type==="image"&&/^(?:commons:|fnapi:)/i.test(String(url))){
+ if(type==="image"&&/^(?:commons:|fnapi:|fortnite:)/i.test(String(url))){
   const image=document.createElement("img");
   image.alt="Question photograph";image.loading="eager";image.decoding="async";image.referrerPolicy="no-referrer";
   let fallbackTried=false;
