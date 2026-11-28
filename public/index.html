@@ -1847,6 +1847,7 @@ function v17AttachCategoryImage(container,category) {
  img.decoding="async";
  img.referrerPolicy="no-referrer";
  img.style.display="none";
+ let fallbackTried=false;
  img.onload=()=>{
   if(!container.contains(img))return;
   img.style.display="block";
@@ -1854,6 +1855,8 @@ function v17AttachCategoryImage(container,category) {
   credit.hidden=false;
  };
  img.onerror=()=>{
+  const source=img.dataset.fallback||"";
+  if(source&&!fallbackTried){fallbackTried=true;img.src=source;return}
   img.style.display="none";
   credit.hidden=true;
   fallback.style.display="grid";
@@ -1864,6 +1867,7 @@ function v17AttachCategoryImage(container,category) {
   v17ResolveExternalQuestionImage(value).then(result=>{
    if(!container.contains(img))return;
    credit.textContent=result.credit||"Real image source";
+   if(result.fallbackUrl)img.dataset.fallback=result.fallbackUrl;
    img.src=result.url;
   }).catch(()=>{
    if(container.contains(img)){img.style.display="none";fallback.style.display="grid"}
