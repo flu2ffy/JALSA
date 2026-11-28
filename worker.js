@@ -1858,7 +1858,7 @@ function validMedia(type, url) {
   const allowed = ["none", "image", "video", "audio"];
   if (!allowed.includes(type || "none")) return false;
   if (!url) return type === "none";
-  if (type === "image" && /^(?:commons:|fnapi:).{3,500}$/i.test(String(url))) return true;
+  if (type === "image" && /^(?:commons:|fnapi:|fortnite:).{3,500}$/i.test(String(url))) return true;
   if (isStoredMediaUrl(url)) return true;
   try { return new URL(url).protocol === "https:"; } catch { return false; }
 }
