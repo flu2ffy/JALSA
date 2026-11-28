@@ -6,7 +6,9 @@
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
-    "run_worker_first": ["/api/*"]
+    "run_worker_first": [
+      "/api/*"
+    ]
   },
   "d1_databases": [
     {
@@ -16,7 +18,10 @@
     }
   ],
   "r2_buckets": [
-    { "binding": "MEDIA", "bucket_name": "jalsa-media" }
+    {
+      "binding": "MEDIA",
+      "bucket_name": "jalsa-media"
+    }
   ],
   "vars": {
     "MAIL_FROM": "JALSA <Accountservice@jalsa.me>",
@@ -28,7 +33,10 @@
   },
   "previews": {
     "r2_buckets": [
-      { "binding": "MEDIA", "bucket_name": "jalsa-media-preview" }
+      {
+        "binding": "MEDIA",
+        "bucket_name": "jalsa-media"
+      }
     ],
     "vars": {
       "MAIL_FROM": "JALSA <Accountservice@jalsa.me>",
