@@ -772,6 +772,18 @@ html[dir="rtl"] .game-card:nth-child(6)::before{background-image:url('/kharj-car
 .game-card:nth-child(6) h3,.game-card:nth-child(6) p{color:#fff8ec!important;text-shadow:0 2px 7px rgba(0,0,0,.72)}
 .game-cards .game-icon{display:none!important}
 .game-cards .soon-card .game-icon{display:grid!important}
+
+/* Zanko V2: use full-bleed, centered real category photos everywhere. */
+.category-pick{display:flex;flex-direction:column;align-items:stretch}
+.category-pick img.category-photo{display:block;width:100%;height:clamp(150px,16vw,205px);max-height:205px;object-fit:cover;object-position:center center;padding:0;margin:0 auto;flex:0 0 auto;background:#f5e5cf}
+.category-pick .category-icon-fallback{display:none;min-height:150px;width:100%;height:clamp(150px,16vw,205px);place-items:center;text-align:center;color:#805b47;background:linear-gradient(135deg,#f7ead8,#ead3b8);font-size:14px;font-weight:800}
+.board-category-photo{width:100%;height:clamp(86px,8vw,112px);display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:11px;background:#f5e5cf;margin:0 auto}
+.board-category-photo img.category-photo{display:block;width:100%;height:100%;max-width:100%;object-fit:cover;object-position:center center;border-radius:11px}
+.board-category-photo .category-icon-fallback{display:none;width:100%;height:100%;min-height:0;place-items:center;text-align:center;font-size:11px;padding:4px;box-sizing:border-box}
+.board-category-photo .category-image-credit{display:none}
+.question-center .v17-game-media{display:flex;align-items:center;justify-content:center;width:100%;max-width:100%;max-height:46vh;overflow:hidden;margin:8px auto;flex:0 1 auto}
+.question-center .v17-game-media img{display:block;width:min(100%,820px);height:clamp(200px,40vh,440px);max-width:100%;max-height:44vh;object-fit:contain;object-position:center center;margin:0 auto;border-radius:16px;background:#fff}
+
 </style>
 </head>
 <body class="session-pending">
@@ -969,7 +981,6 @@ html[dir="rtl"] .game-card:nth-child(6)::before{background-image:url('/kharj-car
             <label class="v17-field"><span data-v17="groupEnglish">Group (English)</span><input id="categoryGroupEn" list="categoryGroupOptions" maxlength="80" value="Other" data-v17-placeholder="groupEnglishPlaceholder"><datalist id="categoryGroupOptions"></datalist></label>
             <label class="v17-field"><span data-v17="groupArabic">Group (Arabic)</span><input id="categoryGroupAr" maxlength="80" dir="rtl" value="أخرى" data-v17-placeholder="groupArabicPlaceholder"></label>
             <label class="v17-field"><span data-v17="categoryImage">Category image</span><input id="categoryImageFile" type="file" accept="image/jpeg,image/png,image/webp,image/gif"><input id="categoryImageUrl" type="hidden"><small class="v17-upload-hint" data-v17="fileHint">Choose a picture from your computer. Image files up to 20 MB.</small><div class="v17-upload-preview" id="categoryImagePreview"></div></label>
-            <label class="v17-field"><span data-v17="categoryIcon">Icon / emoji</span><input id="categoryIcon" maxlength="12" value="🎯"></label>
             <div class="v17-action-row"><button class="primary" type="submit" id="categorySubmitButton" data-v17="addCategory">Add category</button><button class="v17-secondary" type="button" onclick="resetCategoryForm()" data-v17="clearForm">Clear</button></div>
           </form>
           <div class="v17-divider"></div><h3 data-v17="categories">Categories</h3><div id="categoryList" class="v17-mini-list"></div>
@@ -1200,10 +1211,10 @@ const MUSIC_BANK_AR={"easy":[{"q":"من يغني أغنية «7 rings»؟","a":"
 let CATEGORIES=[
 {id:'cartoon',name:'Cartoon Network',ar:'كرتون نتورك',image:'category-cartoon.jpg',group_en:'Movies',group_ar:'أفلام'},
 {id:'disney',name:'Disney',ar:'ديزني',image:'category-disney.jpg',group_en:'Movies',group_ar:'أفلام'},
-{id:'biology',name:'Biology',ar:'الأحياء',image:'category-biology.svg',group_en:'Science',group_ar:'العلوم'},
-{id:'physics',name:'Physics',ar:'الفيزياء',image:'category-physics.svg',group_en:'Science',group_ar:'العلوم'},
-{id:'math',name:'Math',ar:'الرياضيات',image:'category-math.svg',group_en:'Science',group_ar:'العلوم'},
-{id:'music',name:'Music',ar:'الموسيقى',image:'category-music.svg',group_en:'Music',group_ar:'الموسيقى'}
+{id:'biology',name:'Biology',ar:'الأحياء',image:'commons:biology laboratory real photograph',group_en:'Science',group_ar:'العلوم'},
+{id:'physics',name:'Physics',ar:'الفيزياء',image:'commons:physics laboratory experiment real photograph',group_en:'Science',group_ar:'العلوم'},
+{id:'math',name:'Math',ar:'الرياضيات',image:'commons:mathematics equations on classroom blackboard real photograph',group_en:'Science',group_ar:'العلوم'},
+{id:'music',name:'Music',ar:'الموسيقى',image:'commons:live music concert performance real photograph',group_en:'Music',group_ar:'الموسيقى'}
 ];
 const TEXT={en:{heroTitle:'Every game deserves a JALSA.',heroSubtitle:'Gather your friends. Pick a game. Make memories.',explore:'Explore games →',gamesTitle:'Choose your game',gamesIntro:'Made for friends, family, and unforgettable game nights.',zanko:'Zanko',zankoDesc:'Quick thinking, clever questions, and friendly competition.',price:'Price Guessing',priceDesc:'Guess the price before everyone else.',imposter:'Imposter',imposterDesc:'Find the player who does not know the secret word.',insight:'INSIGHT',insightDesc:'Secret questions, suspense, and a coin flip that can reveal everything.',mafia:'Mafia',mafiaDesc:'A hidden-role mystery. Trust no one.',kharj:'Kharj Al Jalsa',kharjDesc:'One phone, one secret word, one outsider. Find them together.',unavailable:'Unavailable',gameWait:'This game is under inspection and getting better. Please wait!',more:'More games coming soon',moreDesc:'The JALSA game table is just getting started.',play:'Play together',teamsTitle:'Zanko — Team setup',teamsSubtitle:'Give both teams a name. Leave a field unchanged to keep the default.',teamNote:'Both teams play together on one shared screen.',next:'Next →',back:'← Back',categoryTitle:'Choose your categories',categorySubtitle:'Select all 6 categories to unlock Next.',selected:'selected',turn:'’s turn',boardProgress:'questions remain',reveal:'◉ Reveal answer',points:'points',award:'gets the points',noPoints:'No points · Pass turn',callFriend:'Call a friend',callFriendTip:'Use once per game. Call a friend for a quick hint before choosing your answer.',callFriendDone:'Friend call used',double:'Double points',doubleTip:'Use once per game. Doubles the points for the next question your team chooses.',doubleDone:'Double points ready for your next question.',steal:'Steal a question',stealTip:'Use once per game. For this turn, choose one question from any category, including your opponent’s locked tile.',stealDone:'Steal mode active: choose any team’s available question this turn.',callTimer:'Call a friend — {n}s left to ask for help.',used:'Used',finish:'All questions have been played!',champion:'Winner',returnHome:'Return to JALSA',priceSetup:'Set up Price Guessing',players:'Players (separate names with commas)',pricePass:'Pass the device between players. Scores stay on this device.',guess:'Your guess in Jordanian dinars (JOD)',submit:'Submit',nextTurn:'Next turn',exact:'Exact price! +3 points',close:'Within 15%! +2 points',actual:'Actual price:',priceOver:'Game complete!',score:'Score',champion:'Winner',finish:'All questions have been played!',returnHome:'Return to JALSA',noRepeat:'No repeated products during this session.',login:'Log in',register:'Register',email:'Email address',password:'Password',sendLoginCode:'Send login code',forgotPassword:'Forgot password?',forgotTitle:'Reset your password',forgotSubtitle:'We will send a 6-digit reset code to your email.',sendResetCode:'Send reset code',resetTitle:'Choose a new password',resetSubtitle:'Enter the code from your email and choose a new password.',newPassword:'New password',confirmPassword:'Confirm new password',resetPassword:'Reset password',resetCode:'6-digit reset code',passwordHint:'Use at least 10 characters.',createAccount:'Create account',backToLogin:'Back to login',resendReset:'Send another code',forgotGeneric:'If a verified JALSA account exists for that email, a reset code has been sent.',resetDone:'Your password has been reset. Please log in.',passwordMismatch:'Your passwords do not match.',passwordTooShort:'Your password must contain at least 10 characters.',fullName:'Your name',verificationCode:'6-digit verification code',sendCode:'Send verification code',resend:'Resend code',verify:'Verify email',tableName:'Name',tableEmail:'Email',tableVerified:'Verified',tableRegistered:'Registered',cancel:'Cancel',changeToRegister:'Create an account',changeToLogin:'Already have an account? Log in',authLoginTitle:'Log in to JALSA',authRegisterTitle:'Create your JALSA account',authVerifyTitle:'Verify your email',authLoginSubtitle:'Sign in to play JALSA games.',authRegisterSubtitle:'Create an account to unlock the games.',authVerifySubtitle:'Enter the code we sent to your email.',admin:'Registered users',logout:'Log out',close:'Close',noUsers:'No registered users yet.',loading:'Loading…',playLoginRequired:'Please log in or register before playing.'},
 ar:{heroTitle:'كل لعبة إلها جلسة!',heroSubtitle:'اجمع أصحابك، اختاروا لعبة، واصنعوا ذكريات.',explore:'استكشف الألعاب ←',gamesTitle:'اختاروا لعبتكم',gamesIntro:'للأصحاب والعائلة وليالي مليانة ضحك.',zanko:'زانكو',zankoDesc:'سرعة بديهة وأسئلة ذكية ومنافسة حلوة.',price:'تخمين السعر',priceDesc:'خمنوا السعر قبل الجميع.',imposter:'المحتال',imposterDesc:'اكتشف اللاعب الذي لا يعرف الكلمة السرية.',insight:'ولع الجلسة',insightDesc:'أسئلة سرية وتشويق ورمية عملة قد تكشف كل شيء.',mafia:'مافيا',mafiaDesc:'لعبة أدوار سرية وتحقيق وخداع. لا تثق بأحد.',kharj:'خارج الجلسة',kharjDesc:'هاتف واحد وكلمة سرية وشخص خارج الجلسة. اكتشفوه معاً.',unavailable:'غير متاحة',gameWait:'اللعبة تحت المراجعة ويتم تحسينها. يرجى الانتظار!',more:'ألعاب جديدة قريباً',moreDesc:'لسه بداية ألعاب جلسة!',play:'العبوا معاً',teamsTitle:'زانكو — تجهيز الفريقين',teamsSubtitle:'اختاروا اسم لكل فريق. إذا تركتوا الاسم مثل ما هو بيضل الافتراضي.',teamNote:'الفريقان يلعبان معاً على نفس الشاشة.',next:'التالي ←',back:'رجوع →',categoryTitle:'اختاروا الفئات',categorySubtitle:'اختاروا الفئات الست كلها لتفعيل زر التالي.',selected:'مختارة',turn:' دور الفريق',boardProgress:'أسئلة متبقية',reveal:'◉ إظهار الإجابة',points:'نقطة',award:'يحصل على النقاط',noPoints:'بدون نقاط · تبديل الدور',callFriend:'اتصل بصديق',callFriendTip:'استخدمها مرة واحدة. اتصل بصديق وخذ تلميح سريع قبل الإجابة.',callFriendDone:'تم استخدام الاتصال',double:'مضاعفة النقاط',doubleTip:'مرة واحدة في اللعبة. ضاعف نقاط السؤال القادم لفريقك.',doubleDone:'المضاعفة جاهزة للسؤال القادم.',steal:'سرقة سؤال',stealTip:'مرة واحدة في اللعبة. في هذا الدور يمكنك اختيار أي سؤال، حتى سؤال الفريق الآخر.',stealDone:'وضع السرقة مفعل: اختاروا أي سؤال متاح في هذا الدور.',used:'مستخدمة',callTimer:'اتصال بصديق — باقي {n} ثانية.',finish:'خلصت كل الأسئلة!',champion:'الفائز',returnHome:'العودة إلى جلسة',priceSetup:'تجهيز لعبة تخمين السعر',players:'أسماء اللاعبين (افصل بينها بفواصل)',pricePass:'مرروا الجهاز بين اللاعبين. النقاط محفوظة على هذا الجهاز.',guess:'خمن السعر بالدينار الأردني',submit:'تأكيد',nextTurn:'الدور التالي',exact:'السعر مضبوط! ٣ نقاط',close:'تخمين قريب! نقطتان',actual:'السعر الصحيح:',priceOver:'انتهت اللعبة!',score:'النقاط',champion:'الفائز',finish:'انتهت كل الأسئلة!',returnHome:'العودة إلى جلسة',noRepeat:'لا تتكرر المنتجات خلال هذه الجلسة.',login:'تسجيل الدخول',register:'إنشاء حساب',email:'البريد الإلكتروني',password:'كلمة المرور',sendLoginCode:'تسجيل الدخول',forgotPassword:'نسيت كلمة المرور؟',forgotTitle:'إعادة تعيين كلمة المرور',forgotSubtitle:'سنرسل رمز إعادة تعيين مكوّناً من 6 أرقام إلى بريدك الإلكتروني.',sendResetCode:'إرسال رمز إعادة التعيين',resetTitle:'اختر كلمة مرور جديدة',resetSubtitle:'أدخل الرمز الذي وصلك واختر كلمة مرور جديدة.',newPassword:'كلمة المرور الجديدة',confirmPassword:'تأكيد كلمة المرور الجديدة',resetPassword:'تغيير كلمة المرور',resetCode:'رمز إعادة التعيين المكوّن من 6 أرقام',passwordHint:'استخدم 10 أحرف على الأقل.',createAccount:'إنشاء الحساب',backToLogin:'العودة لتسجيل الدخول',resendReset:'إرسال رمز آخر',forgotGeneric:'إذا كان هناك حساب موثّق بهذا البريد، فقد أرسلنا رمز إعادة التعيين.',resetDone:'تم تغيير كلمة المرور. سجّل الدخول الآن.',passwordMismatch:'كلمتا المرور غير متطابقتين.',passwordTooShort:'يجب أن تتكون كلمة المرور من 10 أحرف على الأقل.',fullName:'اسمك',verificationCode:'رمز التحقق المكوّن من 6 أرقام',sendCode:'إرسال رمز التحقق',resend:'إعادة إرسال الرمز',verify:'تأكيد البريد الإلكتروني',tableName:'الاسم',tableEmail:'البريد الإلكتروني',tableVerified:'تم التحقق',tableRegistered:'تاريخ التسجيل',cancel:'إلغاء',changeToRegister:'إنشاء حساب جديد',changeToLogin:'لديك حساب بالفعل؟ سجّل الدخول',authLoginTitle:'تسجيل الدخول إلى جلسة',authRegisterTitle:'إنشاء حساب في جلسة',authVerifyTitle:'تأكيد بريدك الإلكتروني',authLoginSubtitle:'سجّل الدخول للعب ألعاب جلسة.',authRegisterSubtitle:'أنشئ حساباً لفتح الألعاب.',authVerifySubtitle:'أدخل الرمز الذي أرسلناه إلى بريدك الإلكتروني.',admin:'المستخدمون المسجلون',logout:'تسجيل الخروج',close:'إغلاق',noUsers:'لا يوجد مستخدمون مسجلون بعد.',loading:'جارٍ التحميل…',playLoginRequired:'يرجى تسجيل الدخول أو إنشاء حساب قبل اللعب.'}};
@@ -1220,10 +1231,10 @@ function renderCategoryCards(){
  const fallback=[
   {id:'cartoon',name:'Cartoon Network',ar:'كرتون نتورك',image:'category-cartoon.jpg',group_en:'Movies',group_ar:'أفلام'},
   {id:'disney',name:'Disney',ar:'ديزني',image:'category-disney.jpg',group_en:'Movies',group_ar:'أفلام'},
-  {id:'biology',name:'Biology',ar:'الأحياء',image:'category-biology.svg',group_en:'Science',group_ar:'العلوم'},
-  {id:'physics',name:'Physics',ar:'الفيزياء',image:'category-physics.svg',group_en:'Science',group_ar:'العلوم'},
-  {id:'math',name:'Math',ar:'الرياضيات',image:'category-math.svg',group_en:'Science',group_ar:'العلوم'},
-  {id:'music',name:'Music',ar:'الموسيقى',image:'category-music.svg',group_en:'Music',group_ar:'الموسيقى'}
+  {id:'biology',name:'Biology',ar:'الأحياء',image:'commons:biology laboratory real photograph',group_en:'Science',group_ar:'العلوم'},
+  {id:'physics',name:'Physics',ar:'الفيزياء',image:'commons:physics laboratory experiment real photograph',group_en:'Science',group_ar:'العلوم'},
+  {id:'math',name:'Math',ar:'الرياضيات',image:'commons:mathematics equations on classroom blackboard real photograph',group_en:'Science',group_ar:'العلوم'},
+  {id:'music',name:'Music',ar:'الموسيقى',image:'commons:live music concert performance real photograph',group_en:'Music',group_ar:'الموسيقى'}
  ];
  if(!Array.isArray(CATEGORIES)||CATEGORIES.length===0)CATEGORIES=fallback;
  const groups=new Map();
@@ -1290,7 +1301,7 @@ async function v17IsGameEnabled(gameId){
  catch(e){return true}
 }
 async function beginZankoGame(){if(!(await v17IsGameEnabled('zanko'))){showToast(isArabic?'هذه اللعبة متوقفة مؤقتاً. يرجى العودة لاحقاً.':'This game is temporarily unavailable. Please check back later.');return;}if(gameState.selected.length!==6){showToast(isArabic?'يجب اختيار الفئات الست كلها قبل البدء.':'Select all 6 categories before starting.');return;}buildQuestionTiles();gameState.turn=Math.floor(Math.random()*2);gameState.scores=[0,0];gameState.doubleNext=false;gameState.stealActive=false;renderGameHudAndBoard();showStageScreen('boardScreen');setTimeout(()=>{if(!remoteRoomId)openRemoteModal()},350);publishRemoteState()}
-function renderGameHudAndBoard(){document.getElementById('turnBanner').textContent=`${gameState.teamNames[gameState.turn]}${t('turn')}`;document.getElementById('questionTurn').textContent=`${gameState.teamNames[gameState.turn]}${t('turn')}`;document.getElementById('teamHud').innerHTML=gameState.teamNames.map((name,i)=>teamCardHTML(name,i)).join('');document.getElementById('questionHud').innerHTML=gameState.teamNames.map((name,i)=>teamCardHTML(name,i)).join('');const board=document.getElementById('boardGrid');board.style.setProperty('--cat-count',gameState.selected.length);board.innerHTML='';for(const id of gameState.selected){const c=CATEGORIES.find(x=>x.id===id);const card=document.createElement('section');card.className='board-category';card.innerHTML=`<img src="${/^(https?:|data:|blob:|\/)/i.test(c.image||"")?c.image:"/"+String(c.image||"category-music.svg").replace(/^\.\//,"").replace(/^\/+/,"")}" alt=""><h3>${isArabic?c.ar:c.name}</h3>`;[600,300,100].forEach(points=>{const row=document.createElement('div');row.className='tier-row';const pair=gameState.tiles[id].filter(x=>x.points===points).sort((a,b)=>a.owner-b.owner);pair.forEach(tile=>{const button=document.createElement('button');button.type='button';button.className='tile';const isActiveOwner=tile.owner===gameState.turn;const canPick=!tile.used&&!gameState.remotePaused&&(isActiveOwner||gameState.stealActive);if(tile.used)button.classList.add('used');else if(!canPick)button.classList.add('locked');button.disabled=!canPick;button.innerHTML=`${points}<small>${escapeHtml(gameState.teamNames[tile.owner])}</small>`;button.title=tile.used?'Already played':!canPick?'Locked until this team’s turn':`Choose for ${gameState.teamNames[gameState.turn]}`;button.onclick=()=>chooseTile(tile.id);row.appendChild(button)});card.appendChild(row)});board.appendChild(card)}const total=gameState.selected.length*6;const used=Object.values(gameState.tiles).flat().filter(x=>x.used).length;document.getElementById('boardProgress').textContent=`${total-used} ${t('boardProgress')}`}
+function renderGameHudAndBoard(){document.getElementById('turnBanner').textContent=`${gameState.teamNames[gameState.turn]}${t('turn')}`;document.getElementById('questionTurn').textContent=`${gameState.teamNames[gameState.turn]}${t('turn')}`;document.getElementById('teamHud').innerHTML=gameState.teamNames.map((name,i)=>teamCardHTML(name,i)).join('');document.getElementById('questionHud').innerHTML=gameState.teamNames.map((name,i)=>teamCardHTML(name,i)).join('');const board=document.getElementById('boardGrid');board.style.setProperty('--cat-count',gameState.selected.length);board.innerHTML='';for(const id of gameState.selected){const c=CATEGORIES.find(x=>x.id===id);const card=document.createElement('section');card.className='board-category';const photo=document.createElement('div');photo.className='board-category-photo';v17AttachCategoryImage(photo,c);const title=document.createElement('h3');title.textContent=isArabic?(c.ar||c.name):(c.name||c.id);card.append(photo,title)[600,300,100].forEach(points=>{const row=document.createElement('div');row.className='tier-row';const pair=gameState.tiles[id].filter(x=>x.points===points).sort((a,b)=>a.owner-b.owner);pair.forEach(tile=>{const button=document.createElement('button');button.type='button';button.className='tile';const isActiveOwner=tile.owner===gameState.turn;const canPick=!tile.used&&!gameState.remotePaused&&(isActiveOwner||gameState.stealActive);if(tile.used)button.classList.add('used');else if(!canPick)button.classList.add('locked');button.disabled=!canPick;button.innerHTML=`${points}<small>${escapeHtml(gameState.teamNames[tile.owner])}</small>`;button.title=tile.used?'Already played':!canPick?'Locked until this team’s turn':`Choose for ${gameState.teamNames[gameState.turn]}`;button.onclick=()=>chooseTile(tile.id);row.appendChild(button)});card.appendChild(row)});board.appendChild(card)}const total=gameState.selected.length*6;const used=Object.values(gameState.tiles).flat().filter(x=>x.used).length;document.getElementById('boardProgress').textContent=`${total-used} ${t('boardProgress')}`}
 function teamCardHTML(name,index,showPowers=true){const current=index===gameState.turn;const p=gameState.power[index]||{call:false,double:false,steal:false};const callTip=t('callFriendTip'),doubleTip=t('doubleTip'),stealTip=t('stealTip');const powers=showPowers?`<div class="power-row">${powerButton(index,'call','',p.call,callTip)}${powerButton(index,'double','2×',p.double,doubleTip)}${powerButton(index,'steal','⇄',p.steal,stealTip)}</div>`:'';return `<article class="team-hud-card ${index===1?'blue':''} ${current?'current':''}"><div class="hud-team-name">${escapeHtml(name)}</div><div class="hud-score">${gameState.scores[index]}</div>${powers}</article>`}
 function powerButton(team,key,icon,used,tip){const labels={call:t('callFriend'),double:t('double'),steal:t('steal')};return `<button type="button" class="power-btn ${used?'used':''}" ${used?'disabled':''} onclick="usePower(${team},'${key}')" aria-label="${labels[key]}" title="${labels[key]} — ${tip}">${icon?`<span class="power-icon">${icon}</span>`:""}<span class="power-label">${labels[key]}</span><span class="tooltip">${tip}</span></button>`}
 function chooseTile(id){if(gameState.remotePaused){showToast(isArabic?'اللعبة متوقفة مؤقتاً':'The game is paused.');return}const tile=Object.values(gameState.tiles).flat().find(x=>x.id===id);if(!tile||tile.used)return;if(tile.owner!==gameState.turn&&!gameState.stealActive)return;if(gameState.callTimer){clearInterval(gameState.callTimer);gameState.callTimer=null;hideToast()}gameState.currentTile=tile;gameState.answerRevealed=false;if(gameState.stealActive){gameState.power[gameState.turn].steal=true;gameState.stealActive=false}tile.actualPoints=tile.points*(gameState.doubleNext?2:1);tile.multiplied=gameState.doubleNext;gameState.doubleNext=false;renderQuestionScreen();showStageScreen('questionScreen');publishRemoteState()}
@@ -1813,27 +1824,51 @@ async function v17ResolveExternalQuestionImage(value) {
  try{return await pending}catch(error){v17ExternalQuestionImageCache.delete(query);throw error}
 }
 
-function v17AttachCategoryImage(button,category) {
+function v17AttachCategoryImage(container,category) {
  const fallback=document.createElement("span");
  fallback.className="category-icon-fallback";
- fallback.textContent=category.icon||"🎯";
- fallback.style.display="grid";
- button.appendChild(fallback);
- if(!category.image)return;
- const credit=document.createElement("small");credit.className="category-image-credit";credit.hidden=true;
- button.appendChild(credit);
+ fallback.setAttribute("role","status");
+ fallback.textContent=isArabic?"الصورة غير متاحة":"Photo unavailable";
+ fallback.style.display="none";
+ container.appendChild(fallback);
+
+ const value=String(category.image||"").trim();
+ if(!value){fallback.style.display="grid";return;}
+
+ const credit=document.createElement("small");
+ credit.className="category-image-credit";
+ credit.hidden=true;
+ container.appendChild(credit);
+
  const img=document.createElement("img");
  img.className="category-photo";
- img.alt=(category.name||category.id||"")+" category photo";
- img.loading="lazy";img.decoding="async";img.referrerPolicy="no-referrer";
+ img.alt=(category.name||category.id||"")+" category photograph";
+ img.loading="lazy";
+ img.decoding="async";
+ img.referrerPolicy="no-referrer";
  img.style.display="none";
- img.onload=()=>{img.style.display="block";fallback.style.display="none";credit.hidden=false};
- img.onerror=()=>{img.style.display="none";fallback.style.display="grid"};
- button.insertBefore(img,fallback);
- if(/^(?:commons:|fnapi:)/i.test(String(category.image))){
-  v17ResolveExternalQuestionImage(category.image).then(result=>{if(button.contains(img)){credit.textContent=result.credit||"Wikimedia Commons image";img.src=result.url}}).catch(()=>{});
+ img.onload=()=>{
+  if(!container.contains(img))return;
+  img.style.display="block";
+  fallback.style.display="none";
+  credit.hidden=false;
+ };
+ img.onerror=()=>{
+  img.style.display="none";
+  credit.hidden=true;
+  fallback.style.display="grid";
+ };
+ container.insertBefore(img,fallback);
+
+ if(/^(?:commons:|fnapi:|fortnite:)/i.test(value)){
+  v17ResolveExternalQuestionImage(value).then(result=>{
+   if(!container.contains(img))return;
+   credit.textContent=result.credit||"Real image source";
+   img.src=result.url;
+  }).catch(()=>{
+   if(container.contains(img)){img.style.display="none";fallback.style.display="grid"}
+  });
  }else{
-  const value=String(category.image);
   img.src=/^(https?:|data:|blob:|\/)/i.test(value)?value:"/"+value.replace(/^\.\//,"").replace(/^\/+/, "");
  }
 }
@@ -2167,7 +2202,7 @@ async function saveCategory(event){
   await v17Request(id?"/admin/categories/"+encodeURIComponent(id):"/admin/categories",id?"PATCH":"POST",{
    name_en:document.getElementById("categoryNameEn").value,name_ar:document.getElementById("categoryNameAr").value,
    group_en:document.getElementById("categoryGroupEn").value,group_ar:document.getElementById("categoryGroupAr").value,
-   image_url:imageUrl,icon:document.getElementById("categoryIcon").value
+   image_url:imageUrl,icon:""
   });
   resetCategoryForm();
   await v17LoadAdminContent();await renderZankoAdmin();v17SetAdminStatus(v17T("categorySaved"),false);
@@ -2187,7 +2222,6 @@ async function v17EditCategory(id){
  document.getElementById("categoryNameEn").value=c.name_en;
  document.getElementById("categoryNameAr").value=c.name_ar;
  document.getElementById("categoryGroupEn").value=c.group_en||"Other";document.getElementById("categoryGroupAr").value=c.group_ar||"أخرى";
- document.getElementById("categoryIcon").value=c.icon||"🎯";
  document.getElementById("categoryImageUrl").value=c.image_url||"";
  document.getElementById("categoryImageFile").value="";
  const preview=document.getElementById("categoryImagePreview");preview.innerHTML="";
