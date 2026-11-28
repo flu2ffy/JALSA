@@ -1780,7 +1780,7 @@ const v17ExternalQuestionImageCache = new Map();
 
 function v17PlainMetadata(value) {
  const box=document.createElement("div");box.innerHTML=String(value||"");
- return String(box.textContent||"").replace(/\\s+/g," ").trim().slice(0,110);
+ return String(box.textContent||"").replace(/\s+/g," ").trim().slice(0,110);
 }
 
 async function v17ResolveExternalQuestionImage(value) {
@@ -1819,13 +1819,26 @@ async function v17ResolveExternalQuestionImage(value) {
   const endpoint="https://prod.fn-api.cc/v1/cosmetics/br/search?"+new URLSearchParams({name,matchMethod:"full",limit:"1"}).toString();
   const response=await fetch(endpoint,{headers:{Accept:"application/json"}});
   if(!response.ok)throw new Error("Fortnite cosmetic lookup failed.");
-  const payload=await response.json();
-  const rows=Array.isArray(payload?.data)?payload.data:
-   Array.isArray(payload?.data?.items)?payload.data.items:
-   payload?.data?[payload.data]:[];
-  const item=rows[0],images=item?.images||{};
+  const payload=await response.json(),candidate=payload?.data;
+  const rows=Array.isArray(candidate)?candidate:
+   Array.isArray(candidate?.items)?candidate.items:
+   Array.isArray(candidate?.results)?candidate.results:
+   Array.isArray(candidate?.cosmetics)?candidate.cosmetics:
+   candidate?[candidate]:[];
+  const item=rows.find(row=>String(row?.name||"").toLowerCase()===name.toLowerCase())||rows[0];
+  let detail=item;
+  const identifier=item?.id||item?.templateId||item?.name;
+  if(identifier){
+   const detailResponse=await fetch("https://prod.fn-api.cc/v1/cosmetics/br/"+encodeURIComponent(identifier),{headers:{Accept:"application/json"}});
+   if(detailResponse.ok){
+    const detailPayload=await detailResponse.json();
+    const detailData=detailPayload?.data;
+    detail=Array.isArray(detailData)?detailData[0]:(detailData&&typeof detailData==="object"?detailData:detailPayload);
+   }
+  }
+  const images=detail?.images||item?.images||{};
   const imageUrl=images.render||images.icon||images.smallIcon||images.featured;
-  if(imageUrl)result={url:imageUrl,sourceUrl:"https://fn-api.cc/",credit:"Fortnite cosmetic artwork · FN Api"};
+  if(imageUrl)result={url:imageUrl,sourceUrl:"https://fn-api.cc/docs",credit:"Fortnite cosmetic artwork · FN Api"};
  }
  if(!result?.url)throw new Error("No matching real image was found.");
  v17ExternalQuestionImageCache.set(key,result);
