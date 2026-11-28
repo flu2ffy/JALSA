@@ -185,6 +185,64 @@ html[dir="rtl"] .game-card:nth-child(5)::before{background-image:url('/mafia-bg.
 .game-card:nth-child(5)>*{position:relative;z-index:2}
 .game-card:nth-child(5) h3,.game-card:nth-child(5) p{color:#fff8ec!important;text-shadow:0 2px 7px rgba(0,0,0,.72)}
 
+/* Zanko v4: question photos are centered and large in both languages. */
+#questionScreen .question-center #questionMedia:not([hidden]),
+#questionScreen .question-center #questionAnswerMedia:not([hidden]){
+  box-sizing:border-box !important;
+  width:min(100%,1000px) !important;
+  max-width:1000px !important;
+  min-width:0 !important;
+  height:auto !important;
+  max-height:none !important;
+  margin:14px auto 18px !important;
+  padding:0 !important;
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:center !important;
+  justify-content:center !important;
+  text-align:center !important;
+  overflow:visible !important;
+  background:transparent !important;
+  box-shadow:none !important;
+}
+#questionScreen .question-center #questionMedia img,
+#questionScreen .question-center #questionMedia video,
+#questionScreen .question-center #questionAnswerMedia img,
+#questionScreen .question-center #questionAnswerMedia video{
+  display:block !important;
+  width:min(100%,960px) !important;
+  max-width:100% !important;
+  height:auto !important;
+  max-height:min(56vh,560px) !important;
+  min-width:0 !important;
+  object-fit:contain !important;
+  object-position:center !important;
+  margin:0 auto !important;
+  padding:0 !important;
+  border-radius:16px !important;
+  background:#fff !important;
+}
+#questionScreen .question-center .v17-media-credit{
+  display:block !important;
+  width:100% !important;
+  max-width:960px !important;
+  margin:6px auto 0 !important;
+  text-align:center !important;
+}
+#questionScreen .question-center:not(.answer-with-media) #questionMedia:not([hidden]){
+  order:3;
+}
+#questionScreen .question-center:not(.answer-with-media) .question-text{order:4}
+#questionScreen .question-center:not(.answer-with-media) .reveal-button{order:5}
+@media(max-width:760px){
+  #questionScreen .question-center #questionMedia img,
+  #questionScreen .question-center #questionMedia video,
+  #questionScreen .question-center #questionAnswerMedia img,
+  #questionScreen .question-center #questionAnswerMedia video{
+    width:100% !important;
+    max-height:48vh !important;
+  }
+}
 /* Kharj Al Jalsa artwork — keep the original English/Arabic images and match the other game-card treatment. */
 .game-card:nth-child(6){position:relative;isolation:isolate;overflow:hidden;background:transparent!important}
 .game-card:nth-child(6)::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;border-radius:24px;background-image:url('/kharj-card-en.webp');background-size:cover;background-position:center;background-repeat:no-repeat;opacity:.42}
@@ -1374,7 +1432,7 @@ function previewProfilePhoto(event){const file=event.target.files&&event.target.
 async function saveProfile(event){event.preventDefault();const button=event.submitter;if(button)button.disabled=true;try{const data=await v17Request("/profile","POST",{name:document.getElementById("profileName").value,birthDate:document.getElementById("profileBirthDate").value,avatarDataUrl:v17ProfileAvatar});currentUser=data.user;showAdminButton();v17ShowStatus("profileStatus",v17T("saved"),false)}catch(error){v17ShowStatus("profileStatus",error.message,true)}finally{if(button)button.disabled=false}}
 function v17BuildLegacySeed(){const categories=CATEGORIES.map((c,i)=>({id:c.id,name_en:c.name,name_ar:c.ar,image_url:c.image,icon:c.icon}));const questions=[];Object.keys(FIXED_QUESTIONS).forEach(categoryId=>{const en=FIXED_QUESTIONS[categoryId]||[],ar=FIXED_QUESTIONS_AR[categoryId]||[];en.forEach((q,i)=>{questions.push({id:"legacy-zanko-"+categoryId+"-"+i,game_type:"zanko",category_id:categoryId,difficulty:q.points===100?"easy":q.points===600?"hard":"medium",question_en:q.q,question_ar:ar[i]?ar[i].q:q.q,answer_en:q.a,answer_ar:ar[i]?ar[i].a:q.a,media_type:"none",media_url:""})})});["easy","medium","hard"].forEach(tier=>{(MUSIC_BANK[tier]||[]).forEach((q,i)=>{const ar=(MUSIC_BANK_AR[tier]||[])[i]||q;questions.push({id:"legacy-zanko-music-"+tier+"-"+i,game_type:"zanko",category_id:"music",difficulty:tier,question_en:q.q,question_ar:ar.q,answer_en:q.a,answer_ar:ar.a,media_type:"none",media_url:""})})});return{categories,questions}}
 async function v17EnsureSeeded(){let data=await v17Request("/admin/content","GET");if(!data.questions||data.questions.length===0){const seed=v17BuildLegacySeed();await v17Request("/admin/content/seed","POST",seed);data=await v17Request("/admin/content","GET")}return data}
-async function v17LoadGameContent(){const data=await v17Request("/game-content","GET");v17Content.categories=data.categories||[];v17Content.questions=data.questions||[];v17Content.priceItems=v17Content.questions.filter(q=>q.game_type==="price"&&q.media_url&&q.media_type!=="none").map(q=>[q.product_name_en,"",Number(q.price_value||0),q.media_type,q.media_url,q.product_name_ar]);if(v17Content.categories.length){CATEGORIES=v17Content.categories.map(c=>{const legacy=CATEGORIES.find(old=>old.id===c.id);return({id:c.id,name:c.name_en,ar:c.name_ar,image:c.image_url||legacy?.image||"",icon:c.icon||legacy?.icon||"🎯",group_en:c.group_en||legacy?.group_en||"Other",group_ar:c.group_ar||legacy?.group_ar||"أخرى"})})}v17ContentLoaded=true;return data}
+async function v17LoadGameContent(){const data=await v17Request("/game-content","GET");v17Content.categories=data.categories||[];v17Content.questions=data.questions||[];v17Content.priceItems=v17Content.questions.filter(q=>q.game_type==="price"&&q.media_url&&q.media_type!=="none").map(q=>[q.product_name_en,"",Number(q.price_value||0),q.media_type,q.media_url,q.product_name_ar]);if(v17Content.categories.length){CATEGORIES=v17Content.categories.map(c=>{const legacy=CATEGORIES.find(old=>old.id===c.id);const oldPhoto={cartoon:"category-cartoon.jpg",disney:"category-disney.jpg",biology:"category-biology.svg",physics:"category-physics.svg",math:"category-math.svg",music:"category-music.svg"};const image=oldPhoto[c.id]||c.image_url||legacy?.image||"";return({id:c.id,name:c.name_en,ar:c.name_ar,image,icon:c.icon||legacy?.icon||"🎯",group_en:c.group_en||legacy?.group_en||"Other",group_ar:c.group_ar||legacy?.group_ar||"أخرى"})})}v17ContentLoaded=true;return data}
 async function v17UploadMedia(file,expectedType){
  if(!file)throw new Error("Choose a file from your device.");
  if(expectedType&&!(file.type||"").toLowerCase().startsWith(expectedType+"/"))throw new Error("The selected file does not match the media type. Choose an "+expectedType+" file.");
