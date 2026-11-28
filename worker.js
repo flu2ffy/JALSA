@@ -2266,7 +2266,7 @@ async function getZankoImage(request) {
           const hits = tokens.filter(token => title.includes(token)).length;
           const imageUrl = page.original?.source || page.thumbnail?.source;
           return { page, hits, imageUrl };
-        }).filter(item => item.imageUrl && item.hits >= (tokens.length > 2 ? 2 : 1));
+        }).filter(item => item.imageUrl && item.hits >= 1);
         candidates.sort((a, b) => b.hits - a.hits);
         const candidate = candidates[0];
         if (candidate) {
