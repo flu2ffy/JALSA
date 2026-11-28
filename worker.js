@@ -229,12 +229,30 @@ async function seedZankoContentV2(env) {
         "answer_ar=excluded.answer_ar,media_type=excluded.media_type,media_url=excluded.media_url,updated_at=excluded.updated_at"
       ).bind(now, now, JSON.stringify(questions));
 
+      // Keep the six original categories that may already exist in older D1 databases.
+      // Disney and Cartoon Network reuse the real JPGs already stored in /public.
+      const legacyCategoryPhotos = db.prepare(
+        "UPDATE game_categories SET image_url = CASE id " +
+        "WHEN 'cartoon' THEN ? WHEN 'disney' THEN ? " +
+        "WHEN 'biology' THEN ? WHEN 'physics' THEN ? WHEN 'math' THEN ? WHEN 'music' THEN ? " +
+        "ELSE image_url END, icon = '', updated_at = ? " +
+        "WHERE id IN ('cartoon','disney','biology','physics','math','music')"
+      ).bind(
+        "category-cartoon.jpg",
+        "category-disney.jpg",
+        "commons:biology laboratory real photograph",
+        "commons:physics experiment laboratory real photograph",
+        "commons:mathematics equations classroom blackboard real photograph",
+        "commons:live music concert performance real photograph",
+        now
+      );
+
       const versionUpdate = db.prepare(
         "INSERT INTO jalsa_content_versions (content_key,version,updated_at) VALUES (?,?,?) " +
         "ON CONFLICT(content_key) DO UPDATE SET version=excluded.version,updated_at=excluded.updated_at"
       ).bind("zanko-question-bank", 4, now);
 
-      await db.batch([categoryInsert, questionInsert, versionUpdate]);
+      await db.batch([categoryInsert, questionInsert, legacyCategoryPhotos, versionUpdate]);
     })();
     zankoContentV2SeedPromises.set(db, pending);
   }
