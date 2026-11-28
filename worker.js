@@ -2372,23 +2372,11 @@ async function getZankoImage(request, env) {
 async function getGameContent(request, env) {
   if (!await getSessionUser(request, env)) return json({ error: "Please sign in to play." }, 401);
   await ensureZankoExtendedSchema(env);
-  await seedZankoContentV2(env);
-  const categoryIds = [
-    "cartoon","disney","biology","physics","math","music",
-    "cars","fortnite","minecraft","naruto","spacetoon","brands","womens-bags","perfume",
-    "the-blacklist","football","english-football","spanish-football","general-knowledge",
-    "correct-the-error","who-am-i"
-  ];
-  const placeholders = categoryIds.map(() => "?").join(",");
+  // Keep this endpoint fast and side-effect free. V2 content is bundled in the page
+  // and loaded as a client-side fallback when the preview database is not migrated yet.
   const [cats, questions] = await Promise.all([
-    env.DB.prepare(
-      "SELECT id,name_en,name_ar,image_url,icon,group_en,group_ar,sort_order " +
-      "FROM game_categories WHERE id IN (" + placeholders + ") ORDER BY sort_order,name_en"
-    ).bind(...categoryIds).all(),
-    env.DB.prepare(
-      "SELECT * FROM game_questions WHERE game_type = 'zanko' AND category_id IN (" +
-      placeholders + ") ORDER BY created_at,id"
-    ).bind(...categoryIds).all()
+    env.DB.prepare("SELECT id, name_en, name_ar, image_url, icon, group_en, group_ar, sort_order FROM game_categories ORDER BY sort_order, name_en").all(),
+    env.DB.prepare("SELECT * FROM game_questions ORDER BY created_at, id").all()
   ]);
   return json({ categories: cats.results || [], questions: questions.results || [] });
 }
