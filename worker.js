@@ -181,8 +181,6 @@ async function seedZankoContentV2(env) {
         throw new Error("The expanded Zanko question bank has an invalid format.");
       }
       const now = new Date().toISOString();
-      const statements = [];
-      const now = new Date().toISOString();
       const questions = bank.questions.filter(q =>
         q && typeof q.id === "string" && /^[a-z0-9_-]{2,80}$/.test(q.id) &&
         bank.categories.some(c => c.id === q.category_id) &&
