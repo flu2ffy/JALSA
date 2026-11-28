@@ -784,6 +784,15 @@ html[dir="rtl"] .game-card:nth-child(6)::before{background-image:url('/kharj-car
 .question-center .v17-game-media{display:flex;align-items:center;justify-content:center;width:100%;max-width:100%;max-height:46vh;overflow:hidden;margin:8px auto;flex:0 1 auto}
 .question-center .v17-game-media img{display:block;width:min(100%,820px);height:clamp(200px,40vh,440px);max-width:100%;max-height:44vh;object-fit:contain;object-position:center center;margin:0 auto;border-radius:16px;background:#fff}
 
+
+/* Zanko V2.0: downloaded photo media is centered as one vertical stack. */
+.question-center .v17-game-media{display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:8px;width:100%;max-width:100%;max-height:48vh;min-height:230px;overflow:hidden;margin:8px auto 12px}
+.question-center .v17-game-media>img{display:block!important;width:auto!important;height:clamp(220px,42vh,440px)!important;min-width:200px;max-width:min(100%,900px)!important;max-height:44vh!important;object-fit:contain!important;object-position:center center!important;margin:0 auto!important;border-radius:16px;background:#fff}
+.question-center .v17-game-media .v17-media-credit{display:block!important;position:static!important;width:auto;max-width:100%;margin:0 auto;text-align:center;line-height:1.3}
+.category-pick img.category-photo{display:block;width:100%;height:clamp(150px,16vw,205px);max-height:205px;object-fit:cover;object-position:center center;padding:0;margin:0 auto;flex:0 0 auto;background:#f5e5cf}
+.board-category-photo{flex-direction:column;align-items:center;justify-content:center}
+.board-category-photo img.category-photo{width:100%;height:100%;max-width:100%;object-fit:cover;object-position:center center}
+
 </style>
 </head>
 <body class="session-pending">
@@ -798,7 +807,7 @@ html[dir="rtl"] .game-card:nth-child(6)::before{background-image:url('/kharj-car
 <!-- ZANKO: all gameplay stages are full-page sections, never modal pop-ups -->
 <section class="zanko-stage" id="zankoStage" aria-live="polite"><header class="stage-top"><a class="stage-brand" href="#top" aria-label="Return to JALSA homepage" onclick="showHome();return false;"><img src="jalsa-logo.png" alt="JALSA"><span class="version-pill">v1.9</span></a></header><div class="stage-main">
 <div class="stage-shell" id="teamScreen"><div class="stage-heading"><div><h1 id="teamsTitle">Zanko — Team setup</h1><p class="stage-subtitle" id="teamsSubtitle">Give both teams a name. Leave a field unchanged to keep the default.</p></div></div><div class="teams-setup-grid"><div class="team-setup-card"><div class="setup-team-top"><h2 id="setupTeamOne">Team 1</h2></div><input id="teamNameOne" maxlength="26" value="Team 1" aria-label="Team 1 name"></div><div class="team-setup-card blue"><div class="setup-team-top"><h2 id="setupTeamTwo">Team 2</h2></div><input id="teamNameTwo" maxlength="26" value="Team 2" aria-label="Team 2 name"></div></div><div class="stage-action-row"><button class="primary" id="teamsNext" onclick="continueToCategories()">Next →</button></div></div>
-<div class="stage-shell" id="categoryScreen" hidden><div class="stage-heading"><button class="back-button" onclick="backToTeams()" id="categoryBack">← Back</button><span class="version-pill">v1.9</span></div><div class="category-stage-head"><h1 id="categoryTitle">Choose your categories</h1></div><div class="category-full-grid" id="categoryGrid"></div><div class="category-footer"><span class="category-counter" id="categoryCount">0 / 6 selected</span><button class="primary" id="categoryNext" onclick="beginZankoGame()" disabled>Next →</button></div></div>
+<div class="stage-shell" id="categoryScreen" hidden><div class="stage-heading"><button class="back-button" onclick="backToTeams()" id="categoryBack">← Back</button><span class="version-pill">v2.0</span></div><div class="category-stage-head"><h1 id="categoryTitle">Choose your categories</h1></div><div class="category-full-grid" id="categoryGrid"></div><div class="category-footer"><span class="category-counter" id="categoryCount">0 / 6 selected</span><button class="primary" id="categoryNext" onclick="beginZankoGame()" disabled>Next →</button></div></div>
 <div class="stage-shell" id="boardScreen" hidden><div class="remote-launch"><button type="button" onclick="openRemoteModal()" id="remoteLaunchButton">Connect host phone · QR</button></div><div class="turn-banner" id="turnBanner">Team 1’s turn</div><div class="stage-note" id="zankoStoppedNotice" hidden>This game is temporarily unavailable. Please check back later.</div><div class="team-hud" id="teamHud"></div><div class="board-grid-scroll"><div class="board-grid" id="boardGrid"></div></div><p class="board-progress" id="boardProgress"></p></div>
 <div class="stage-shell" id="questionScreen" hidden><div class="question-layout"><div class="turn-banner" id="questionTurn">Team 1’s turn</div><div class="team-hud" id="questionHud"></div><article class="question-center"><div class="question-category" id="questionCategory">MUSIC</div><div class="question-points" id="questionPointValue">100 points</div><div class="v17-game-media" id="questionMedia" hidden></div><h1 class="question-text" id="questionPrompt">Who sings “7 rings”?</h1><button class="primary reveal-button" id="revealAnswerButton" onclick="revealCurrentAnswer()">Reveal answer</button><div class="answer-result" id="questionAnswer" hidden></div><div class="v17-game-media answer-media" id="questionAnswerMedia" hidden></div><div class="award-row" id="awardRow" hidden><button class="primary" id="awardOne" onclick="awardQuestion(0)">Team 1 gets the points</button><button class="primary" id="awardTwo" onclick="awardQuestion(1)">Team 2 gets the points</button></div><button class="no-points" id="noPoints" hidden onclick="finishQuestion(null)">No points · Pass turn</button></article></div></div>
 <div class="stage-shell" id="gameoverScreen" hidden></div>
@@ -1305,7 +1314,7 @@ function renderGameHudAndBoard(){document.getElementById('turnBanner').textConte
 function teamCardHTML(name,index,showPowers=true){const current=index===gameState.turn;const p=gameState.power[index]||{call:false,double:false,steal:false};const callTip=t('callFriendTip'),doubleTip=t('doubleTip'),stealTip=t('stealTip');const powers=showPowers?`<div class="power-row">${powerButton(index,'call','',p.call,callTip)}${powerButton(index,'double','2×',p.double,doubleTip)}${powerButton(index,'steal','⇄',p.steal,stealTip)}</div>`:'';return `<article class="team-hud-card ${index===1?'blue':''} ${current?'current':''}"><div class="hud-team-name">${escapeHtml(name)}</div><div class="hud-score">${gameState.scores[index]}</div>${powers}</article>`}
 function powerButton(team,key,icon,used,tip){const labels={call:t('callFriend'),double:t('double'),steal:t('steal')};return `<button type="button" class="power-btn ${used?'used':''}" ${used?'disabled':''} onclick="usePower(${team},'${key}')" aria-label="${labels[key]}" title="${labels[key]} — ${tip}">${icon?`<span class="power-icon">${icon}</span>`:""}<span class="power-label">${labels[key]}</span><span class="tooltip">${tip}</span></button>`}
 function chooseTile(id){if(gameState.remotePaused){showToast(isArabic?'اللعبة متوقفة مؤقتاً':'The game is paused.');return}const tile=Object.values(gameState.tiles).flat().find(x=>x.id===id);if(!tile||tile.used)return;if(tile.owner!==gameState.turn&&!gameState.stealActive)return;if(gameState.callTimer){clearInterval(gameState.callTimer);gameState.callTimer=null;hideToast()}gameState.currentTile=tile;gameState.answerRevealed=false;if(gameState.stealActive){gameState.power[gameState.turn].steal=true;gameState.stealActive=false}tile.actualPoints=tile.points*(gameState.doubleNext?2:1);tile.multiplied=gameState.doubleNext;gameState.doubleNext=false;renderQuestionScreen();showStageScreen('questionScreen');publishRemoteState()}
-function renderQuestionScreen(){const tile=gameState.currentTile;if(!tile)return;const c=CATEGORIES.find(x=>x.id===tile.category);document.getElementById('questionTurn').textContent=gameState.teamNames[gameState.turn]+t('turn');document.getElementById('questionCategory').textContent=isArabic?c.ar:c.name;document.getElementById('questionPrompt').textContent=isArabic?tile.qAr:tile.q;document.getElementById('questionAnswer').textContent=isArabic?tile.aAr:tile.a;v17RenderMedia(document.getElementById('questionMedia'),tile.mediaType,tile.mediaUrl);document.getElementById('questionPointValue').textContent=tile.multiplied?tile.points+' × 2 = '+tile.actualPoints+' '+t('points'):tile.points+' '+t('points');const answerShown=!!gameState.answerRevealed;const questionCenter=document.querySelector('#questionScreen .question-center');questionCenter.classList.toggle('answer-with-media',!!(answerShown&&tile.answerMediaUrl));const questionMedia=document.getElementById('questionMedia');questionMedia.hidden=!!(answerShown&&tile.answerMediaUrl);const answerMedia=document.getElementById('questionAnswerMedia');v17RenderMedia(answerMedia,tile.answerMediaType||'none',tile.answerMediaUrl||'');if(!answerShown)answerMedia.hidden=true;document.getElementById('questionAnswer').hidden=!answerShown;document.getElementById('revealAnswerButton').hidden=answerShown;document.getElementById('awardRow').hidden=!answerShown;document.getElementById('noPoints').hidden=!answerShown;document.getElementById('awardOne').textContent=gameState.teamNames[0]+' '+t('award')+' +'+tile.actualPoints;document.getElementById('awardTwo').textContent=gameState.teamNames[1]+' '+t('award')+' +'+tile.actualPoints;document.getElementById('questionHud').innerHTML=gameState.teamNames.map((name,i)=>teamCardHTML(name,i,false)).join('')}
+function renderQuestionScreen(){const tile=gameState.currentTile;if(!tile)return;const c=CATEGORIES.find(x=>x.id===tile.category);document.getElementById('questionTurn').textContent=gameState.teamNames[gameState.turn]+t('turn');document.getElementById('questionCategory').textContent=isArabic?c.ar:c.name;document.getElementById('questionPrompt').textContent=isArabic?tile.qAr:tile.q;document.getElementById('questionAnswer').textContent=isArabic?tile.aAr:tile.a;v17RenderMedia(document.getElementById('questionMedia'),tile.mediaType,tile.mediaUrl,'question:'+tile.id);document.getElementById('questionPointValue').textContent=tile.multiplied?tile.points+' × 2 = '+tile.actualPoints+' '+t('points'):tile.points+' '+t('points');const answerShown=!!gameState.answerRevealed;const questionCenter=document.querySelector('#questionScreen .question-center');questionCenter.classList.toggle('answer-with-media',!!(answerShown&&tile.answerMediaUrl));const questionMedia=document.getElementById('questionMedia');questionMedia.hidden=!!(answerShown&&tile.answerMediaUrl);const answerMedia=document.getElementById('questionAnswerMedia');v17RenderMedia(answerMedia,tile.answerMediaType||'none',tile.answerMediaUrl||(),'question:'+tile.id+':answer');if(!answerShown)answerMedia.hidden=true;document.getElementById('questionAnswer').hidden=!answerShown;document.getElementById('revealAnswerButton').hidden=answerShown;document.getElementById('awardRow').hidden=!answerShown;document.getElementById('noPoints').hidden=!answerShown;document.getElementById('awardOne').textContent=gameState.teamNames[0]+' '+t('award')+' +'+tile.actualPoints;document.getElementById('awardTwo').textContent=gameState.teamNames[1]+' '+t('award')+' +'+tile.actualPoints;document.getElementById('questionHud').innerHTML=gameState.teamNames.map((name,i)=>teamCardHTML(name,i,false)).join('')}
 function revealCurrentAnswer(){gameState.answerRevealed=true;saveZankoSession();document.getElementById('questionAnswer').hidden=false;document.getElementById('questionAnswerMedia').hidden=!(gameState.currentTile&&gameState.currentTile.answerMediaUrl);document.getElementById('questionMedia').hidden=!!(gameState.currentTile&&gameState.currentTile.answerMediaUrl);document.querySelector('#questionScreen .question-center').classList.toggle('answer-with-media',!!(gameState.currentTile&&gameState.currentTile.answerMediaUrl));document.getElementById('revealAnswerButton').hidden=true;document.getElementById('awardRow').hidden=false;document.getElementById('noPoints').hidden=false;publishRemoteState()}
 function awardQuestion(team){finishQuestion(team)}
 function finishQuestion(winner){const tile=gameState.currentTile;if(!tile)return;gameState.answerRevealed=false;const storedTile=Object.values(gameState.tiles).flat().find(x=>x.id===tile.id);if(winner!==null)gameState.scores[winner]+=tile.actualPoints;if(storedTile)storedTile.used=true;tile.used=true;gameState.turn=1-gameState.turn;gameState.currentTile=null;gameState.doubleNext=false;gameState.stealActive=false;const remaining=Object.values(gameState.tiles).flat().filter(x=>!x.used).length;if(!remaining){showGameOver();return}renderGameHudAndBoard();showStageScreen('boardScreen');publishRemoteState()}
@@ -1808,20 +1817,23 @@ function v17ProcessImageLookupQueue() {
  }
 }
 
-async function v17ResolveExternalQuestionImage(value) {
+async function v17ResolveExternalQuestionImage(value,assetId) {
  const query=String(value||"").replace(/^(?:commons:|fnapi:)/i,"").trim();
- if(!query)throw new Error("Missing image search phrase.");
- if(v17ExternalQuestionImageCache.has(query))return v17ExternalQuestionImageCache.get(query);
+ const uniqueId=String(assetId||"").trim();
+ if(!query||!uniqueId)throw new Error("Missing image prompt or unique image ID.");
+ const cacheKey=uniqueId+"::"+query;
+ if(v17ExternalQuestionImageCache.has(cacheKey))return v17ExternalQuestionImageCache.get(cacheKey);
  const pending=v17QueueImageLookup(async()=>{
-  const response=await fetch("/api/zanko-image?q="+encodeURIComponent(query),{
+  const params=new URLSearchParams({q:String(value||""),id:uniqueId});
+  const response=await fetch("/api/zanko-image?"+params.toString(),{
    method:"GET",credentials:"same-origin",headers:{"Accept":"application/json"}
   });
   let data={};try{data=await response.json()}catch{}
-  if(!response.ok||!data.url)throw new Error(data.error||"No suitable real image was found.");
+  if(!response.ok||!data.url||!data.stored)throw new Error(data.error||"No relevant local photo was stored.");
   return data;
  });
- v17ExternalQuestionImageCache.set(query,pending);
- try{return await pending}catch(error){v17ExternalQuestionImageCache.delete(query);throw error}
+ v17ExternalQuestionImageCache.set(cacheKey,pending);
+ try{return await pending}catch(error){v17ExternalQuestionImageCache.delete(cacheKey);throw error}
 }
 
 function v17AttachCategoryImage(container,category) {
@@ -1864,7 +1876,7 @@ function v17AttachCategoryImage(container,category) {
  container.insertBefore(img,fallback);
 
  if(/^(?:commons:|fnapi:|fortnite:)/i.test(value)){
-  v17ResolveExternalQuestionImage(value).then(result=>{
+  v17ResolveExternalQuestionImage(value,"category:"+category.id).then(result=>{
    if(!container.contains(img))return;
    credit.textContent=result.credit||"Real image source";
    if(result.fallbackUrl)img.dataset.fallback=result.fallbackUrl;
@@ -1877,7 +1889,7 @@ function v17AttachCategoryImage(container,category) {
  }
 }
 
-function v17RenderMedia(container,type,url){
+function v17RenderMedia(container,type,url,assetId){
  if(!container)return;
  container.replaceChildren();container.hidden=true;
  type=String(type||"none").toLowerCase();
@@ -1904,7 +1916,7 @@ function v17RenderMedia(container,type,url){
    if(credit)credit.hidden=false;
   };
   container.appendChild(image);container.hidden=false;
-  v17ResolveExternalQuestionImage(url).then(result=>{
+  v17ResolveExternalQuestionImage(url,assetId||("media:"+url)).then(result=>{
    if(!container.contains(image))return;
    if(result.fallbackUrl)image.dataset.fallback=result.fallbackUrl;
    image.src=result.url;
